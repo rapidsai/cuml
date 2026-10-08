@@ -39,7 +39,6 @@ CATALOG = {
     "RandomForestRegressor": EstimatorSpec(
         "cuml.dask.ensemble", "RandomForestRegressor", "cuml"
     ),
-    "UMAP": EstimatorSpec("cuml.dask.manifold", "UMAP", "cuml"),
     "MultinomialNB": EstimatorSpec(
         "cuml.dask.naive_bayes", "MultinomialNB", "cuml"
     ),

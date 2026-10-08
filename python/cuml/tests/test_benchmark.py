@@ -1626,14 +1626,13 @@ def test_real_backend_smoke(monkeypatch, tmp_path, provider, workload):
     _validate_artifact(artifact)
 
 
-@pytest.mark.parametrize("fallback", [False, True])
-def test_dask_synchronization(monkeypatch, fallback):
+@pytest.mark.parametrize("collection", [False, True])
+@pytest.mark.parametrize("nested", [False, True])
+def test_dask_synchronization(monkeypatch, collection, nested):
     events = []
 
     def wait(value):
         events.append("wait")
-        if fallback:
-            raise TypeError("not a future")
 
     modules = {
         "dask.distributed": SimpleNamespace(wait=wait),
@@ -1646,12 +1645,79 @@ def test_dask_synchronization(monkeypatch, fallback):
         ),
     }
     monkeypatch.setattr(importlib, "import_module", modules.__getitem__)
-    get_backend("cuml.dask").synchronize(
+    value = (
         SimpleNamespace(compute=lambda: events.append("compute"))
+        if collection
+        else object()
     )
-    assert events == (
-        ["wait", "compute", "gpu"] if fallback else ["wait", "gpu"]
+    get_backend("cuml.dask").synchronize((value, [value]) if nested else value)
+    expected = ["compute", "gpu"] if collection else ["wait", "gpu"]
+    assert events == expected * (2 if nested else 1)
+
+
+@pytest.mark.parametrize("estimator", ["PCA", "LabelEncoder", "MultinomialNB"])
+def test_dask_input_conversion(estimator):
+    cp = pytest.importorskip("cupy")
+    pytest.importorskip("dask_cudf")
+    case = resolve_case(_request(estimator=estimator), PROFILE)
+    X = np.arange(512, dtype=np.float32).reshape(64, 8)
+    y = np.arange(64, dtype=np.int64) % 3
+    converted_X, converted_y = get_backend("cuml.dask").convert_data(
+        case, X, y
     )
+    assert isinstance(converted_X._meta, cp.ndarray)
+    cp.testing.assert_array_equal(converted_X.compute(), cp.asarray(X))
+    if estimator == "LabelEncoder":
+        import cudf
+
+        assert isinstance(converted_y._meta, cudf.Series)
+        np.testing.assert_array_equal(converted_y.compute().to_numpy(), y)
+    else:
+        assert isinstance(converted_y._meta, cp.ndarray)
+        cp.testing.assert_array_equal(converted_y.compute(), cp.asarray(y))
+
+
+@pytest.mark.parametrize("distributed", [False, True])
+def test_distributed_effective_parameters_are_an_object(distributed):
+    parameters = (
+        [{"n_estimators": 2}, {"n_estimators": 2}]
+        if distributed
+        else {"n_estimators": 2}
+    )
+
+    class Estimator:
+        def __init__(self, **kwargs):
+            pass
+
+        def get_params(self, deep=False):
+            assert deep is False
+            return parameters
+
+    prepared = harness._PreparedCase(Estimator, (), None)
+    case = resolve_case(_request(), PROFILE)
+    result = {"parameters": {"effective": {}}}
+    harness._construct_estimator(
+        get_backend("cuml.dask"), prepared, case, None, result
+    )
+    expected = parameters[0] if distributed else parameters
+    assert result["parameters"]["effective"] == expected
+
+
+def test_default_backend_effective_parameters():
+    parameters = {"n_estimators": 2}
+    estimator = SimpleNamespace(get_params=lambda **kwargs: parameters)
+    assert Backend().effective_parameters(estimator) is parameters
+
+
+def test_dask_dbscan_uses_local_input():
+    case = resolve_case(_request(estimator="DBSCAN"), PROFILE)
+    X = np.zeros((64, 8), dtype=np.float32)
+    y = np.zeros(64, dtype=np.int64)
+    converted_X, converted_y = get_backend("cuml.dask").convert_data(
+        case, X, y
+    )
+    assert converted_X is X
+    assert converted_y is y
 
 
 @pytest.mark.parametrize("count", [0, 1])

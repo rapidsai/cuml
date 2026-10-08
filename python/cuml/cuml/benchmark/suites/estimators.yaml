@@ -648,8 +648,9 @@ cases:
     input_selection: [X, y]
     parameters: {}
 
+  # Dask UMAP supports transform with a pretrained single-GPU model only.
   - estimator: UMAP
-    providers: [cuml, umap-learn, cuml.accel, cuml.dask]
+    providers: [cuml, umap-learn, cuml.accel]
     dataset:
       kind: blobs
       shape:

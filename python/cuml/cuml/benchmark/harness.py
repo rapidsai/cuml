@@ -175,7 +175,7 @@ def _construct_estimator(
         estimator, "get_params"
     ):
         result["parameters"]["effective"] = _jsonable(
-            estimator.get_params(deep=False)
+            backend.effective_parameters(estimator)
         )
     return estimator
 

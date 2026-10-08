@@ -92,6 +92,16 @@ class Backend:
         """
         return estimator_class(**parameters)
 
+    def effective_parameters(self, estimator: Any) -> dict[str, Any]:
+        """Return effective estimator parameters for result metadata.
+
+        Parameters
+        ----------
+        estimator : Any
+            Constructed estimator exposing get_params.
+        """
+        return estimator.get_params(deep=False)
+
     def convert_data(
         self, case: ResolvedCase, X: Any, y: Any
     ) -> tuple[Any, Any]:

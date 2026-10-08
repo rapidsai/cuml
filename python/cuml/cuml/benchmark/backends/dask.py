@@ -33,7 +33,12 @@ class DaskBackend(CumlBackend):
         y : Any
             Complete generated target data.
         """
+        # Distributed DBSCAN broadcasts a complete local array itself; it
+        # does not accept partitioned Dask collections.
+        if case.estimator == "DBSCAN":
+            return X, y
         da = importlib.import_module("dask.array")
+        cp = importlib.import_module("cupy")
         chunks = (max(1, case.generated_rows // 2), case.features)
         if case.dataset == "categorical" and case.estimator not in {
             "LabelEncoder",
@@ -43,8 +48,17 @@ class DaskBackend(CumlBackend):
             dask_cudf = importlib.import_module("dask_cudf")
             X = dask_cudf.from_cudf(cudf.from_pandas(X), npartitions=2)
         else:
-            X = da.from_array(X, chunks=chunks)
-        y = da.from_array(y, chunks=(chunks[0],))
+            X = da.from_array(X, chunks=chunks).map_blocks(
+                cp.asarray, meta=cp.empty((0, 0), dtype=X.dtype)
+            )
+        if case.estimator == "LabelEncoder":
+            cudf = importlib.import_module("cudf")
+            dask_cudf = importlib.import_module("dask_cudf")
+            y = dask_cudf.from_cudf(cudf.Series(y), npartitions=2)
+        else:
+            y = da.from_array(y, chunks=(chunks[0],)).map_blocks(
+                cp.asarray, meta=cp.empty((0,), dtype=y.dtype)
+            )
         return X, y
 
     def construct_estimator(
@@ -66,6 +80,33 @@ class DaskBackend(CumlBackend):
         """
         return estimator_class(**{**parameters, "client": runtime})
 
+    def effective_parameters(self, estimator: Any) -> dict[str, Any]:
+        """Normalize distributed estimator parameters for result metadata.
+
+        Parameters
+        ----------
+        estimator : Any
+            Constructed distributed estimator exposing get_params.
+        """
+        parameters = super().effective_parameters(estimator)
+        # Dask random forests return a list of per-worker parameter mappings,
+        # unlike the dictionary expected by the estimator API and result schema.
+        # The list is a legacy of training separate forests with worker-specific
+        # tree counts and seeds. Workers now receive identical parameters, so
+        # collapse the list only after checking that assumption.
+        # TODO: Fix Dask RF get_params(deep=False) upstream to return a single
+        # estimator-level dictionary, then remove this compatibility hack.
+        if isinstance(parameters, list):
+            assert parameters, "Dask estimator returned no worker parameters"
+            assert all(isinstance(item, dict) for item in parameters), (
+                "Dask worker parameters must be dictionaries"
+            )
+            assert all(item == parameters[0] for item in parameters[1:]), (
+                "Dask estimator parameters differ between workers"
+            )
+            return parameters[0]
+        return parameters
+
     def synchronize(self, value: Any = None) -> None:
         """Wait for distributed output and local GPU work to complete.
 
@@ -74,12 +115,17 @@ class DaskBackend(CumlBackend):
         value : Any, optional
             Distributed output to wait for or compute.
         """
+        if isinstance(value, (tuple, list)):
+            for item in value:
+                self.synchronize(item)
+            return
         if value is not None:
-            try:
+            # wait() only waits for existing futures; it does not execute a
+            # lazy collection's graph, and can return without doing any work.
+            if hasattr(value, "compute"):
+                value.compute()
+            else:
                 importlib.import_module("dask.distributed").wait(value)
-            except (TypeError, AttributeError):
-                if hasattr(value, "compute"):
-                    value.compute()
         super().synchronize(value)
 
     @contextlib.contextmanager
