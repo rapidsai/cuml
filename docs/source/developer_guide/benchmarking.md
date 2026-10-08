@@ -38,7 +38,6 @@ parameters, and execution counts.
 Provider requirements:
 - `cuml.accel` requires at least one warmup. Warmups collect dispatch evidence;
   any recorded CPU fallback fails the case and stops its repetitions.
-  Profiling is limited to warmups.
 - `cuml.dask` requires at least two visible GPUs and Dask/Dask-CUDA dependencies.
   The harness creates one local cluster for the provider run. Select GPUs with
   `CUDA_VISIBLE_DEVICES` (for example, `CUDA_VISIBLE_DEVICES=4,5`). Numeric
