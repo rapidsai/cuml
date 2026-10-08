@@ -10,11 +10,11 @@ Suite loading and execution
 ---------------------------
 
 For programmatic use, load a built-in suite name or a YAML path, then pass the
-resolved plan's individual ``runs`` to the single-backend runner. The loader
-accepts an optional ``implementations`` list; omission selects all declared
-backends. Direct callers must isolate backend runs in separate processes and
-configure backend startup. Prefer the CLI for automatic isolation, sequential
-execution, and one results file per selected backend.
+resolved plan's individual ``runs`` to the single-provider runner. The loader
+accepts an optional ``providers`` list; omission selects all declared
+providers. Direct callers must isolate provider runs in separate processes and
+configure provider backend startup. Prefer the CLI for automatic isolation, sequential
+execution, and one results file per selected provider.
 
 .. autofunction:: cuml.benchmark.suite.load_suite_reference
 
@@ -25,7 +25,7 @@ Schemas
 
 The generated JSON Schema describes the strict suite manifest structure.
 Suite loading additionally checks semantic constraints
-such as inference inputs, backend compatibility, and duplicate workload IDs.
+such as inference inputs, provider compatibility, and duplicate workload IDs.
 
 .. autofunction:: cuml.benchmark.suite.suite_manifest_json_schema
 

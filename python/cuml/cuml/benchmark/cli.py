@@ -15,7 +15,6 @@ import sys
 from pathlib import Path
 
 from ._logging import logger
-from .backends import get_backend
 from .suite import (
     BUILTIN_SUITES,
     SuiteError,
@@ -24,7 +23,7 @@ from .suite import (
 )
 
 DEFAULT_SUITE = "estimators"
-DEFAULT_IMPLEMENTATION = "cuml"
+DEFAULT_PROVIDER = "cuml"
 
 
 def _parser(
@@ -44,7 +43,7 @@ def _parser(
     parser.add_argument(
         "--output",
         help=(
-            "output directory for one JSON results file per selected backend; "
+            "output directory for one JSON results file per selected provider; "
             "defaults to a timestamped directory "
             "in the current directory"
         ),
@@ -55,10 +54,10 @@ def _parser(
         help="resume --output directory, retaining successes and retrying failures",
     )
     parser.add_argument(
-        "--implementation",
+        "--provider",
         action="append",
-        dest="implementations",
-        help=f"run only this suite implementation (repeatable; default: {DEFAULT_IMPLEMENTATION})",
+        dest="providers",
+        help=f"run only this suite provider (repeatable; default: {DEFAULT_PROVIDER})",
     )
     parser.add_argument(
         "--_worker", action="store_true", help=argparse.SUPPRESS
@@ -171,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
         suite = load_suite_reference(
             args.suite,
             args.profile,
-            args.implementations or [DEFAULT_IMPLEMENTATION],
+            args.providers or [DEFAULT_PROVIDER],
         )
         output = (
             Path(args.output).resolve()
@@ -182,10 +181,10 @@ def main(argv: list[str] | None = None) -> int:
             if args._worker:
                 if len(suite.runs) != 1 or not args.output:
                     raise SuiteError(
-                        "worker requires one implementation and an output file"
+                        "worker requires one provider and an output file"
                     )
                 run = suite.runs[0]
-                backend = get_backend(run.implementation)
+                backend = run.provider_spec.backend
                 backend.bootstrap_process()
                 backend.prepare_process()
                 # Import only after backend startup and prerequisite validation.
@@ -209,21 +208,19 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run_plan(suite, output: Path, args) -> int:
-    """Run isolated backend workers sequentially, retaining each checkpoint."""
+    """Run isolated provider workers sequentially, retaining each checkpoint."""
     if args.resume and not output.is_dir():
         raise SuiteError("--resume requires an existing output directory")
-    # Backend names become filenames. Built-in names are already safe; reject
-    # unsafe names from programmatic backend registrations rather than collide.
+    # Provider names become filenames. Built-in names are already safe; reject
+    # unsafe names from programmatic provider registrations rather than collide.
     for run in suite.runs:
-        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", run.implementation):
-            raise SuiteError(
-                f"unsafe implementation filename: {run.implementation!r}"
-            )
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", run.provider):
+            raise SuiteError(f"unsafe provider filename: {run.provider!r}")
     output.mkdir(parents=True, exist_ok=True)
     logger.info("Writing benchmark artifacts to %s", output)
     failed = []
     for run in suite.runs:
-        artifact = output / f"{run.implementation}.json"
+        artifact = output / f"{run.provider}.json"
         command = [
             sys.executable,
             "-m",
@@ -233,8 +230,8 @@ def _run_plan(suite, output: Path, args) -> int:
             args.suite,
             "--profile",
             suite.profile_name,
-            "--implementation",
-            run.implementation,
+            "--provider",
+            run.provider,
             "--output",
             str(artifact),
         ]
@@ -242,10 +239,10 @@ def _run_plan(suite, output: Path, args) -> int:
             command.append("--resume")
         if args.verbose:
             command.append("--verbose")
-        environment = get_backend(run.implementation).worker_environment()
+        environment = run.provider_spec.backend.worker_environment()
         logger.info(
-            "Starting implementation %s (%d cases)",
-            run.implementation,
+            "Starting provider %s (%d cases)",
+            run.provider,
             len(run.cases),
         )
         try:
@@ -253,17 +250,17 @@ def _run_plan(suite, output: Path, args) -> int:
                 command, env=environment, check=False
             ).returncode
         except OSError as exc:
-            logger.error("Unable to start %s: %s", run.implementation, exc)
+            logger.error("Unable to start %s: %s", run.provider, exc)
             status = 1
         if status:
-            failed.append(run.implementation)
+            failed.append(run.provider)
             logger.error(
-                "Implementation %s failed (exit %d)",
-                run.implementation,
+                "Provider %s failed (exit %d)",
+                run.provider,
                 status,
             )
     logger.info(
-        "Completed %d implementations: %d passed, %d failed",
+        "Completed %d providers: %d passed, %d failed",
         len(suite.runs),
         len(suite.runs) - len(failed),
         len(failed),

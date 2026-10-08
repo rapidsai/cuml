@@ -13,7 +13,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..registry import EstimatorSpec
+    from ..providers.base import EstimatorSpec
     from ..suite import Suite
     from ...accel.profilers import ProfileResults
 

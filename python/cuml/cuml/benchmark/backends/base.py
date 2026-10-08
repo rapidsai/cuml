@@ -13,9 +13,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .._utils import _version
-from ..registry import EstimatorSpec
 
 if TYPE_CHECKING:
+    from ..providers.base import EstimatorSpec
     from ..suite import ResolvedCase, Suite
 
 
@@ -31,11 +31,6 @@ class Backend:
     """Provide estimator, runtime, and metadata hooks for benchmarks."""
 
     extra_packages: tuple[str, ...] = ()
-
-    def __init__(self, name: str, catalog: dict[str, EstimatorSpec]) -> None:
-        """Initialize the backend name and supported estimator catalog."""
-        self.name = name
-        self.catalog = catalog
 
     def worker_environment(self) -> dict[str, str]:
         """Return an isolated startup environment without mutating the caller.
@@ -67,21 +62,6 @@ class Backend:
             Number of warmup repetitions.
         """
         pass
-
-    def estimator_spec(self, estimator: str) -> EstimatorSpec:
-        """Look up a supported estimator's import specification.
-
-        Parameters
-        ----------
-        estimator : str
-            Estimator name in the backend catalog.
-        """
-        try:
-            return self.catalog[estimator]
-        except KeyError as exc:
-            raise ValueError(
-                f"estimator {estimator!r} is not supported by {self.name!r}"
-            ) from exc
 
     def load_estimator(self, spec: EstimatorSpec) -> type[Any]:
         """Import an estimator class from its specification.
@@ -176,16 +156,16 @@ class Backend:
         return None
 
     def software_packages(
-        self, cases: Iterable[ResolvedCase]
+        self, specs: Iterable[EstimatorSpec]
     ) -> list[dict[str, Any]]:
         """Collect software package metadata used by the cases.
 
         Parameters
         ----------
-        cases : iterable of ResolvedCase
-            Cases whose estimator packages should be recorded.
+        specs : iterable of EstimatorSpec
+            Estimator specifications whose packages should be recorded.
         """
-        names = {self.estimator_spec(c.estimator).package for c in cases}
+        names = {spec.package for spec in specs}
         names.update(self.extra_packages)
         return [
             {

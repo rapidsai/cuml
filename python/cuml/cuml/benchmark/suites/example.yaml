@@ -4,7 +4,7 @@
 
 version: 2
 name: example
-implementations: [cuml, scikit-learn, cuml.accel]
+providers: [cuml, scikit-learn, cuml.accel]
 
 profiles:
   standard:

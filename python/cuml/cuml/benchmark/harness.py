@@ -30,11 +30,10 @@ from ._utils import (
     _version,
     atomic_write,
 )
-from .backends import get_backend
 from .backends.base import Backend
 from .datasets import generate_data
 from .identity import result_id
-from .registry import EstimatorSpec
+from .providers.base import EstimatorSpec
 from .suite import ResolvedCase, Suite, SuiteError
 
 METHODOLOGY = "cuml-benchmark-observations-v3"
@@ -65,8 +64,9 @@ def _run_record(suite: Suite, argv: list[str]) -> dict[str, Any]:
             "runtimes": [
                 {"name": "python", "version": platform.python_version()}
             ],
-            "packages": get_backend(suite.implementation).software_packages(
-                suite.cases
+            "packages": suite.provider_spec.backend.software_packages(
+                suite.provider_spec.estimator_spec(case.estimator)
+                for case in suite.cases
             ),
         },
         "extensions": {
@@ -74,7 +74,7 @@ def _run_record(suite: Suite, argv: list[str]) -> dict[str, Any]:
                 "suite": suite.name,
                 "suite_path": str(suite.path),
                 "profile": suite.profile_name,
-                "implementation": suite.implementation,
+                "provider": suite.provider,
                 "execution_plan": [
                     {
                         "case_label": c.label,
@@ -89,17 +89,17 @@ def _run_record(suite: Suite, argv: list[str]) -> dict[str, Any]:
     }
 
 
-def _generate_data(case: ResolvedCase, implementation: str) -> tuple[Any, Any]:
+def _generate_data(case: ResolvedCase, backend: Backend) -> tuple[Any, Any]:
     """Generate case inputs and convert them for the backend."""
     X, y = generate_data(case)
-    return get_backend(implementation).convert_data(case, X, y)
+    return backend.convert_data(case, X, y)
 
 
 def _partition_data(
-    case: ResolvedCase, implementation: str
+    case: ResolvedCase, backend: Backend
 ) -> tuple[Any, Any, Any, Any]:
     """Partition generated inputs into training and measurement data."""
-    X, y = _generate_data(case, implementation)
+    X, y = _generate_data(case, backend)
     if case.lifecycle == "fit":
         return None, None, X, y
     split = case.training_rows
@@ -140,7 +140,7 @@ def _base_result(
         "observations": [],
         "extensions": {
             EXTENSION: {
-                "implementation": suite.implementation,
+                "provider": suite.provider,
                 "profile": suite.profile_name,
                 "timeout_sec": case.timeout_sec,
                 "resolved_dataset_parameters": dict(case.dataset_parameters),
@@ -165,7 +165,7 @@ def _prepare_case(
 ) -> _PreparedCase:
     """Load the estimator class and prepare partitioned case inputs."""
     estimator_class = backend.load_estimator(spec)
-    X_train, y_train, X, y = _partition_data(case, suite.implementation)
+    X_train, y_train, X, y = _partition_data(case, backend)
     return _PreparedCase(
         estimator_class=estimator_class,
         operation_args=_inputs(case.input_selection, {"X": X, "y": y}),
@@ -254,8 +254,8 @@ def _benchmark_case(
     report_phase: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """Run a case's warmups and measurements with failure recording."""
-    backend = get_backend(suite.implementation)
-    spec = backend.estimator_spec(case.estimator)
+    backend = suite.provider_spec.backend
+    spec = suite.provider_spec.estimator_spec(case.estimator)
     result = _base_result(
         suite,
         case,
@@ -379,7 +379,7 @@ def _interrupted_result(
     package_records: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     """Build a failed case result for a keyboard interruption."""
-    spec = get_backend(suite.implementation).estimator_spec(case.estimator)
+    spec = suite.provider_spec.estimator_spec(case.estimator)
     result = _base_result(
         suite,
         case,
@@ -518,7 +518,7 @@ def run_suite(
         suite.profile_name,
         total,
     )
-    with get_backend(suite.implementation).runtime(suite) as client:
+    with suite.provider_spec.backend.runtime(suite) as client:
         for index, (case, case_id) in enumerate(
             zip(suite.cases, case_ids), start=1
         ):
@@ -538,11 +538,9 @@ def run_suite(
             logger.info("[%d/%d] %s: starting", index, total, label)
             case_started = time.perf_counter()
             try:
-                package = (
-                    get_backend(suite.implementation)
-                    .estimator_spec(case.estimator)
-                    .package
-                )
+                package = suite.provider_spec.estimator_spec(
+                    case.estimator
+                ).package
                 result = _run_case(
                     suite,
                     case,
