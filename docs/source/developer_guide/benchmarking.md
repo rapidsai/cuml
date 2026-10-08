@@ -46,12 +46,21 @@ Provider requirements:
 
 ## Run from Python
 
-`from cuml import benchmark; results = benchmark.run("my-suite.yaml",
-providers=["cuml", "scikit-learn"])` uses the same sequential isolated workers
-as the CLI. It returns a `BenchmarkResults` dataclass whose `artifacts` field
-holds JSON dictionaries keyed by provider, and cleans temporary output by
-default. Pass a directory path to `output`, such as `output="./results"`, to save
-results and checkpoints. Use the same directory with `resume=True` to
+Use `cuml.benchmark.run()` to run a suite from Python with the same sequential
+isolated workers as the CLI:
+
+```python
+from cuml import benchmark
+
+results = benchmark.run(
+    "my-suite.yaml", providers=["cuml", "scikit-learn"]
+)
+```
+
+The return value is a `BenchmarkResults` dataclass whose `artifacts` field holds
+JSON dictionaries keyed by provider. Temporary output is cleaned by default.
+Pass a directory path to `output`, such as `output="./results"`, to save results
+and checkpoints. Use the same directory with `resume=True` to
 continue a run. The CLI defaults to a timestamped directory.
 See the [API reference](../api/cuml.benchmark) for failure diagnostics,
 temporary cleanup and per-provider resume semantics.
