@@ -20,15 +20,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ._subprocess import SubprocessExited, SubprocessTimeout, run_in_subprocess
-from ._utils import (
-    _failure,
-    _gpu_components,
-    _jsonable,
-    _now,
-    _source,
-    _version,
-    atomic_write,
-)
+from ._utils import _failure, _gpu_components, _jsonable, _now, atomic_write
 from .backends.base import Backend
 from .datasets import generate_data
 from .identity import result_id
@@ -117,18 +109,10 @@ def _inputs(
 def _base_result(
     suite: Suite,
     case: ResolvedCase,
-    package: str,
-    version: str,
-    implementation_record: dict[str, Any] | None = None,
+    implementation_record: dict[str, Any],
 ) -> dict[str, Any]:
     """Build a case result with workload and implementation metadata."""
     workload = case.to_artifact_fields()
-    implementation = implementation_record or {
-        "name": package,
-        "version": version,
-        "build": None,
-        "source": _source() if package == "cuml" else None,
-    }
     result = {
         "case_label": case.label,
         **workload,
@@ -136,7 +120,7 @@ def _base_result(
         # Keep this byte-for-byte equivalent to the corresponding run package
         # record. In particular, writing the artifact into a clean checkout
         # must not make result.source.dirty differ from run software metadata.
-        "implementation": copy.deepcopy(implementation),
+        "implementation": copy.deepcopy(implementation_record),
         "outcome": {"status": "failed", "last_phase": "preparation"},
         "observations": [],
         "extensions": {
@@ -257,13 +241,7 @@ def _benchmark_case(
     """Run a case's warmups and measurements with failure recording."""
     backend = suite.provider_spec.backend
     spec = suite.provider_spec.estimator_spec(case.estimator)
-    result = _base_result(
-        suite,
-        case,
-        implementation_record["name"],
-        implementation_record["version"],
-        implementation_record,
-    )
+    result = _base_result(suite, case, implementation_record)
     phase = "preparation"
 
     def set_phase(value: str) -> None:
@@ -362,13 +340,7 @@ def _run_case(
         error = _failure(
             RuntimeError(f"Case worker exited with code {exc.exitcode}"), phase
         )
-    result = _base_result(
-        suite,
-        case,
-        implementation_record["name"],
-        implementation_record["version"],
-        implementation_record,
-    )
+    result = _base_result(suite, case, implementation_record)
     result["outcome"] = error
     return result
 
@@ -381,13 +353,7 @@ def _interrupted_result(
 ) -> dict[str, Any]:
     """Build a failed case result for a keyboard interruption."""
     spec = suite.provider_spec.estimator_spec(case.estimator)
-    result = _base_result(
-        suite,
-        case,
-        spec.package,
-        _version(spec.package),
-        package_records[spec.package],
-    )
+    result = _base_result(suite, case, package_records[spec.package])
     error = _failure(exc, "interrupted")
     result["outcome"] = error
     result["observations"] = [

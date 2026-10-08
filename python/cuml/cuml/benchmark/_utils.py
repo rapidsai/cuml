@@ -12,7 +12,6 @@ import importlib.metadata
 import json
 import math
 import os
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -47,59 +46,6 @@ def _version(package: str) -> str:
         return importlib.metadata.version(package)
     except importlib.metadata.PackageNotFoundError:
         return "unknown"
-
-
-def _source() -> dict[str, Any]:
-    """Collect source provenance from a checkout or packaged commit file."""
-    for root in (Path.cwd(), Path(__file__).resolve().parent):
-        try:
-            revision = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=root,
-                text=True,
-                capture_output=True,
-                check=True,
-                timeout=5,
-            ).stdout.strip()
-            repository = (
-                subprocess.run(
-                    ["git", "config", "--get", "remote.origin.url"],
-                    cwd=root,
-                    text=True,
-                    capture_output=True,
-                    check=False,
-                    timeout=5,
-                ).stdout.strip()
-                or None
-            )
-            dirty = bool(
-                subprocess.run(
-                    ["git", "status", "--porcelain"],
-                    cwd=root,
-                    text=True,
-                    capture_output=True,
-                    check=True,
-                    timeout=5,
-                ).stdout
-            )
-            return {
-                "repository": repository,
-                "revision": revision,
-                "dirty": dirty,
-            }
-        except Exception:
-            pass
-    # Wheels retain the exact source commit even when no checkout is available.
-    commit_file = Path(__file__).resolve().parents[1] / "GIT_COMMIT"
-    try:
-        revision = commit_file.read_text(encoding="utf-8").strip()
-    except OSError:
-        revision = None
-    return {
-        "repository": "https://github.com/rapidsai/cuml.git",
-        "revision": revision,
-        "dirty": None,
-    }
 
 
 def _gpu_components() -> list[dict[str, Any]]:
