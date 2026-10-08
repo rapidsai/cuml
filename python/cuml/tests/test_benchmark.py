@@ -28,6 +28,8 @@ import pytest
 import yaml
 from scipy import sparse
 
+from cuml import benchmark
+from cuml.benchmark import _runner as coordinator
 from cuml.benchmark import _subprocess as runner
 from cuml.benchmark import cli, harness
 from cuml.benchmark.backends import cuml as cuml_backend
@@ -1208,7 +1210,9 @@ def test_cli_refuses_existing_selected_artifact(
     else:
         existing.symlink_to(tmp_path / "missing")
     monkeypatch.setattr(
-        cli.subprocess, "run", lambda *a, **k: pytest.fail("launched worker")
+        coordinator,
+        "_execute_worker",
+        lambda *a, **k: pytest.fail("launched worker"),
     )
     with pytest.raises(SystemExit) as error:
         cli.main(
@@ -1258,6 +1262,32 @@ def test_harness_initial_write_handles_race(registered_suite, monkeypatch):
     assert not list(output.parent.glob(f".{output.name}.*.tmp"))
 
 
+def _write_worker_artifact(command, *, failed=False):
+    provider = command[command.index("--provider") + 1]
+    plan = load_suite_reference(
+        command[command.index("--suite") + 1],
+        command[command.index("--profile") + 1],
+        [provider],
+    )
+    extension = {harness.EXTENSION: {"provider": provider}}
+    artifact = {
+        "schema_version": 2,
+        "run": {"extensions": extension},
+        "results": [
+            {
+                "id": case.id,
+                "outcome": {"status": "failed" if failed else "success"},
+                "extensions": extension,
+            }
+            for case in plan.runs[0].cases
+        ],
+    }
+    Path(command[command.index("--output") + 1]).write_text(
+        json.dumps(artifact)
+    )
+    return artifact
+
+
 def test_cli_allows_new_provider_in_existing_directory(
     document, tmp_path, monkeypatch
 ):
@@ -1267,12 +1297,12 @@ def test_cli_allows_new_provider_in_existing_directory(
     unrelated = output / "cuml.json"
     unrelated.write_bytes(b"unselected results")
     calls = []
-    monkeypatch.setattr(
-        cli.subprocess,
-        "run",
-        lambda command, **kwargs: calls.append(command)
-        or SimpleNamespace(returncode=0),
-    )
+
+    def execute(command, environment):
+        calls.append(command)
+        _write_worker_artifact(command)
+
+    monkeypatch.setattr(coordinator, "_execute_worker", execute)
     assert (
         cli.main(
             [
@@ -1345,21 +1375,19 @@ def test_cli_coordinates_isolated_backends(document, tmp_path, monkeypatch):
             lambda env=environment: env,
         )
 
-    def run(command, *, env, check):
-        assert check is False
+    def execute(command, environment):
         assert "--_worker" in command
         backend = command[command.index("--provider") + 1]
-        assert env is environments[backend]
+        assert environment is environments[backend]
         assert "--verbose" in command
         artifact = Path(command[command.index("--output") + 1])
         assert artifact == output / f"{backend}.json"
         calls.append((backend, "--resume" in command))
-        artifact.touch()
-        return SimpleNamespace(
-            returncode=1 if backend == "scikit-learn" else 0
-        )
+        _write_worker_artifact(command, failed=backend == "scikit-learn")
+        if backend == "scikit-learn":
+            raise RuntimeError("worker exited with status 1")
 
-    monkeypatch.setattr(cli.subprocess, "run", run)
+    monkeypatch.setattr(coordinator, "_execute_worker", execute)
     argv = ["--suite", str(path), "--output", str(output), "--verbose"]
     assert cli.main(argv) == 0
     assert calls == [("cuml", False)]
@@ -1392,7 +1420,9 @@ def test_cli_default_requires_cuml_in_suite(
 ):
     path = _write_suite(tmp_path, document)
     monkeypatch.setattr(
-        cli.subprocess, "run", lambda *a, **k: pytest.fail("launched worker")
+        coordinator,
+        "_execute_worker",
+        lambda *a, **k: pytest.fail("launched worker"),
     )
     with pytest.raises(SystemExit) as exc:
         cli.main(["--suite", str(path), "--output", str(tmp_path / "results")])
@@ -1405,7 +1435,9 @@ def test_cli_coordinator_output_errors(document, tmp_path, monkeypatch):
     path = _write_suite(tmp_path, document)
     output = tmp_path / "missing"
     monkeypatch.setattr(
-        cli.subprocess, "run", lambda *a, **k: pytest.fail("launched worker")
+        coordinator,
+        "_execute_worker",
+        lambda *a, **k: pytest.fail("launched worker"),
     )
     with pytest.raises(SystemExit):
         cli.main(["--suite", str(path), "--output", str(output), "--resume"])
@@ -1837,3 +1869,332 @@ def test_dask_runtime_safety(monkeypatch, failure):
         if failure == "client-startup"
         else ["cluster-enter", "client-enter", "client-exit", "cluster-exit"]
     )
+
+
+# Public runner uses the same provider coordinator as the CLI.
+
+
+def test_benchmark_results_dataclass():
+    artifacts = {"cuml": {"results": []}}
+    results = benchmark.BenchmarkResults(artifacts=artifacts)
+    assert results.artifacts == artifacts
+    with pytest.raises(TypeError):
+        benchmark.BenchmarkResults(artifacts)
+
+
+def test_run_builtin_defaults_and_temporary_cleanup(monkeypatch):
+    paths = []
+
+    def execute(command, environment):
+        assert command[command.index("--suite") + 1] == "estimators"
+        assert command[command.index("--provider") + 1] == "cuml"
+        paths.append(Path(command[command.index("--output") + 1]))
+        _write_worker_artifact(command)
+
+    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    results = benchmark.run(profile="smoke")
+    assert isinstance(results, benchmark.BenchmarkResults)
+    assert list(results.artifacts) == ["cuml"]
+    assert results.artifacts["cuml"]["results"]
+    assert not paths[0].parent.exists()
+
+
+@pytest.mark.parametrize("reference_type", [str, Path])
+def test_run_yaml_persistence_and_resume(
+    document, tmp_path, monkeypatch, reference_type
+):
+    path = _write_suite(tmp_path, document)
+    output = tmp_path / "results"
+    calls = []
+
+    def execute(command, environment):
+        calls.append("--resume" in command)
+        _write_worker_artifact(command)
+
+    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    results = benchmark.run(
+        reference_type(path), providers=["scikit-learn"], output=output
+    )
+    artifacts = results.artifacts
+    assert (
+        json.loads((output / "scikit-learn.json").read_text())
+        == artifacts["scikit-learn"]
+    )
+    assert (
+        benchmark.run(
+            path, providers=["scikit-learn"], output=output, resume=True
+        )
+        == results
+    )
+    assert calls == [False, True]
+    with pytest.raises(SuiteError, match="results already exist"):
+        benchmark.run(path, providers=["scikit-learn"], output=output)
+    assert calls == [False, True]
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"providers": []},
+        {"providers": ["missing"]},
+        {"profile": "missing"},
+        {"resume": True},
+        {"resume": True, "output": "nonexistent-output"},
+        {"suite": object()},
+    ],
+)
+def test_run_configuration_errors_before_launch(
+    monkeypatch, tmp_path, settings
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        coordinator,
+        "_execute_worker",
+        lambda *a: pytest.fail("launched worker"),
+    )
+    with pytest.raises(SuiteError):
+        benchmark.run(**settings)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "startup",
+        "exit",
+        "case",
+        "missing",
+        "malformed",
+    ],
+)
+def test_run_partial_failures_continue_and_clean_output(
+    document, tmp_path, monkeypatch, failure
+):
+    document["providers"] = ["scikit-learn", "cuml"]
+    path = _write_suite(tmp_path, document)
+    paths = []
+
+    def execute(command, environment):
+        provider = command[command.index("--provider") + 1]
+        artifact_path = Path(command[command.index("--output") + 1])
+        paths.append(artifact_path)
+        if provider == "cuml":
+            _write_worker_artifact(command)
+            return
+        if failure == "startup":
+            raise OSError("startup unavailable")
+        if failure == "missing":
+            return
+        _write_worker_artifact(command, failed=failure == "case")
+        if failure == "exit":
+            raise RuntimeError(
+                "worker exited with status 7: startup traceback"
+            )
+        if failure == "malformed":
+            artifact_path.write_text("not json")
+
+    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    with pytest.raises(benchmark.BenchmarkRunError) as error:
+        benchmark.run(path, providers=document["providers"])
+    assert [p.stem for p in paths] == document["providers"]
+    assert not paths[0].parent.exists()
+    assert list(error.value.failures) == ["scikit-learn"]
+    assert (
+        error.value.results.artifacts["cuml"]["results"][0]["outcome"][
+            "status"
+        ]
+        == "success"
+    )
+    assert ("scikit-learn" in error.value.results.artifacts) == (
+        failure in {"case", "exit"}
+    )
+    if failure == "startup":
+        assert "startup unavailable" in str(error.value)
+    elif failure == "exit":
+        assert "status 7: startup traceback" in str(error.value)
+
+
+@pytest.mark.parametrize("failure", ["provider", "incomplete", "duplicate"])
+def test_run_rejects_invalid_worker_artifact(
+    document, tmp_path, monkeypatch, failure
+):
+    path = _write_suite(tmp_path, document)
+
+    def execute(command, environment):
+        artifact = _write_worker_artifact(command)
+        if failure == "provider":
+            artifact["run"]["extensions"][harness.EXTENSION]["provider"] = (
+                "wrong"
+            )
+        else:
+            artifact["results"] = (
+                [] if failure == "incomplete" else artifact["results"] * 2
+            )
+        Path(command[command.index("--output") + 1]).write_text(
+            json.dumps(artifact)
+        )
+
+    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    with pytest.raises(benchmark.BenchmarkRunError) as error:
+        benchmark.run(path, providers=["scikit-learn"])
+    diagnostic = (
+        "invalid artifact envelope"
+        if failure == "provider"
+        else "artifact does not contain all expected cases"
+    )
+    assert diagnostic in error.value.failures["scikit-learn"]
+
+
+@pytest.mark.parametrize("persistent", [False, True])
+def test_run_interrupt_output_cleanup(
+    document, tmp_path, monkeypatch, persistent
+):
+    path = _write_suite(tmp_path, document)
+    paths = []
+
+    def execute(command, environment):
+        _write_worker_artifact(command)
+        paths.append(Path(command[command.index("--output") + 1]))
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    with pytest.raises(KeyboardInterrupt):
+        benchmark.run(
+            path,
+            providers=["scikit-learn"],
+            output=tmp_path / "results" if persistent else None,
+        )
+    assert paths[0].exists() == persistent
+    assert paths[0].parent.exists() == persistent
+
+
+@pytest.mark.skipif(
+    os.name != "posix", reason="process group cleanup is POSIX-specific"
+)
+def test_run_interrupt_stops_provider_and_descendant(tmp_path, monkeypatch):
+    import psutil
+
+    pid_file = tmp_path / "pids.json"
+    processes = []
+    original = subprocess.Popen
+
+    class InterruptedProcess(original):
+        def communicate(self, **kwargs):
+            deadline = time.monotonic() + 30
+            while not pid_file.exists():
+                assert time.monotonic() < deadline
+                time.sleep(0.01)
+            processes.extend(
+                psutil.Process(pid) for pid in json.loads(pid_file.read_text())
+            )
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(coordinator.subprocess, "Popen", InterruptedProcess)
+    script = (
+        "import json, os, subprocess, sys, time; "
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)']); "
+        f"open({str(pid_file)!r}, 'w').write(json.dumps([os.getpid(), child.pid])); "
+        "time.sleep(120)"
+    )
+    with pytest.raises(KeyboardInterrupt):
+        coordinator._execute_worker(
+            [sys.executable, "-c", script], dict(os.environ)
+        )
+    _, alive = psutil.wait_procs(processes, timeout=5)
+    assert all(process.status() == psutil.STATUS_ZOMBIE for process in alive)
+
+
+def test_run_unguarded_script_real_workers(document, tmp_path):
+    document["providers"] = ["scikit-learn"]
+    document["profiles"]["standard"]["timeout_sec"] = 60
+    path = _write_suite(tmp_path, document)
+    script = tmp_path / "run.py"
+    script.write_text(
+        "from cuml import benchmark\nimport json\n"
+        f"artifacts = benchmark.run({str(path)!r}, providers={document['providers']!r}, output={str(tmp_path / 'results')!r})\n"
+        "print(json.dumps(artifacts.artifacts))\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, str(script)],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert completed.returncode == 0, completed.stderr
+    artifacts = json.loads(completed.stdout)
+    assert list(artifacts) == document["providers"]
+    for provider, artifact in artifacts.items():
+        _validate_artifact(artifact)
+        assert artifact["results"][0]["outcome"] == {"status": "success"}
+        assert (
+            artifact["run"]["extensions"][harness.EXTENSION]["provider"]
+            == provider
+        )
+
+
+@pytest.mark.parametrize(
+    "failure", ["stderr", "descendant-stderr", "invalid-stderr"]
+)
+def test_run_worker_diagnostic_failures_continue(
+    document, tmp_path, monkeypatch, capsys, failure
+):
+    if failure == "descendant-stderr" and os.name != "posix":
+        pytest.skip("descendant cleanup is POSIX-specific")
+    document["providers"] = ["scikit-learn", "cuml"]
+    path = _write_suite(tmp_path, document)
+    pid_file = tmp_path / "descendant.pid"
+    if failure == "descendant-stderr":
+        script = (
+            "import subprocess, sys; "
+            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(3)']); "
+            f"open({str(pid_file)!r}, 'w').write(str(child.pid)); "
+            "print('provider crashed', file=sys.stderr); sys.exit(7)"
+        )
+        diagnostic = "provider crashed"
+    elif failure == "stderr":
+        script = "import sys; print('startup evidence', file=sys.stderr); sys.exit(7)"
+        diagnostic = "startup evidence"
+    else:
+        script = (
+            "import sys; sys.stderr.buffer.write(b'startup \\xff\\n'); "
+            "sys.stderr.flush(); sys.exit(7)"
+        )
+        diagnostic = "startup \ufffd"
+    execute_worker = coordinator._execute_worker
+    calls = []
+
+    def execute(command, environment):
+        provider = command[command.index("--provider") + 1]
+        calls.append(provider)
+        _write_worker_artifact(command)
+        execute_worker(
+            [
+                sys.executable,
+                "-c",
+                script if provider == "scikit-learn" else "pass",
+            ],
+            environment,
+        )
+
+    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    started = time.monotonic()
+    with pytest.raises(benchmark.BenchmarkRunError) as error:
+        benchmark.run(path, providers=document["providers"])
+    assert time.monotonic() - started < 2
+    assert calls == document["providers"]
+    assert isinstance(error.value.results, benchmark.BenchmarkResults)
+    assert list(error.value.results.artifacts) == document["providers"]
+    assert list(error.value.failures) == ["scikit-learn"]
+    assert "status 7" in error.value.failures["scikit-learn"]
+    assert diagnostic in error.value.failures["scikit-learn"]
+    assert diagnostic in capsys.readouterr().err
+    if failure == "descendant-stderr":
+        import psutil
+
+        try:
+            descendant = psutil.Process(int(pid_file.read_text()))
+        except psutil.NoSuchProcess:
+            return
+        _, alive = psutil.wait_procs([descendant], timeout=1)
+        assert all(
+            process.status() == psutil.STATUS_ZOMBIE for process in alive
+        )

@@ -10,10 +10,15 @@ import contextlib
 import datetime as dt
 import logging
 import re
-import subprocess
 import sys
 from pathlib import Path
 
+from ._runner import (
+    DEFAULT_PROVIDER,
+    DEFAULT_SUITE,
+    BenchmarkRunError,
+    _run_plan,
+)
 from .suite import (
     BUILTIN_SUITES,
     SuiteError,
@@ -22,9 +27,6 @@ from .suite import (
 )
 
 logger = logging.getLogger("cuml.benchmark")
-
-DEFAULT_SUITE = "estimators"
-DEFAULT_PROVIDER = "cuml"
 
 
 def _entrypoint() -> list[str]:
@@ -218,81 +220,19 @@ def main(argv: list[str] | None = None) -> int:
                         for r in artifact["results"]
                     )
                 )
-            return _run_plan(suite, output, args)
+            try:
+                _run_plan(
+                    suite,
+                    output,
+                    resume=args.resume,
+                    verbose=args.verbose,
+                    entrypoint=_entrypoint(),
+                )
+            except BenchmarkRunError:
+                return 1
+            return 0
     except (SuiteError, OSError, ImportError) as exc:
         parser.error(str(exc))
-
-
-def _run_plan(suite, output: Path, args) -> int:
-    """Run isolated provider workers sequentially, retaining each checkpoint."""
-    if args.resume and not output.is_dir():
-        raise SuiteError("--resume requires an existing output directory")
-    # Provider names become filenames. Built-in names are already safe; reject
-    # unsafe names from programmatic provider registrations rather than collide.
-    for run in suite.runs:
-        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", run.provider):
-            raise SuiteError(f"unsafe provider filename: {run.provider!r}")
-    if not args.resume:
-        existing = [
-            output / f"{run.provider}.json"
-            for run in suite.runs
-            if (output / f"{run.provider}.json").exists()
-            or (output / f"{run.provider}.json").is_symlink()
-        ]
-        if existing:
-            raise SuiteError(
-                "results already exist: "
-                + ", ".join(str(path) for path in existing)
-                + "; use --resume or a new output directory"
-            )
-    output.mkdir(parents=True, exist_ok=True)
-    logger.info("Writing benchmark artifacts to %s", output)
-    failed = []
-    for run in suite.runs:
-        artifact = output / f"{run.provider}.json"
-        command = [
-            *_entrypoint(),
-            "--_worker",
-            "--suite",
-            args.suite,
-            "--profile",
-            suite.profile_name,
-            "--provider",
-            run.provider,
-            "--output",
-            str(artifact),
-        ]
-        if args.resume and artifact.exists():
-            command.append("--resume")
-        if args.verbose:
-            command.append("--verbose")
-        environment = run.provider_spec.backend.worker_environment()
-        logger.info(
-            "Starting provider %s (%d cases)",
-            run.provider,
-            len(run.cases),
-        )
-        try:
-            status = subprocess.run(
-                command, env=environment, check=False
-            ).returncode
-        except OSError as exc:
-            logger.error("Unable to start %s: %s", run.provider, exc)
-            status = 1
-        if status:
-            failed.append(run.provider)
-            logger.error(
-                "Provider %s failed (exit %d)",
-                run.provider,
-                status,
-            )
-    logger.info(
-        "Completed %d providers: %d passed, %d failed",
-        len(suite.runs),
-        len(suite.runs) - len(failed),
-        len(failed),
-    )
-    return int(bool(failed))
 
 
 if __name__ == "__main__":
