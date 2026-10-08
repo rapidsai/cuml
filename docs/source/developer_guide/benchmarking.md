@@ -44,27 +44,6 @@ Provider requirements:
 - Estimator availability and accepted constructor parameters depend on installed
   packages.
 
-## Run from Python
-
-Use `cuml.benchmark.run()` to run a suite from Python with the same sequential
-isolated workers as the CLI:
-
-```python
-from cuml import benchmark
-
-results = benchmark.run(
-    "my-suite.yaml", providers=["cuml", "scikit-learn"]
-)
-```
-
-The return value is a `BenchmarkResults` dataclass whose `artifacts` field holds
-JSON dictionaries keyed by provider. Temporary output is cleaned by default.
-Pass a directory path to `output`, such as `output="./results"`, to save results
-and checkpoints. Use the same directory with `resume=True` to
-continue a run. The CLI defaults to a timestamped directory.
-See the [API reference](../api/cuml.benchmark) for failure diagnostics,
-temporary cleanup and per-provider resume semantics.
-
 ## Define a suite
 
 Save this manifest as `my-suite.yaml`:
@@ -239,6 +218,27 @@ binding; `providers/__init__.py` registers the selectable names. Shared types li
 in `providers/base.py`. Check generator constraints in `datasets.py`.
 Extend packaged manifests and provider catalogs together; the tests in
 `python/cuml/tests/test_benchmark.py` check coverage and workload identity.
+
+## Run from Python
+
+Use `cuml.benchmark.run()` to run a suite from Python with the same sequential
+isolated workers as the CLI:
+
+```python
+from cuml import benchmark
+
+results = benchmark.run(
+    "my-suite.yaml", providers=["cuml", "scikit-learn"]
+)
+```
+
+The return value is a `BenchmarkResults` dataclass whose `artifacts` field holds
+JSON dictionaries keyed by provider. Temporary output is cleaned by default.
+Pass a directory path to `output`, such as `output="./results"`, to save results
+and checkpoints. Use the same directory with `resume=True` to
+continue a run. The CLI defaults to a timestamped directory.
+See the [API reference](../api/cuml.benchmark) for failure diagnostics,
+temporary cleanup and per-provider resume semantics.
 
 ## CPU-only execution
 
