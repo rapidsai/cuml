@@ -158,8 +158,11 @@ results/
   cuml.dask.json
 ```
 
-Without `--output`, the CLI chooses an unused timestamped directory in the current
-working directory. An explicit output directory may already exist. **Without
+Without `--output`, the CLI chooses an unused timestamped directory under
+`.benchmarks/` in the current working directory, for example
+`.benchmarks/estimators-smoke-20260813T000000Z/`. The repository's `.gitignore`
+ignores `.benchmarks/` directories. An explicit output directory may already
+exist. **Without
 `--resume`, the harness refuses to run if a selected provider's results file
 already exists.** Use `--resume` to continue the run or choose a new output
 directory. Unrelated files and unselected providers' results files are left

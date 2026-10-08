@@ -14,6 +14,7 @@ import inspect
 import json
 import multiprocessing
 import os
+import subprocess
 import sys
 import time
 from dataclasses import replace
@@ -28,6 +29,7 @@ from scipy import sparse
 
 from cuml.benchmark import _subprocess as runner
 from cuml.benchmark import cli, harness
+from cuml.benchmark.backends import cuml as cuml_backend
 from cuml.benchmark.backends import get_backend
 from cuml.benchmark.backends.accel import ACCEL_EXTENSION
 from cuml.benchmark.backends.base import Backend
@@ -1075,6 +1077,74 @@ def test_resume_rejects_incompatible_artifact(registered_suite, change):
     assert "runtime-enter" not in events
 
 
+@pytest.fixture
+def source_checkout(tmp_path, monkeypatch):
+    root = tmp_path / "checkout"
+    module = root / "python/cuml/cuml/benchmark/backends/cuml.py"
+    module.parent.mkdir(parents=True)
+    module.write_text("# tracked source\n", encoding="utf-8")
+    ignore_file = Path(__file__).resolve().parents[3] / ".gitignore"
+    (root / ".gitignore").write_bytes(ignore_file.read_bytes())
+
+    def git(*args):
+        return subprocess.run(
+            ["git", *args],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init", "-q")
+    git("config", "user.name", "Benchmark test")
+    git("config", "user.email", "benchmark@example.invalid")
+    git("config", "commit.gpgsign", "false")
+    git("add", ".")
+    git("commit", "-qm", "Initial source")
+    monkeypatch.setattr(cuml_backend, "__file__", str(module))
+    monkeypatch.chdir(root)
+    return root, module, git
+
+
+@pytest.mark.parametrize("nested_cwd", [False, True])
+@pytest.mark.parametrize("change", ["tracked", "staged", "untracked"])
+def test_source_resume_with_ignored_default_output(
+    source_checkout, monkeypatch, nested_cwd, change
+):
+    _, module, git = source_checkout
+    if nested_cwd:
+        monkeypatch.chdir(module.parent)
+    suite = _suite(resolve_case(_request(), PROFILE), provider="cuml")
+    output = cli.default_output_path(suite) / "cuml.json"
+    original = harness.run_suite(suite, output)
+    package = original["run"]["software"]["packages"][0]
+    assert package["source"] == {
+        "repository": None,
+        "revision": git("rev-parse", "HEAD"),
+        "dirty": False,
+    }
+    # Other provider outputs and logs in the default directory are ignored too.
+    output.with_name("scikit-learn.json").write_text("{}", encoding="utf-8")
+    output.with_name("console.log").write_text("benchmark log\n")
+    resumed = harness.run_suite(suite, output, resume=True)
+    assert resumed["run"]["id"] == original["run"]["id"]
+    assert resumed["results"] == original["results"]
+    assert git("status", "--porcelain") == ""
+
+    if change == "untracked":
+        module.with_name("new_source.py").write_text("# new source\n")
+    else:
+        module.write_text("# changed source\n", encoding="utf-8")
+        if change == "staged":
+            git("add", ".")
+    before = output.read_bytes()
+    with pytest.raises(
+        SuiteError, match="matching suite, software, and system"
+    ):
+        harness.run_suite(suite, output, resume=True)
+    assert output.read_bytes() == before
+
+
 def test_interrupt_checkpoints_and_cleans_runtime(registered_suite):
     manifest, output, events, state = registered_suite
     state["failure"] = KeyboardInterrupt()
@@ -1195,6 +1265,9 @@ def test_cli_output_safety(monkeypatch, tmp_path, capsys):
     suite = load_suite_reference("estimators", "smoke", ["scikit-learn"])
     now = dt.datetime(2026, 8, 13, tzinfo=dt.timezone.utc)
     first = cli.default_output_path(suite, now)
+    assert first == tmp_path / ".benchmarks/estimators-smoke-20260813T000000Z"
+    assert not first.parent.exists()
+    first.parent.mkdir()
     first.write_text("existing artifact", encoding="utf-8")
     second = cli.default_output_path(suite, now)
     assert second != first and not second.exists()

@@ -46,7 +46,7 @@ def _parser(
         help=(
             "output directory for one JSON results file per selected provider; "
             "defaults to a timestamped directory "
-            "in the current directory"
+            "under .benchmarks/ in the current directory"
         ),
     )
     parser.add_argument(
@@ -93,7 +93,7 @@ def _output_suite_name(suite) -> str:
 
 
 def default_output_path(suite, now: dt.datetime | None = None) -> Path:
-    """Return an unused timestamped output directory in the current directory.
+    """Return an unused timestamped output directory under .benchmarks/.
 
     Parameters
     ----------
@@ -109,10 +109,11 @@ def default_output_path(suite, now: dt.datetime | None = None) -> Path:
         f"{_output_suite_name(suite)}-{suite.profile_name}-"
         f"{timestamp.strftime('%Y%m%dT%H%M%SZ')}"
     )
-    candidate = Path.cwd() / stem
+    output_root = Path.cwd() / ".benchmarks"
+    candidate = output_root / stem
     suffix = 2
     while candidate.exists():
-        candidate = Path.cwd() / f"{stem}-{suffix}"
+        candidate = output_root / f"{stem}-{suffix}"
         suffix += 1
     return candidate
 

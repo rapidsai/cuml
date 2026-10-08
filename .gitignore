@@ -63,6 +63,9 @@ docs/_html/
 .ccls-cache
 .ccls
 
+## benchmark results
+.benchmarks/
+
 ## profiling
 *.qdrep
 *.qdrep.cache
