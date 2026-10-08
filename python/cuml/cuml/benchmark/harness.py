@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from ._logging import logger
 from ._subprocess import SubprocessExited, SubprocessTimeout, run_in_subprocess
 from ._utils import (
     _failure,
@@ -35,6 +34,8 @@ from .datasets import generate_data
 from .identity import result_id
 from .providers.base import EstimatorSpec
 from .suite import ResolvedCase, Suite, SuiteError
+
+logger = logging.getLogger("cuml.benchmark")
 
 METHODOLOGY = "cuml-benchmark-observations-v3"
 EXTENSION = "com.nvidia.cuml.benchmark"

@@ -14,13 +14,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from ._logging import logger
 from .suite import (
     BUILTIN_SUITES,
     SuiteError,
     load_suite_reference,
     suite_profile_names,
 )
+
+logger = logging.getLogger("cuml.benchmark")
 
 DEFAULT_SUITE = "estimators"
 DEFAULT_PROVIDER = "cuml"

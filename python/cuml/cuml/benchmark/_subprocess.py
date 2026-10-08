@@ -14,7 +14,7 @@ from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from typing import Any, TypeVar
 
-from ._logging import logger
+logger = logging.getLogger("cuml.benchmark")
 
 _Result = TypeVar("_Result")
 
@@ -172,7 +172,9 @@ def run_in_subprocess(
                 if kind == "phase" and report_phase is not None:
                     report_phase(value)
                 elif kind == "log":
-                    logger.handle(logging.makeLogRecord(value))
+                    record = logging.makeLogRecord(value)
+                    if logger.isEnabledFor(record.levelno):
+                        logger.handle(record)
             if not process.is_alive() and not receiver.poll():
                 process.join()
                 raise SubprocessExited(process.exitcode)
