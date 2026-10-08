@@ -40,10 +40,7 @@ class DaskBackend(CumlBackend):
         da = importlib.import_module("dask.array")
         cp = importlib.import_module("cupy")
         chunks = (max(1, case.generated_rows // 2), case.features)
-        if case.dataset == "categorical" and case.estimator not in {
-            "LabelEncoder",
-            "LabelBinarizer",
-        }:
+        if case.dataset == "categorical":
             cudf = importlib.import_module("cudf")
             dask_cudf = importlib.import_module("dask_cudf")
             X = dask_cudf.from_cudf(cudf.from_pandas(X), npartitions=2)

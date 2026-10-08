@@ -23,6 +23,7 @@ from types import ModuleType, SimpleNamespace
 
 import jsonschema
 import numpy as np
+import pandas as pd
 import pytest
 import yaml
 from scipy import sparse
@@ -665,6 +666,39 @@ def test_generated_inputs_match_workload(
     elif kind == "categorical":
         assert np.all((values >= 0) & (values < 8))
         assert set(y) <= {0, 1}
+
+
+@pytest.mark.parametrize(
+    "kind,estimator,other_estimator",
+    [
+        ("matrix", "PCA", "MultinomialNB"),
+        ("categorical", "OneHotEncoder", "LabelEncoder"),
+    ],
+)
+def test_generated_dataset_is_independent_of_estimator(
+    kind, estimator, other_estimator
+):
+    case = resolve_case(
+        _request(
+            estimator=estimator,
+            parameters={},
+            dataset={
+                "kind": kind,
+                "shape": {"rows": 64, "features": 8},
+            },
+        ),
+        PROFILE,
+    )
+    X, y = generate_data(case)
+    other_X, other_y = generate_data(replace(case, estimator=other_estimator))
+    expected_type = pd.DataFrame if kind == "categorical" else np.ndarray
+    assert type(X) is type(other_X) is expected_type
+    assert type(y) is type(other_y) is np.ndarray
+    np.testing.assert_array_equal(other_y, y, strict=True)
+    if kind == "categorical":
+        pd.testing.assert_frame_equal(other_X, X)
+    else:
+        np.testing.assert_array_equal(other_X, X, strict=True)
 
 
 # Measurement contracts use fake estimators, not estimator accuracy tests.

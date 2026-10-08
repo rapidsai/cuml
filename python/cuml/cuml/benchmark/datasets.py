@@ -159,7 +159,11 @@ def resolve_dataset(
 
 
 def generate_data(case: ResolvedCase) -> tuple[Any, Any]:
-    """Generate reproducible feature and target inputs for a case.
+    """Generate inputs from dataset settings, independently of the estimator.
+
+    Categorical features are pandas DataFrames, other dense features are
+    NumPy arrays, and CSR features are SciPy sparse matrices. Targets are
+    always NumPy arrays. Backends adapt these host representations as needed.
 
     Parameters
     ----------
@@ -194,12 +198,7 @@ def generate_data(case: ResolvedCase) -> tuple[Any, Any]:
     dtypes = case.dtypes
     X = np.asarray(X, dtype=dtypes["X"])
     y = np.asarray(y, dtype=dtypes["y"])
-    if case.estimator in {"MultinomialNB", "ComplementNB"}:
-        X = np.abs(X)
-    if case.dataset == "categorical" and case.estimator not in {
-        "LabelEncoder",
-        "LabelBinarizer",
-    }:
+    if case.dataset == "categorical":
         pandas = importlib.import_module("pandas")
         X = pandas.DataFrame(
             X, columns=[f"feature_{index}" for index in range(case.features)]
