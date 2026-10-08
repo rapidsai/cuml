@@ -127,8 +127,10 @@ def _gpu_components() -> list[dict[str, Any]]:
         return []
 
 
-def atomic_write(path: str | Path, artifact: dict[str, Any]) -> None:
-    """Atomically replace a destination with a JSON artifact.
+def atomic_write(
+    path: str | Path, artifact: dict[str, Any], *, overwrite: bool = True
+) -> None:
+    """Atomically publish a JSON artifact, optionally requiring a new path.
 
     Parameters
     ----------
@@ -136,8 +138,10 @@ def atomic_write(path: str | Path, artifact: dict[str, Any]) -> None:
         Destination artifact path.
     artifact : dict
         JSON-compatible artifact to write.
+    overwrite : bool, default=True
+        Replace an existing destination. If False, fail if it already exists.
     """
-    destination = Path(path).resolve()
+    destination = Path(path).absolute()
     destination.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(
         prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
@@ -150,7 +154,13 @@ def atomic_write(path: str | Path, artifact: dict[str, Any]) -> None:
             stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, destination)
+        if overwrite:
+            os.replace(temporary, destination)
+        else:
+            # Linking publishes the complete file atomically without replacing
+            # an existing path, even if another process creates it meanwhile.
+            os.link(temporary, destination)
+            os.unlink(temporary)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(temporary)

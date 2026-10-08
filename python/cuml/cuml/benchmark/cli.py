@@ -216,6 +216,19 @@ def _run_plan(suite, output: Path, args) -> int:
     for run in suite.runs:
         if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", run.provider):
             raise SuiteError(f"unsafe provider filename: {run.provider!r}")
+    if not args.resume:
+        existing = [
+            output / f"{run.provider}.json"
+            for run in suite.runs
+            if (output / f"{run.provider}.json").exists()
+            or (output / f"{run.provider}.json").is_symlink()
+        ]
+        if existing:
+            raise SuiteError(
+                "results already exist: "
+                + ", ".join(str(path) for path in existing)
+                + "; use --resume or a new output directory"
+            )
     output.mkdir(parents=True, exist_ok=True)
     logger.info("Writing benchmark artifacts to %s", output)
     failed = []

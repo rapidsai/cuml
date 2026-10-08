@@ -494,6 +494,11 @@ def run_suite(
     resume : bool, default=False
         Retain successful cases from a compatible existing artifact.
     """
+    output = Path(output).absolute()
+    if not resume and (output.exists() or output.is_symlink()):
+        raise SuiteError(
+            f"results already exist at {output}; use --resume or a new output path"
+        )
     artifact = {
         "schema_version": 2,
         "run": _run_record(suite, list(argv or sys.argv)),
@@ -509,7 +514,12 @@ def run_suite(
         artifact, successful = _resume_artifact(
             output, artifact, set(case_ids)
         )
-    atomic_write(output, artifact)
+    try:
+        atomic_write(output, artifact, overwrite=resume)
+    except FileExistsError as exc:
+        raise SuiteError(
+            f"results already exist at {output}; use --resume or a new output path"
+        ) from exc
     suite_started = time.perf_counter()
     total = len(suite.cases)
     logger.info(

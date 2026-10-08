@@ -980,8 +980,8 @@ def test_cli_artifact_checkpoint_and_resume(registered_suite, monkeypatch):
     checkpoints = []
     write = harness.atomic_write
 
-    def checkpoint(path, artifact):
-        write(path, artifact)
+    def checkpoint(path, artifact, **kwargs):
+        write(path, artifact, **kwargs)
         persisted = json.loads(Path(path).read_text())
         _validate_artifact(persisted)
         checkpoints.append(persisted)
@@ -1088,6 +1088,104 @@ def test_interrupt_checkpoints_and_cleans_runtime(registered_suite):
     assert artifact["results"][0]["outcome"]["last_phase"] == "interrupted"
 
 
+@pytest.mark.parametrize("kind", ["file", "directory", "dangling_symlink"])
+def test_cli_refuses_existing_selected_artifact(
+    document, tmp_path, monkeypatch, capsys, kind
+):
+    document["providers"] = ["cuml", "scikit-learn"]
+    path = _write_suite(tmp_path, document)
+    output = tmp_path / "results"
+    output.mkdir()
+    existing = output / "scikit-learn.json"
+    if kind == "file":
+        existing.write_bytes(b"existing results")
+    elif kind == "directory":
+        existing.mkdir()
+    else:
+        existing.symlink_to(tmp_path / "missing")
+    monkeypatch.setattr(
+        cli.subprocess, "run", lambda *a, **k: pytest.fail("launched worker")
+    )
+    with pytest.raises(SystemExit) as error:
+        cli.main(
+            [
+                "--suite",
+                str(path),
+                "--provider",
+                "cuml",
+                "--provider",
+                "scikit-learn",
+                "--output",
+                str(output),
+            ]
+        )
+    assert error.value.code == 2
+    assert "use --resume or a new output directory" in capsys.readouterr().err
+    assert not (output / "cuml.json").exists()
+    if kind == "file":
+        assert existing.read_bytes() == b"existing results"
+
+
+def test_harness_refuses_existing_results(registered_suite):
+    manifest, output, events, _ = registered_suite
+    output.write_bytes(b"existing results")
+    suite = load_suite(manifest).runs[0]
+    with pytest.raises(SuiteError, match="results already exist"):
+        harness.run_suite(suite, output)
+    assert output.read_bytes() == b"existing results"
+    assert not events
+
+
+def test_harness_initial_write_handles_race(registered_suite, monkeypatch):
+    manifest, output, events, _ = registered_suite
+    suite = load_suite(manifest).runs[0]
+    original = harness._run_record
+
+    def record(*args):
+        result = original(*args)
+        output.write_bytes(b"concurrent results")
+        return result
+
+    monkeypatch.setattr(harness, "_run_record", record)
+    with pytest.raises(SuiteError, match="results already exist"):
+        harness.run_suite(suite, output)
+    assert output.read_bytes() == b"concurrent results"
+    assert "runtime-enter" not in events
+    assert not list(output.parent.glob(f".{output.name}.*.tmp"))
+
+
+def test_cli_allows_new_provider_in_existing_directory(
+    document, tmp_path, monkeypatch
+):
+    path = _write_suite(tmp_path, document)
+    output = tmp_path / "results"
+    output.mkdir()
+    unrelated = output / "cuml.json"
+    unrelated.write_bytes(b"unselected results")
+    calls = []
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda command, **kwargs: calls.append(command)
+        or SimpleNamespace(returncode=0),
+    )
+    assert (
+        cli.main(
+            [
+                "--suite",
+                str(path),
+                "--provider",
+                "scikit-learn",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert len(calls) == 1
+    assert unrelated.read_bytes() == b"unselected results"
+
+
 def test_cli_output_safety(monkeypatch, tmp_path, capsys):
     with pytest.raises(SystemExit) as error:
         cli.main(["--resume"])
@@ -1162,6 +1260,7 @@ def test_cli_coordinates_isolated_backends(document, tmp_path, monkeypatch):
     selected = [
         arg for name in document["providers"] for arg in ("--provider", name)
     ]
+    (output / "cuml.json").unlink()
     assert cli.main([*argv, *selected]) == 1
     assert calls == [(name, False) for name in document["providers"]]
     assert os.environ["CUML_ACCEL_ENABLED"] == "1"
@@ -1174,11 +1273,11 @@ def test_cli_coordinates_isolated_backends(document, tmp_path, monkeypatch):
         ("cuml.accel", False),
     ]
     calls.clear()
-    assert cli.main([*argv, "--provider", "cuml"]) == 0
-    assert calls == [("cuml", False)]
+    assert cli.main([*argv, "--provider", "cuml", "--resume"]) == 0
+    assert calls == [("cuml", True)]
     calls.clear()
-    assert cli.main([*argv, "--provider", "scikit-learn"]) == 1
-    assert calls == [("scikit-learn", False)]
+    assert cli.main([*argv, "--provider", "scikit-learn", "--resume"]) == 1
+    assert calls == [("scikit-learn", True)]
 
 
 def test_cli_default_requires_cuml_in_suite(

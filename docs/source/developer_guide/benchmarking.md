@@ -160,8 +160,10 @@ results/
 
 Without `--output`, the CLI chooses an unused timestamped directory in the current
 working directory. An explicit output directory may already exist. **Without
-`--resume`, results files for selected providers are replaced**; unrelated files and
-unselected providers' results files are left untouched. If startup fails before a
+`--resume`, the harness refuses to run if a selected provider's results file
+already exists.** Use `--resume` to continue the run or choose a new output
+directory. Unrelated files and unselected providers' results files are left
+untouched. If startup fails before a
 results file is created, the failure is reported in the console and exit status.
 Check the command's exit status to confirm the invocation succeeded.
 
