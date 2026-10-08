@@ -5,7 +5,11 @@
 
 from __future__ import annotations
 
+import importlib
+from types import SimpleNamespace
+import pytest
 from cuml.benchmark.identity import canonical_json, result_id
+from cuml.benchmark.backends import get_backend
 
 def test_workload_identity_contract():
     # This vector is shared with the dashboard, not a snapshot of suite contents.
@@ -49,4 +53,32 @@ def test_workload_identity_contract():
     assert (
         result_id(golden)
         == "sha256:8cb1f9fa544012b4b8807e81726987ba331ad2622b2f490817b5f50b628adfcd"
+    )
+
+
+@pytest.mark.parametrize("fallback", [False, True])
+def test_dask_synchronization(monkeypatch, fallback):
+    events = []
+
+    def wait(value):
+        events.append("wait")
+        if fallback:
+            raise TypeError("not a future")
+
+    modules = {
+        "dask.distributed": SimpleNamespace(wait=wait),
+        "cupy": SimpleNamespace(
+            cuda=SimpleNamespace(
+                runtime=SimpleNamespace(
+                    deviceSynchronize=lambda: events.append("gpu")
+                )
+            )
+        ),
+    }
+    monkeypatch.setattr(importlib, "import_module", modules.__getitem__)
+    get_backend("cuml.dask").synchronize(
+        SimpleNamespace(compute=lambda: events.append("compute"))
+    )
+    assert events == (
+        ["wait", "compute", "gpu"] if fallback else ["wait", "gpu"]
     )
