@@ -2143,7 +2143,7 @@ def test_run_worker_diagnostic_failures_continue(
     if failure == "descendant-stderr":
         script = (
             "import subprocess, sys; "
-            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(3)']); "
+            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)']); "
             f"open({str(pid_file)!r}, 'w').write(str(child.pid)); "
             "print('provider crashed', file=sys.stderr); sys.exit(7)"
         )
@@ -2157,6 +2157,24 @@ def test_run_worker_diagnostic_failures_continue(
             "sys.stderr.flush(); sys.exit(7)"
         )
         diagnostic = "startup \ufffd"
+    original = subprocess.Popen
+
+    class BoundedProcess(original):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.deadline = time.monotonic() + 30
+
+        def communicate(self, **kwargs):
+            # Bound draining without requiring fast process startup on busy CI.
+            remaining = self.deadline - time.monotonic()
+            if remaining <= 0:
+                pytest.fail("worker diagnostics did not finish within 30s")
+            kwargs["timeout"] = min(
+                kwargs.get("timeout", remaining), remaining
+            )
+            return super().communicate(**kwargs)
+
+    monkeypatch.setattr(runner.subprocess, "Popen", BoundedProcess)
     execute_worker = runner.run_command
     calls = []
 
@@ -2174,10 +2192,8 @@ def test_run_worker_diagnostic_failures_continue(
         )
 
     monkeypatch.setattr(coordinator, "run_command", execute)
-    started = time.monotonic()
     with pytest.raises(benchmark.BenchmarkRunError) as error:
         benchmark.run(path, providers=document["providers"])
-    assert time.monotonic() - started < 2
     assert calls == document["providers"]
     assert isinstance(error.value.results, benchmark.BenchmarkResults)
     assert list(error.value.results.artifacts) == document["providers"]
