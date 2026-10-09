@@ -106,6 +106,20 @@ class Backend:
         """
         return X, y
 
+    def prepare_inputs(
+        self, inputs: tuple[Any, ...], runtime: Any = None
+    ) -> tuple[Any, ...]:
+        """Materialize selected operation and fit inputs before execution.
+
+        Parameters
+        ----------
+        inputs : tuple
+            Inputs selected for the operation and any initial fit.
+        runtime : Any, optional
+            Backend runtime used to prepare inputs.
+        """
+        return inputs
+
     def runtime(self, suite: Suite) -> contextlib.AbstractContextManager[Any]:
         """Provide the runtime context for suite execution.
 

@@ -1811,6 +1811,127 @@ def test_real_backend_smoke(monkeypatch, tmp_path, provider, workload):
     _validate_artifact(artifact)
 
 
+@pytest.mark.parametrize("inference", [False, True])
+def test_dask_inputs_are_persisted_before_execution(monkeypatch, inference):
+    events = []
+    backend = get_backend("cuml.dask")
+    client = object()
+    live_inputs = []
+
+    class Input:
+        def __init__(self, name):
+            self.name = name
+
+        def __getitem__(self, key):
+            return Input((self.name, key.start, key.stop))
+
+    class Estimator:
+        def __init__(self, **kwargs):
+            assert kwargs["client"] is client
+            events.append("construct")
+
+        def fit(self, *args):
+            assert all(
+                any(arg is live for live in live_inputs) for arg in args
+            )
+            events.append("fit")
+            return self
+
+        def predict(self, *args):
+            assert all(
+                any(arg is live for live in live_inputs) for arg in args
+            )
+            events.append("predict")
+            return self
+
+    class Client:
+        def persist(self, values):
+            events.append("persist")
+            live_inputs.extend(Input(value.name) for value in values)
+            return live_inputs
+
+    runtime = Client()
+    client = runtime
+    futures = [SimpleNamespace(status="finished")]
+    modules = {
+        "dask": SimpleNamespace(
+            is_dask_collection=lambda value: isinstance(value, Input)
+        ),
+        "dask.distributed": SimpleNamespace(
+            futures_of=lambda values: futures,
+            wait=lambda values: events.append("wait"),
+        ),
+    }
+    monkeypatch.setattr(importlib, "import_module", modules.__getitem__)
+    monkeypatch.setattr(backend, "load_estimator", lambda spec: Estimator)
+    monkeypatch.setattr(backend, "synchronize", lambda value=None: None)
+    monkeypatch.setattr(
+        harness, "_generate_data", lambda *args: (Input("X"), Input("y"))
+    )
+    request = _request()
+    if inference:
+        request.update(operation="predict", fit_input_selection=["X", "y"])
+        request["dataset"]["shape"]["train_rows"] = 32
+    result = _benchmark(
+        resolve_case(request, PROFILE), provider="cuml.dask", client=runtime
+    )
+    assert result["outcome"] == {"status": "success"}
+    assert events[:2] == ["persist", "wait"]
+    assert events.count("persist") == events.count("wait") == 1
+    assert len(live_inputs) == (3 if inference else 1)
+    assert events[2:] == (
+        ["construct", "fit", "predict", "predict", "predict"]
+        if inference
+        else ["construct", "fit"] * 3
+    )
+
+
+@pytest.mark.parametrize("status", ["error", "cancelled"])
+def test_dask_input_preparation_propagates_failure(monkeypatch, status):
+    failure = RuntimeError("device conversion failed")
+    future = SimpleNamespace(status=status, exception=lambda: failure)
+    modules = {
+        "dask": SimpleNamespace(is_dask_collection=lambda value: True),
+        "dask.distributed": SimpleNamespace(
+            futures_of=lambda values: [future], wait=lambda values: None
+        ),
+    }
+    monkeypatch.setattr(importlib, "import_module", modules.__getitem__)
+    client = SimpleNamespace(persist=lambda values: values)
+    with pytest.raises(RuntimeError, match="conversion failed|cancelled"):
+        get_backend("cuml.dask").prepare_inputs((object(),), client)
+
+
+def test_dask_preparation_retains_real_persisted_inputs(tmp_path):
+    da = pytest.importorskip("dask.array")
+    distributed = pytest.importorskip("dask.distributed")
+    from dask import delayed
+
+    calls = tmp_path / "conversions.txt"
+
+    @delayed(pure=False)
+    def convert():
+        with calls.open("a") as stream:
+            stream.write("convert\n")
+        return np.ones((32, 8))
+
+    X = da.from_delayed(convert(), shape=(32, 8), dtype=np.float64)
+    with (
+        distributed.LocalCluster(
+            n_workers=1,
+            threads_per_worker=1,
+            processes=False,
+            dashboard_address=None,
+        ) as cluster,
+        distributed.Client(cluster) as client,
+    ):
+        (prepared,) = get_backend("cuml.dask").prepare_inputs((X,), client)
+        assert calls.read_text() == "convert\n"
+        for _ in range(3):
+            np.testing.assert_array_equal(prepared.compute(), np.ones((32, 8)))
+        assert calls.read_text() == "convert\n"
+
+
 @pytest.mark.parametrize("collection", [False, True])
 @pytest.mark.parametrize("nested", [False, True])
 def test_dask_synchronization(monkeypatch, collection, nested):

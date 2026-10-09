@@ -145,17 +145,29 @@ class _PreparedCase:
 
 
 def _prepare_case(
-    backend: Backend, suite: Suite, case: ResolvedCase, spec: EstimatorSpec
+    backend: Backend,
+    suite: Suite,
+    case: ResolvedCase,
+    spec: EstimatorSpec,
+    client: Any = None,
 ) -> _PreparedCase:
     """Load the estimator class and prepare partitioned case inputs."""
     estimator_class = backend.load_estimator(spec)
     X_train, y_train, X, y = _partition_data(case, backend)
+    operation_args = _inputs(case.input_selection, {"X": X, "y": y})
+    fit_args = (
+        ()
+        if case.lifecycle == "fit"
+        else _inputs(case.fit_input_selection, {"X": X_train, "y": y_train})
+    )
+    # Keep materialized inputs alive in the prepared case across every warmup
+    # and measurement, rather than rerunning a lazy conversion graph.
+    prepared_inputs = backend.prepare_inputs(operation_args + fit_args, client)
+    split = len(operation_args)
     return _PreparedCase(
         estimator_class=estimator_class,
-        operation_args=_inputs(case.input_selection, {"X": X, "y": y}),
-        fit_args=None
-        if case.lifecycle == "fit"
-        else _inputs(case.fit_input_selection, {"X": X_train, "y": y_train}),
+        operation_args=prepared_inputs[:split],
+        fit_args=None if case.lifecycle == "fit" else prepared_inputs[split:],
     )
 
 
@@ -252,7 +264,7 @@ def _benchmark_case(
 
     try:
         set_phase("preparation")
-        prepared = _prepare_case(backend, suite, case, spec)
+        prepared = _prepare_case(backend, suite, case, spec, client)
         is_training = case.lifecycle == "fit"
         if not is_training:
             set_phase("setup")

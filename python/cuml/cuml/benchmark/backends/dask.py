@@ -39,6 +39,9 @@ class DaskBackend(CumlBackend):
             return X, y
         da = importlib.import_module("dask.array")
         cp = importlib.import_module("cupy")
+        # TODO: Partition training and inference inputs independently using
+        # the runtime worker count. Combined-data chunking can leave inference
+        # with one partition, and two partitions underutilize larger clusters.
         chunks = (max(1, case.generated_rows // 2), case.features)
         if case.dataset == "categorical":
             cudf = importlib.import_module("cudf")
@@ -57,6 +60,45 @@ class DaskBackend(CumlBackend):
                 cp.asarray, meta=cp.empty((0,), dtype=y.dtype)
             )
         return X, y
+
+    def prepare_inputs(
+        self, inputs: tuple[Any, ...], runtime: Any = None
+    ) -> tuple[Any, ...]:
+        """Persist selected distributed inputs outside timed execution.
+
+        Parameters
+        ----------
+        inputs : tuple
+            Operation and fit inputs, already partitioned and selected.
+        runtime : Any, optional
+            Dask client owning the persisted input futures.
+        """
+        dask = importlib.import_module("dask")
+        indices = [
+            index
+            for index, value in enumerate(inputs)
+            if dask.is_dask_collection(value)
+        ]
+        if not indices:
+            # Distributed DBSCAN accepts local arrays, not Dask collections.
+            return inputs
+        distributed = importlib.import_module("dask.distributed")
+        client = runtime if runtime is not None else distributed.get_client()
+        persisted = client.persist([inputs[index] for index in indices])
+        # wait() alone does not raise failed-task exceptions. Resolve partition
+        # futures (not their arrays) to surface conversion failures without
+        # gathering the complete inputs onto the client.
+        futures = distributed.futures_of(persisted)
+        distributed.wait(futures)
+        for future in futures:
+            if future.status == "error":
+                raise future.exception()
+            if future.status == "cancelled":
+                raise RuntimeError("Dask input preparation was cancelled")
+        prepared = list(inputs)
+        for index, value in zip(indices, persisted, strict=True):
+            prepared[index] = value
+        return tuple(prepared)
 
     def construct_estimator(
         self,
