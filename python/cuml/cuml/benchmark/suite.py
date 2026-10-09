@@ -45,7 +45,9 @@ def _manifest_schema() -> ModuleType:
     """Import manifest validation support or report a missing dependency."""
     try:
         from . import _schema
-    except ImportError as exc:
+    except ModuleNotFoundError as exc:
+        if exc.name != "msgspec":
+            raise
         raise SuiteError(
             "Benchmark suite validation requires msgspec. Install it with "
             "`conda install -c conda-forge msgspec` or "
@@ -70,7 +72,9 @@ def _load_suite_document(suite_path: Path) -> Any:
     """Read a YAML suite document with actionable loading errors."""
     try:
         import yaml
-    except ImportError as exc:
+    except ModuleNotFoundError as exc:
+        if exc.name != "yaml":
+            raise
         raise SuiteError(
             "YAML benchmark suites require PyYAML. Install it with "
             "`conda install -c conda-forge pyyaml` or "
