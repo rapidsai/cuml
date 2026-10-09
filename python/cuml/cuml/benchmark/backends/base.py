@@ -104,7 +104,6 @@ class Backend:
         y : Any
             Complete generated target data.
         """
-        # Called on the complete generated dataset, BEFORE contiguous slicing.
         return X, y
 
     def runtime(self, suite: Suite) -> contextlib.AbstractContextManager[Any]:

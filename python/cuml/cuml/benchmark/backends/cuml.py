@@ -12,7 +12,7 @@ from .base import GPUBackend
 
 
 def _git_output(root: Path, *args: str) -> str:
-    """Read Git metadata without interpreting filenames as pathspec patterns."""
+    """Read Git metadata from the given checkout."""
     return subprocess.run(
         ["git", "--literal-pathspecs", *args],
         cwd=root,
