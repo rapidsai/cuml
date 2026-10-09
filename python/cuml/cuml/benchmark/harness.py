@@ -34,6 +34,9 @@ EXTENSION = "com.nvidia.cuml.benchmark"
 
 def _run_record(suite: Suite, argv: list[str]) -> dict[str, Any]:
     """Collect suite, command, software, and system metadata."""
+    # TODO: Record effective BLAS/OpenMP thread counts and CPU affinity, and
+    # include them in resume compatibility checks. Otherwise a resumed run
+    # can mix results from different CPU parallelism settings.
     cpu = platform.processor() or platform.machine() or "unknown processor"
     return {
         "id": f"urn:uuid:{uuid.uuid4()}",
@@ -92,6 +95,9 @@ def _partition_data(
     case: ResolvedCase, backend: Backend
 ) -> tuple[Any, Any, Any, Any]:
     """Partition generated inputs into training and measurement data."""
+    # TODO: Split host inputs before backend conversion, or provide a backend
+    # row-slicing hook. Dask-cuDF does not support these positional slices,
+    # so categorical inference fails even when only y is selected.
     X, y = _generate_data(case, backend)
     if case.lifecycle == "fit":
         return None, None, X, y

@@ -39,9 +39,11 @@ class DaskBackend(CumlBackend):
             return X, y
         da = importlib.import_module("dask.array")
         cp = importlib.import_module("cupy")
-        # TODO: Partition training and inference inputs independently using
-        # the runtime worker count. Combined-data chunking can leave inference
-        # with one partition, and two partitions underutilize larger clusters.
+        # TODO: Split training and inference data before backend conversion,
+        # then partition and distribute each using the runtime worker count.
+        # Fixed two-way chunking leaves every built-in inference input in one
+        # partition, so partition-parallel predictions use only one worker.
+        # Training also underutilizes clusters with more than two workers.
         chunks = (max(1, case.generated_rows // 2), case.features)
         if case.dataset == "categorical":
             cudf = importlib.import_module("cudf")
