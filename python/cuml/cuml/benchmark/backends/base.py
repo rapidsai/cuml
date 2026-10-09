@@ -186,9 +186,7 @@ class GPUBackend(Backend):
         value : Any, optional
             Operation output, unused by device synchronization.
         """
-        try:
-            importlib.import_module("cupy").cuda.runtime.deviceSynchronize()
-        except Exception:
-            # Preserve the estimator's original exception path when GPU
-            # synchronization is unavailable; execution will fail clearly.
-            pass
+        # Asynchronous CUDA failures may first surface at this boundary. Let
+        # them propagate so the harness cannot record a successful observation
+        # for failed GPU work (or an unsynchronized timing).
+        importlib.import_module("cupy").cuda.runtime.deviceSynchronize()

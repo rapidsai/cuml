@@ -36,7 +36,7 @@ from cuml.benchmark._hashing import canonical_json
 from cuml.benchmark.backends import cuml as cuml_backend
 from cuml.benchmark.backends import get_backend
 from cuml.benchmark.backends.accel import ACCEL_EXTENSION
-from cuml.benchmark.backends.base import Backend
+from cuml.benchmark.backends.base import Backend, GPUBackend
 from cuml.benchmark.datasets import generate_data
 from cuml.benchmark.providers import PROVIDERS, Provider, get_provider
 from cuml.benchmark.providers.base import EstimatorSpec
@@ -839,6 +839,53 @@ def test_only_synchronized_operation_is_timed(monkeypatch, operation):
         and o["metrics"] == []
         for o in result["observations"]
     )
+
+
+@pytest.mark.parametrize("failure_at", [0, 1])
+def test_gpu_synchronization_failure_fails_observation(monkeypatch, failure_at):
+    backend = get_backend("cuml")
+    calls = 0
+
+    class Estimator:
+        def __init__(self, **kwargs):
+            pass
+
+        def fit(self, X):
+            return self
+
+    def synchronize():
+        nonlocal calls
+        index = calls
+        calls += 1
+        if index == failure_at:
+            raise RuntimeError("asynchronous CUDA failure")
+
+    cupy = SimpleNamespace(
+        cuda=SimpleNamespace(
+            runtime=SimpleNamespace(deviceSynchronize=synchronize)
+        )
+    )
+    monkeypatch.setattr(backend, "load_estimator", lambda spec: Estimator)
+    monkeypatch.setattr(
+        harness, "_generate_data", lambda case, backend: (np.ones((64, 8)), None)
+    )
+    monkeypatch.setattr(importlib, "import_module", lambda name: cupy)
+    result = _benchmark(resolve_case(_request(), PROFILE), provider="cuml")
+    assert result["outcome"]["status"] == "failed"
+    assert result["outcome"]["last_phase"] == "warmup"
+    assert result["outcome"]["error"]["message"] == "asynchronous CUDA failure"
+    assert len(result["observations"]) == 1
+    assert result["observations"][0]["timings"] == []
+    assert calls == failure_at + 1
+
+
+def test_gpu_synchronization_requires_cupy(monkeypatch):
+    def unavailable(name):
+        raise ModuleNotFoundError("No module named 'cupy'", name="cupy")
+
+    monkeypatch.setattr(importlib, "import_module", unavailable)
+    with pytest.raises(ModuleNotFoundError, match="cupy"):
+        GPUBackend().synchronize()
 
 
 @pytest.mark.parametrize("fallback_at", [None, 0, 1])
