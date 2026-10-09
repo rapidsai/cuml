@@ -46,7 +46,7 @@ cases:
     dataset:
       generator: blobs
       shape:
-        rows: 750
+        rows: 20000
         features: 64
     operation: fit_predict
     input_selection: [X]
@@ -58,7 +58,7 @@ cases:
     dataset:
       generator: blobs
       shape:
-        rows: 1000
+        rows: 50000
         features: 64
     operation: fit_predict
     input_selection: [X]
@@ -197,8 +197,8 @@ cases:
     dataset:
       generator: matrix
       shape:
-        rows: 2000
-        train_rows: 18000
+        rows: 10000
+        train_rows: 90000
         features: 16
     operation: score_samples
     input_selection: [X]
@@ -280,8 +280,8 @@ cases:
     dataset:
       generator: regression
       shape:
-        rows: 100
-        train_rows: 900
+        rows: 30000
+        train_rows: 27000
         features: 64
     operation: predict
     input_selection: [X]
@@ -340,7 +340,7 @@ cases:
     dataset:
       generator: blobs
       shape:
-        rows: 750
+        rows: 30000
         features: 64
     operation: fit_transform
     input_selection: [X]
@@ -423,7 +423,7 @@ cases:
     dataset:
       generator: positive
       shape:
-        rows: 20000
+        rows: 500000
         train_rows: 180000
         features: 256
     operation: predict
@@ -436,7 +436,7 @@ cases:
     dataset:
       generator: positive
       shape:
-        rows: 20000
+        rows: 500000
         train_rows: 180000
         features: 256
     operation: predict
@@ -449,7 +449,7 @@ cases:
     dataset:
       generator: categorical
       shape:
-        rows: 20000
+        rows: 500000
         train_rows: 180000
         features: 64
       dtype:
@@ -569,7 +569,7 @@ cases:
     dataset:
       generator: positive
       shape:
-        rows: 5000
+        rows: 1000000
         features: 64
     operation: fit_transform
     input_selection: [X]
@@ -654,7 +654,7 @@ cases:
     dataset:
       generator: blobs
       shape:
-        rows: 10000
+        rows: 200000
         features: 100
     operation: fit_transform
     input_selection: [X]
@@ -668,7 +668,7 @@ cases:
     dataset:
       generator: blobs
       shape:
-        rows: 10000
+        rows: 35000
         features: 100
     operation: fit_predict
     input_selection: [X]
