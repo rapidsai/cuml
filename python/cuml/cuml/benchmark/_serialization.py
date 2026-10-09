@@ -8,12 +8,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ._utils import _jsonable
-from .datasets import DATA_SEED
+from .datasets import DATA_GENERATOR, DATA_SEED
 
 if TYPE_CHECKING:
     from .suite import ResolvedCase
-
-DATA_GENERATOR = "com.nvidia.cuml.benchmark.generate-data-v1"
 
 
 def dataset_descriptor(case: ResolvedCase) -> dict[str, Any]:

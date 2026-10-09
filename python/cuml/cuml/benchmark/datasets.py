@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .suite import ResolvedCase
 
+DATA_GENERATOR = "com.nvidia.cuml.benchmark.generate-data-v1"
 DATA_SEED = 42
 DATASETS = frozenset(
     {
