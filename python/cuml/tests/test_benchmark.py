@@ -1210,7 +1210,7 @@ def test_cli_refuses_existing_selected_artifact(
         existing.symlink_to(tmp_path / "missing")
     monkeypatch.setattr(
         coordinator,
-        "_execute_worker",
+        "run_command",
         lambda *a, **k: pytest.fail("launched worker"),
     )
     with pytest.raises(SystemExit) as error:
@@ -1301,7 +1301,7 @@ def test_cli_allows_new_provider_in_existing_directory(
         calls.append(command)
         _write_worker_artifact(command)
 
-    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    monkeypatch.setattr(coordinator, "run_command", execute)
     assert (
         cli.main(
             [
@@ -1354,7 +1354,7 @@ def test_coordinator_rejects_accelerated_caller(
     )
     monkeypatch.setattr(
         coordinator,
-        "_execute_worker",
+        "run_command",
         lambda *a, **k: pytest.fail("launched worker"),
     )
     path = _write_suite(tmp_path, document)
@@ -1404,7 +1404,7 @@ def test_coordinator_preserves_worker_environment(
         environment["BENCHMARK_ENV_TEST"] = "changed"
         _write_worker_artifact(command)
 
-    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    monkeypatch.setattr(coordinator, "run_command", execute)
     benchmark.run(
         path, providers=document["providers"], output=tmp_path / "results"
     )
@@ -1432,7 +1432,7 @@ def test_cli_coordinates_isolated_backends(document, tmp_path, monkeypatch):
         if backend == "scikit-learn":
             raise RuntimeError("worker exited with status 1")
 
-    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    monkeypatch.setattr(coordinator, "run_command", execute)
     argv = ["--suite", str(path), "--output", str(output), "--verbose"]
     assert cli.main(argv) == 0
     assert calls == [("cuml", False)]
@@ -1466,7 +1466,7 @@ def test_cli_default_requires_cuml_in_suite(
     path = _write_suite(tmp_path, document)
     monkeypatch.setattr(
         coordinator,
-        "_execute_worker",
+        "run_command",
         lambda *a, **k: pytest.fail("launched worker"),
     )
     with pytest.raises(SystemExit) as exc:
@@ -1481,7 +1481,7 @@ def test_cli_coordinator_output_errors(document, tmp_path, monkeypatch):
     output = tmp_path / "missing"
     monkeypatch.setattr(
         coordinator,
-        "_execute_worker",
+        "run_command",
         lambda *a, **k: pytest.fail("launched worker"),
     )
     with pytest.raises(SystemExit):
@@ -1935,7 +1935,7 @@ def test_run_builtin_defaults_and_temporary_cleanup(monkeypatch):
         paths.append(Path(command[command.index("--output") + 1]))
         _write_worker_artifact(command)
 
-    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    monkeypatch.setattr(coordinator, "run_command", execute)
     results = benchmark.run(profile="smoke")
     assert isinstance(results, benchmark.BenchmarkResults)
     assert list(results.artifacts) == ["cuml"]
@@ -1955,7 +1955,7 @@ def test_run_yaml_persistence_and_resume(
         calls.append("--resume" in command)
         _write_worker_artifact(command)
 
-    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    monkeypatch.setattr(coordinator, "run_command", execute)
     results = benchmark.run(
         reference_type(path), providers=["scikit-learn"], output=output
     )
@@ -1993,7 +1993,7 @@ def test_run_configuration_errors_before_launch(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         coordinator,
-        "_execute_worker",
+        "run_command",
         lambda *a: pytest.fail("launched worker"),
     )
     with pytest.raises(SuiteError):
@@ -2036,7 +2036,7 @@ def test_run_partial_failures_continue_and_clean_output(
         if failure == "malformed":
             artifact_path.write_text("not json")
 
-    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    monkeypatch.setattr(coordinator, "run_command", execute)
     with pytest.raises(benchmark.BenchmarkRunError) as error:
         benchmark.run(path, providers=document["providers"])
     assert [p.stem for p in paths] == document["providers"]
@@ -2077,7 +2077,7 @@ def test_run_rejects_invalid_worker_artifact(
             json.dumps(artifact)
         )
 
-    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    monkeypatch.setattr(coordinator, "run_command", execute)
     with pytest.raises(benchmark.BenchmarkRunError) as error:
         benchmark.run(path, providers=["scikit-learn"])
     diagnostic = (
@@ -2100,7 +2100,7 @@ def test_run_interrupt_output_cleanup(
         paths.append(Path(command[command.index("--output") + 1]))
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    monkeypatch.setattr(coordinator, "run_command", execute)
     with pytest.raises(KeyboardInterrupt):
         benchmark.run(
             path,
@@ -2109,6 +2109,33 @@ def test_run_interrupt_output_cleanup(
         )
     assert paths[0].exists() == persistent
     assert paths[0].parent.exists() == persistent
+
+
+def test_run_command_forwards_output(monkeypatch, capfd):
+    monkeypatch.setattr(
+        runner.locale, "getpreferredencoding", lambda _: "utf-8"
+    )
+    script = (
+        "import os, sys, time; "
+        "print(os.environ['BENCHMARK_COMMAND_TEST'], flush=True); "
+        "sys.stderr.buffer.write(b'progress \\xe2'); sys.stderr.flush(); "
+        "time.sleep(0.3); "
+        "sys.stderr.buffer.write(b'\\x82\\xac\\n'); sys.stderr.flush()"
+    )
+    runner.run_command(
+        [sys.executable, "-c", script],
+        {**os.environ, "BENCHMARK_COMMAND_TEST": "inherited stdout"},
+    )
+    captured = capfd.readouterr()
+    assert captured.out == "inherited stdout\n"
+    assert captured.err == "progress €\n"
+
+
+def test_run_command_launch_failure(tmp_path):
+    with pytest.raises(OSError):
+        runner.run_command(
+            [str(tmp_path / "missing-command")], dict(os.environ)
+        )
 
 
 @pytest.mark.skipif(
@@ -2132,7 +2159,7 @@ def test_run_interrupt_stops_provider_and_descendant(tmp_path, monkeypatch):
             )
             raise KeyboardInterrupt
 
-    monkeypatch.setattr(coordinator.subprocess, "Popen", InterruptedProcess)
+    monkeypatch.setattr(runner.subprocess, "Popen", InterruptedProcess)
     script = (
         "import json, os, subprocess, sys, time; "
         "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)']); "
@@ -2140,7 +2167,7 @@ def test_run_interrupt_stops_provider_and_descendant(tmp_path, monkeypatch):
         "time.sleep(120)"
     )
     with pytest.raises(KeyboardInterrupt):
-        coordinator._execute_worker(
+        runner.run_command(
             [sys.executable, "-c", script], dict(os.environ)
         )
     _, alive = psutil.wait_procs(processes, timeout=5)
@@ -2203,7 +2230,7 @@ def test_run_worker_diagnostic_failures_continue(
             "sys.stderr.flush(); sys.exit(7)"
         )
         diagnostic = "startup \ufffd"
-    execute_worker = coordinator._execute_worker
+    execute_worker = runner.run_command
     calls = []
 
     def execute(command, environment):
@@ -2219,7 +2246,7 @@ def test_run_worker_diagnostic_failures_continue(
             environment,
         )
 
-    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    monkeypatch.setattr(coordinator, "run_command", execute)
     started = time.monotonic()
     with pytest.raises(benchmark.BenchmarkRunError) as error:
         benchmark.run(path, providers=document["providers"])
