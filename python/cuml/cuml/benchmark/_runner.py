@@ -157,9 +157,8 @@ def _run_plan(
 ) -> BenchmarkResults:
     """Run isolated provider workers sequentially, retaining each checkpoint."""
     accel = sys.modules.get("cuml.accel")
-    if (
-        os.environ.get("CUML_ACCEL_ENABLED", "").lower() in ("1", "true")
-        or (accel is not None and accel.enabled())
+    if os.environ.get("CUML_ACCEL_ENABLED", "").lower() in ("1", "true") or (
+        accel is not None and accel.enabled()
     ):
         raise SuiteError(
             "Benchmarks must be launched from a process without cuml.accel "
@@ -234,7 +233,7 @@ def _run_plan(
             if provider not in failures and (
                 len(artifact["results"]) != len(provider_run.cases)
                 or {r["id"] for r in artifact["results"]}
-                != {case.id for case in provider_run.cases}
+                != {case.workload_id() for case in provider_run.cases}
             ):
                 failures[provider] = (
                     "artifact does not contain all expected cases"

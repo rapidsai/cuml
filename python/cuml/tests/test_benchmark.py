@@ -17,7 +17,7 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -32,12 +32,12 @@ from cuml import benchmark
 from cuml.benchmark import _runner as coordinator
 from cuml.benchmark import _subprocess as runner
 from cuml.benchmark import cli, harness
+from cuml.benchmark._hashing import canonical_json
 from cuml.benchmark.backends import cuml as cuml_backend
 from cuml.benchmark.backends import get_backend
 from cuml.benchmark.backends.accel import ACCEL_EXTENSION
 from cuml.benchmark.backends.base import Backend
 from cuml.benchmark.datasets import generate_data
-from cuml.benchmark.identity import canonical_json, result_id
 from cuml.benchmark.providers import PROVIDERS, Provider, get_provider
 from cuml.benchmark.providers.base import EstimatorSpec
 from cuml.benchmark.schemas import benchmark_result_schema
@@ -45,6 +45,7 @@ from cuml.benchmark.suite import (
     BUILTIN_SUITES,
     Suite,
     SuiteError,
+    Workload,
     load_suite,
     load_suite_reference,
     resolve_case,
@@ -112,7 +113,7 @@ def _validate_artifact(artifact):
         schema, format_checker=jsonschema.FormatChecker()
     ).validate(artifact)
     for result in artifact["results"]:
-        assert result["id"] == result_id(result)
+        assert result["id"] == Workload.from_artifact_fields(result).digest()
         assert (
             result["implementation"] in artifact["run"]["software"]["packages"]
         )
@@ -139,7 +140,10 @@ def test_provider_qualified_hdbscan_workers(document, tmp_path):
     jsonschema.validate(document, suite_manifest_json_schema())
     plan = load_suite(path)
     assert [run.provider for run in plan.runs] == document["providers"]
-    assert plan.runs[0].cases[0].id == plan.runs[1].cases[0].id
+    assert (
+        plan.runs[0].cases[0].workload().digest()
+        == plan.runs[1].cases[0].workload().digest()
+    )
     assert [
         run.provider_spec.estimator_spec("HDBSCAN").module for run in plan.runs
     ] == ["sklearn.cluster", "hdbscan"]
@@ -288,7 +292,9 @@ def test_packaged_suites_are_valid_and_comparable():
             assert [run.provider for run in plan.runs] == document["providers"]
             for suite in plan.runs:
                 assert suite.cases
-                assert len({c.id for c in suite.cases}) == len(suite.cases)
+                assert len(
+                    {c.workload().digest() for c in suite.cases}
+                ) == len(suite.cases)
                 if path.stem in BUILTIN_SUITES:
                     builtin = load_suite_reference(
                         path.stem, profile, [suite.provider]
@@ -304,8 +310,14 @@ def test_packaged_suites_are_valid_and_comparable():
                         case.input_format,
                         case.dtypes["X"],
                     )
-                    assert comparable.setdefault(key, case.id) == case.id
-                    assert case.id == result_id(case.to_artifact_fields())
+                    identity = case.workload()
+                    assert (
+                        comparable.setdefault(key, identity.digest())
+                        == identity.digest()
+                    )
+                    assert identity == Workload.from_artifact_fields(
+                        case.to_artifact_fields()
+                    )
     assert {p.stem for p in SUITES.glob("*.yaml")} >= BUILTIN_SUITES
 
 
@@ -344,7 +356,10 @@ def test_python_and_yaml_resolution_agree(
     request["dataset"]["dtype"]["y"] = "float32"
     assert case.parameters == {"n_components": 2}
     assert case.dtypes["y"] == "int64"
-    assert resolve_case(request, profile).id != case.id
+    assert (
+        resolve_case(request, profile).workload().digest()
+        != case.workload().digest()
+    )
 
 
 @pytest.mark.parametrize(
@@ -412,7 +427,7 @@ def test_suite_provider_selection(document, tmp_path):
     path = _write_suite(tmp_path, document)
     plan = load_suite(path)
     assert [len(run.cases) for run in plan.runs] == [2, 2, 1]
-    assert len({run.cases[0].id for run in plan.runs}) == 1
+    assert len({run.cases[0].workload().digest() for run in plan.runs}) == 1
     selected = load_suite(path, providers=["cuml.accel", "cuml"])
     assert selected.runs == (plan.runs[0], plan.runs[2])
     document["profiles"]["standard"]["warmups"] = 0
@@ -518,7 +533,7 @@ def test_workload_identity_contract():
         {"numbers": [333333333.33333329, 1e30, 4.50, 2e-3, 1e-27]}
     ) == ('{"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27]}')
     assert (
-        result_id(golden)
+        Workload.from_artifact_fields(golden).digest()
         == "sha256:af3343fed9b578a2561c486766d45f38dc1a6c6e5bacc5a9477d97f8a8dc1e28"
     )
     request = _request(operation="transform", fit_input_selection=["X"])
@@ -526,7 +541,10 @@ def test_workload_identity_contract():
     case = resolve_case(request, PROFILE)
     explicit = copy.deepcopy(request)
     explicit["dataset"].update(dtype="float32", format="dense", parameters={})
-    assert resolve_case(explicit, PROFILE).id == case.id
+    assert (
+        resolve_case(explicit, PROFILE).workload().digest()
+        == case.workload().digest()
+    )
     for changed in (
         replace(case, estimator="Other"),
         replace(case, parameters={"n_components": 3}),
@@ -537,7 +555,7 @@ def test_workload_identity_contract():
         replace(case, input_selection=("y",)),
         replace(case, fit_input_selection=("X", "y")),
     ):
-        assert changed.id != case.id
+        assert changed.workload().digest() != case.workload().digest()
     result = case.to_artifact_fields()
     assert result["dataset"]["kind"] == "generated"
     assert result["dataset"]["name"] == "matrix"
@@ -551,10 +569,28 @@ def test_workload_identity_contract():
         extensions={},
     )
     result["parameters"]["effective"] = {"n_components": 99}
-    assert result_id(result) == case.id
     assert (
-        replace(case, warmups=2, repetitions=5, timeout_sec=10).id == case.id
+        Workload.from_artifact_fields(result).digest()
+        == case.workload().digest()
     )
+    assert (
+        replace(case, warmups=2, repetitions=5, timeout_sec=10).workload_id()
+        == case.workload_id()
+    )
+
+
+def test_workload_is_frozen_and_roundtrips():
+    case = resolve_case(
+        _request(parameters={"nested": {"values": [1, 2]}}), PROFILE
+    )
+    identity = case.workload()
+    with pytest.raises(FrozenInstanceError):
+        identity.algorithm = "Other"
+
+    artifact = json.loads(json.dumps(case.to_artifact_fields()))
+    restored = Workload.from_artifact_fields(artifact)
+    assert restored == identity
+    assert restored.digest() == identity.digest() == case.workload_id()
 
 
 @pytest.mark.parametrize(
@@ -1220,7 +1256,7 @@ def _write_worker_artifact(command, *, failed=False):
         "run": {"extensions": extension},
         "results": [
             {
-                "id": case.id,
+                "id": case.workload_id(),
                 "outcome": {"status": "failed" if failed else "success"},
                 "extensions": extension,
             }
@@ -1539,7 +1575,7 @@ def test_spawned_case_completes(tmp_path, monkeypatch):
     assert json.loads(output.read_text()) == artifact
     result = artifact["results"][0]
     assert result["outcome"] == {"status": "success"}
-    assert result["id"] == case.id
+    assert result["id"] == case.workload_id()
     assert [o["role"] for o in result["observations"]] == [
         "warmup",
         "measurement",
@@ -1659,7 +1695,7 @@ def _real_backend_smoke(provider, workload, output, *, report_phase):
     assert json.loads(output.read_text()) == artifact
     result = artifact["results"][0]
     assert result["outcome"] == {"status": "success"}, result["outcome"]
-    assert result["id"] == case.id
+    assert result["id"] == case.workload_id()
     assert result["input"]["data_type"] == case.dtypes["X"]
     if provider == "cuml.accel":
         dispatch = result["observations"][0]["extensions"][ACCEL_EXTENSION]
@@ -2094,9 +2130,7 @@ def test_run_interrupt_stops_provider_and_descendant(tmp_path, monkeypatch):
         "time.sleep(120)"
     )
     with pytest.raises(KeyboardInterrupt):
-        runner.run_command(
-            [sys.executable, "-c", script], dict(os.environ)
-        )
+        runner.run_command([sys.executable, "-c", script], dict(os.environ))
     _, alive = psutil.wait_procs(processes, timeout=5)
     assert all(process.status() == psutil.STATUS_ZOMBIE for process in alive)
 

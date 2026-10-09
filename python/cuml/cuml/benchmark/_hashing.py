@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Canonicalize workload descriptors and derive stable result identifiers."""
+"""Canonicalize JSON-compatible values and compute content hashes."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ import math
 from decimal import Decimal
 from typing import Any, Mapping
 
-IDENTITY_SCHEMA = "benchmark-result-case-v1"
 MAX_SAFE_INTEGER = 2**53 - 1
 
 
@@ -124,36 +123,13 @@ def canonical_json(value: Any) -> str:
     )
 
 
-def identity_preimage(result: Mapping[str, Any]) -> dict[str, Any]:
-    """Extract the workload fields that determine result identity.
+def content_hash(value: Any) -> str:
+    """Return an algorithm-prefixed SHA-256 digest of canonical JSON.
 
     Parameters
     ----------
-    result : Mapping
-        Result containing workload descriptors and declared parameters.
+    value : Any
+        JSON-compatible value to hash.
     """
-    input_descriptor = result["input"]
-    return {
-        "identity_schema": IDENTITY_SCHEMA,
-        "algorithm": result["algorithm"],
-        "dataset": result["dataset"],
-        "operation": result["operation"],
-        "input": {
-            "dimensions": input_descriptor["dimensions"],
-            "data_type": input_descriptor["data_type"],
-            "selection": input_descriptor["selection"],
-        },
-        "parameters": result["parameters"]["declared"],
-    }
-
-
-def result_id(result: Mapping[str, Any]) -> str:
-    """Return a SHA-256 identifier for a result's canonical workload.
-
-    Parameters
-    ----------
-    result : Mapping
-        Result containing identity-bearing workload fields.
-    """
-    payload = canonical_json(identity_preimage(result)).encode("utf-8")
+    payload = canonical_json(value).encode("utf-8")
     return "sha256:" + hashlib.sha256(payload).hexdigest()

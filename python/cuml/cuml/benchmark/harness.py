@@ -23,9 +23,8 @@ from ._subprocess import SubprocessExited, SubprocessTimeout, run_in_subprocess
 from ._utils import _failure, _gpu_components, _jsonable, _now, atomic_write
 from .backends.base import Backend
 from .datasets import generate_data
-from .identity import result_id
 from .providers.base import EstimatorSpec
-from .suite import ResolvedCase, Suite, SuiteError
+from .suite import ResolvedCase, Suite, SuiteError, Workload
 
 logger = logging.getLogger("cuml.benchmark")
 
@@ -132,7 +131,7 @@ def _base_result(
             }
         },
     }
-    result["id"] = case.id
+    result["id"] = case.workload_id()
     return result
 
 
@@ -390,7 +389,7 @@ def _validate_resume_artifact(
         )
     if any(
         result["id"] not in expected_case_ids
-        or result_id(result) != result["id"]
+        or Workload.from_artifact_fields(result).digest() != result["id"]
         for result in previous["results"]
     ):
         raise SuiteError("resume artifact contains incompatible workload IDs")
@@ -475,7 +474,7 @@ def run_suite(
         package["name"]: package
         for package in artifact["run"]["software"]["packages"]
     }
-    case_ids = [case.id for case in suite.cases]
+    case_ids = [case.workload_id() for case in suite.cases]
     successful = set()
     if resume:
         artifact, successful = _resume_artifact(

@@ -7,16 +7,22 @@ from __future__ import annotations
 
 import copy
 import importlib.resources
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal
 
+from ._hashing import content_hash
 from ._serialization import case_artifact_fields
-from .datasets import resolve_dataset, resolve_dtypes
-from .identity import result_id
+from ._utils import _jsonable
+from .datasets import (
+    DATA_GENERATOR,
+    DATA_SEED,
+    resolve_dataset,
+    resolve_dtypes,
+)
 from .providers import PROVIDERS, Provider, get_provider
 
 if TYPE_CHECKING:
@@ -87,6 +93,55 @@ def _load_suite_document(suite_path: Path) -> Any:
 
 
 @dataclass(frozen=True, kw_only=True)
+class Workload:
+    """Store identity-bearing workload fields; nested values are read-only by convention."""
+
+    algorithm: str
+    dataset: Mapping[str, Any]
+    operation: Mapping[str, str]
+    dimensions: tuple[Mapping[str, Any], ...]
+    data_type: str
+    selection: tuple[str, ...]
+    parameters: Mapping[str, Any]
+
+    def digest(self) -> str:
+        """Return the workload's canonical, algorithm-prefixed SHA-256 digest."""
+        return content_hash(
+            {
+                "identity_schema": "benchmark-result-case-v1",
+                "algorithm": self.algorithm,
+                "dataset": self.dataset,
+                "operation": self.operation,
+                "input": {
+                    "dimensions": self.dimensions,
+                    "data_type": self.data_type,
+                    "selection": self.selection,
+                },
+                "parameters": self.parameters,
+            }
+        )
+
+    @classmethod
+    def from_artifact_fields(cls, result: Mapping[str, Any]) -> Workload:
+        """Reconstruct identity from persisted workload descriptors.
+
+        Parameters
+        ----------
+        result : Mapping
+            Artifact result containing workload fields and declared parameters.
+        """
+        return cls(
+            algorithm=result["algorithm"],
+            dataset=result["dataset"],
+            operation=result["operation"],
+            dimensions=tuple(result["input"]["dimensions"]),
+            data_type=result["input"]["data_type"],
+            selection=tuple(result["input"]["selection"]),
+            parameters=result["parameters"]["declared"],
+        )
+
+
+@dataclass(frozen=True, kw_only=True)
 class ResolvedCase:
     """Store validated workload settings and execution counts for one case."""
 
@@ -116,15 +171,51 @@ class ResolvedCase:
         """Serialize the case's workload fields for a result artifact."""
         return case_artifact_fields(self)
 
-    @property
-    def id(self) -> str:
-        """Return the content-derived workload identifier."""
-        return result_id(self.to_artifact_fields())
+    def workload(self) -> Workload:
+        """Return this case's workload, excluding execution settings."""
+        dataset_parameters = {
+            **self.dataset_parameters,
+            "dtypes": self.dtypes,
+            "input_format": self.input_format,
+        }
+        if self.lifecycle == "inference":
+            dataset_parameters.update(
+                train_rows=self.training_rows,
+                inference_rows=self.measured_rows,
+                partition="disjoint-contiguous-v1",
+                fit_input_selection=list(self.fit_input_selection),
+            )
+        return Workload(
+            algorithm=self.estimator,
+            dataset={
+                "name": self.dataset,
+                "kind": "generated",
+                "parameters": dataset_parameters,
+                "generator": DATA_GENERATOR,
+                "fingerprint": None,
+                "random_seed": DATA_SEED,
+            },
+            operation={"name": self.operation, "lifecycle": self.lifecycle},
+            dimensions=(
+                {"name": "rows", "size": self.measured_rows},
+                {"name": "features", "size": self.features},
+            ),
+            data_type=self.dtypes[
+                "y" if self.input_selection == ("y",) else "X"
+            ],
+            selection=self.input_selection,
+            parameters=_jsonable(self.parameters),
+        )
+
+    def workload_id(self) -> str:
+        """Return the workload identifier, excluding provider and execution settings."""
+        return self.workload().digest()
 
     @property
     def label(self) -> str:
         """Return a compact label derived from the workload identifier."""
-        return f"case-{self.id.removeprefix('sha256:')[:20]}"
+        digest = self.workload_id()
+        return f"case-{digest.removeprefix('sha256:')[:20]}"
 
 
 def resolve_case(
@@ -317,11 +408,12 @@ def load_suite(
                 raise SuiteError(
                     f"{where}: estimator {case.estimator!r} is incompatible with {provider!r}"
                 )
-            if case.id in seen[provider]:
+            case_id = case.workload_id()
+            if case_id in seen[provider]:
                 raise SuiteError(
-                    f"{where}: duplicate case identity {case.id!r}"
+                    f"{where}: duplicate case identity {case_id!r}"
                 )
-            seen[provider].add(case.id)
+            seen[provider].add(case_id)
             resolved[provider].append(case)
     runs = []
     for provider, cases in resolved.items():
