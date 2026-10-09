@@ -542,7 +542,6 @@ def test_workload_identity_contract():
             "generator": "org.example.gen-v1",
             "fingerprint": None,
             "random_seed": 42,
-            "legacy_identity": None,
         },
         "operation": {"name": "fit_predict", "lifecycle": "fit"},
         "input": {
@@ -568,7 +567,7 @@ def test_workload_identity_contract():
     ) == ('{"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27]}')
     assert (
         result_id(golden)
-        == "sha256:8cb1f9fa544012b4b8807e81726987ba331ad2622b2f490817b5f50b628adfcd"
+        == "sha256:af3343fed9b578a2561c486766d45f38dc1a6c6e5bacc5a9477d97f8a8dc1e28"
     )
     request = _request(operation="transform", fit_input_selection=["X"])
     request["dataset"]["shape"]["train_rows"] = 128

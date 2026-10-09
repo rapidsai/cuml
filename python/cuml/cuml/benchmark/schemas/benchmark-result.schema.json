@@ -148,20 +148,18 @@
     },
     "dataset": {
       "type": "object", "additionalProperties": false,
-      "required": ["name", "kind", "parameters", "generator", "fingerprint", "random_seed", "legacy_identity"],
+      "required": ["name", "kind", "parameters", "generator", "fingerprint", "random_seed"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
-        "kind": { "enum": ["generated", "external", "legacy"] },
+        "kind": { "enum": ["generated", "external"] },
         "parameters": { "$ref": "#/$defs/jsonObject" },
         "generator": { "type": ["string", "null"], "minLength": 1 },
         "fingerprint": { "type": ["string", "null"], "minLength": 1 },
-        "random_seed": { "type": ["integer", "null"] },
-        "legacy_identity": { "type": ["string", "null"], "minLength": 1 }
+        "random_seed": { "type": ["integer", "null"] }
       },
       "allOf": [
-        { "if": { "properties": { "kind": { "const": "generated" } }, "required": ["kind"] }, "then": { "properties": { "generator": { "type": "string", "minLength": 1 }, "random_seed": { "type": "integer" }, "legacy_identity": { "type": "null" } } } },
-        { "if": { "properties": { "kind": { "const": "external" } }, "required": ["kind"] }, "then": { "properties": { "fingerprint": { "type": "string", "minLength": 1 }, "legacy_identity": { "type": "null" } } } },
-        { "if": { "properties": { "kind": { "const": "legacy" } }, "required": ["kind"] }, "then": { "properties": { "legacy_identity": { "type": "string", "minLength": 1 } } } }
+        { "if": { "properties": { "kind": { "const": "generated" } }, "required": ["kind"] }, "then": { "properties": { "generator": { "type": "string", "minLength": 1 }, "random_seed": { "type": "integer" } } } },
+        { "if": { "properties": { "kind": { "const": "external" } }, "required": ["kind"] }, "then": { "properties": { "fingerprint": { "type": "string", "minLength": 1 } } } }
       ]
     },
     "operation": {

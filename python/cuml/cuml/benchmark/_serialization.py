@@ -43,7 +43,6 @@ def dataset_descriptor(case: ResolvedCase) -> dict[str, Any]:
         "generator": DATA_GENERATOR,
         "fingerprint": None,
         "random_seed": DATA_SEED,
-        "legacy_identity": None,
     }
 
 
