@@ -130,12 +130,50 @@ def document():
     }
 
 
-def test_provider_qualified_hdbscan_workers(document, tmp_path):
+def test_provider_qualified_estimator_workers(document, tmp_path, monkeypatch):
     """Two CPU providers share a workload, not an estimator binding."""
-    document["providers"] = ["scikit-learn", "hdbscan"]
-    document["cases"] = [
-        _request(estimator="HDBSCAN", parameters={"min_cluster_size": 5})
-    ]
+    # Covers cases such as HDBSCAN in scikit-learn and the hdbscan package,
+    # without depending on either library's estimator implementation.
+    executed = []
+
+    def estimator(provider):
+        class SharedEstimator:
+            def get_params(self, deep=False):
+                return {}
+
+            def fit(self, X):
+                executed.append(provider)
+                return self
+
+        return SharedEstimator
+
+    providers = ["provider_a", "provider_b"]
+    modules = [f"benchmark_test_{provider}" for provider in providers]
+    for provider, name in zip(providers, modules, strict=True):
+        module = ModuleType(name)
+        module.SharedEstimator = estimator(provider)
+        monkeypatch.setitem(sys.modules, name, module)
+        monkeypatch.setitem(
+            PROVIDERS,
+            provider,
+            Provider(
+                get_backend("cpu"),
+                {
+                    "SharedEstimator": EstimatorSpec(
+                        name, "SharedEstimator", provider
+                    )
+                },
+            ),
+        )
+
+    # Synthetic registrations are process-local. Exercise the CLI worker path
+    # in-process; test_cli_real_workers covers real interpreter isolation.
+    def execute(command, environment):
+        assert cli.main(command[command.index("--_worker") :]) == 0
+
+    monkeypatch.setattr(coordinator, "run_command", execute)
+    document["providers"] = providers
+    document["cases"] = [_request(estimator="SharedEstimator", parameters={})]
     path = _write_suite(tmp_path, document)
     jsonschema.validate(document, suite_manifest_json_schema())
     plan = load_suite(path)
@@ -145,9 +183,10 @@ def test_provider_qualified_hdbscan_workers(document, tmp_path):
         == plan.runs[1].cases[0].workload().digest()
     )
     assert [
-        run.provider_spec.estimator_spec("HDBSCAN").module for run in plan.runs
-    ] == ["sklearn.cluster", "hdbscan"]
-    selected = load_suite(path, providers=["hdbscan", "scikit-learn"])
+        run.provider_spec.estimator_spec("SharedEstimator").module
+        for run in plan.runs
+    ] == modules
+    selected = load_suite(path, providers=list(reversed(providers)))
     assert selected == plan
     assert (
         cli.main(
@@ -155,15 +194,20 @@ def test_provider_qualified_hdbscan_workers(document, tmp_path):
                 "--suite",
                 str(path),
                 "--provider",
-                "scikit-learn",
+                providers[0],
                 "--provider",
-                "hdbscan",
+                providers[1],
                 "--output",
                 str(tmp_path / "results"),
             ]
         )
         == 0
     )
+    assert executed == [
+        provider
+        for provider in providers
+        for _ in range(PROFILE["warmups"] + PROFILE["repetitions"])
+    ]
     for provider in document["providers"]:
         artifact = json.loads(
             (tmp_path / "results" / f"{provider}.json").read_text()
