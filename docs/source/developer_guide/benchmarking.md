@@ -202,8 +202,11 @@ provider.
 
 Existing results files must be compatible: schema version, methodology, suite
 metadata (including path, provider, profile, and execution plan), software, and
-system metadata must match. Original provider run IDs are preserved. Changing
-counts, timeouts, suite location, packages, or hardware can prevent resume.
+system metadata must match. Original provider run IDs are preserved. Software
+metadata includes the installed Python distribution snapshot and, for GPU
+providers, CUDA driver and runtime versions. Changing
+counts, timeouts, suite location, installed package versions (including generator
+and backend dependencies), CUDA versions, or hardware can prevent resume.
 Use a new output directory for a changed experiment.
 
 ## Add or modify cases

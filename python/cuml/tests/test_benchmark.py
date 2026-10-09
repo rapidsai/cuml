@@ -33,6 +33,7 @@ from cuml.benchmark import _runner as coordinator
 from cuml.benchmark import _subprocess as runner
 from cuml.benchmark import cli, harness
 from cuml.benchmark._hashing import canonical_json
+from cuml.benchmark.backends import base as base_backend
 from cuml.benchmark.backends import cuml as cuml_backend
 from cuml.benchmark.backends import get_backend
 from cuml.benchmark.backends.accel import ACCEL_EXTENSION
@@ -886,7 +887,9 @@ def test_only_synchronized_operation_is_timed(monkeypatch, operation):
 
 
 @pytest.mark.parametrize("failure_at", [0, 1])
-def test_gpu_synchronization_failure_fails_observation(monkeypatch, failure_at):
+def test_gpu_synchronization_failure_fails_observation(
+    monkeypatch, failure_at
+):
     backend = get_backend("cuml")
     calls = 0
 
@@ -911,7 +914,9 @@ def test_gpu_synchronization_failure_fails_observation(monkeypatch, failure_at):
     )
     monkeypatch.setattr(backend, "load_estimator", lambda spec: Estimator)
     monkeypatch.setattr(
-        harness, "_generate_data", lambda case, backend: (np.ones((64, 8)), None)
+        harness,
+        "_generate_data",
+        lambda case, backend: (np.ones((64, 8)), None),
     )
     monkeypatch.setattr(importlib, "import_module", lambda name: cupy)
     result = _benchmark(resolve_case(_request(), PROFILE), provider="cuml")
@@ -1196,6 +1201,97 @@ def test_resume_rejects_incompatible_artifact(registered_suite, change):
     assert "runtime-enter" not in events
 
 
+def test_software_metadata_snapshots_dependencies(monkeypatch):
+    distributions = [
+        SimpleNamespace(metadata={"Name": name}, version=version)
+        for name, version in [
+            ("numpy", "2.0"),
+            ("scipy", "1.0"),
+            ("scikit-learn", "1.9"),
+            ("cupy-cuda13x", "14.0"),
+            ("dask", "2026.7"),
+            ("distributed", "2026.7"),
+            ("cuml", "test-version"),
+        ]
+    ]
+    monkeypatch.setattr(
+        base_backend.importlib.metadata, "distributions", lambda: distributions
+    )
+    monkeypatch.setattr(base_backend, "_version", lambda name: "unknown")
+    backend = get_backend("cuml.dask")
+    monkeypatch.setattr(backend, "package_source", lambda name: None)
+    packages = backend.software_packages(
+        [EstimatorSpec("cuml.decomposition", "PCA", "cuml")]
+    )
+    assert {p["name"]: p["version"] for p in packages} == {
+        d.metadata["Name"]: d.version for d in distributions
+    }
+    assert [p["name"] for p in packages] == sorted(p["name"] for p in packages)
+
+
+def test_gpu_runtime_metadata(monkeypatch):
+    runtime = SimpleNamespace(
+        driverGetVersion=lambda: 13010, runtimeGetVersion=lambda: 13000
+    )
+    monkeypatch.setattr(
+        importlib,
+        "import_module",
+        lambda name: SimpleNamespace(cuda=SimpleNamespace(runtime=runtime)),
+    )
+    assert GPUBackend().software_runtimes() == [
+        {"name": "cuda-driver", "version": "13010"},
+        {"name": "cuda-runtime", "version": "13000"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "dependency",
+    ["numpy", "scikit-learn", "cupy-cuda13x", "dask", "distributed"],
+)
+def test_resume_rejects_changed_dependency(
+    registered_suite, monkeypatch, dependency
+):
+    manifest, output, events, _ = registered_suite
+    versions = {dependency: "original"}
+    monkeypatch.setattr(
+        base_backend.importlib.metadata,
+        "distributions",
+        lambda: [
+            SimpleNamespace(metadata={"Name": name}, version=version)
+            for name, version in versions.items()
+        ],
+    )
+    assert _run_cli(manifest, output) == 0
+    before = output.read_bytes()
+    versions[dependency] = "changed"
+    events.clear()
+    with pytest.raises(SystemExit) as error:
+        _run_cli(manifest, output, resume=True)
+    assert error.value.code == 2
+    assert output.read_bytes() == before
+    assert "runtime-enter" not in events
+
+
+@pytest.mark.parametrize("runtime_name", ["cuda-driver", "cuda-runtime"])
+def test_resume_rejects_changed_backend_runtime(
+    registered_suite, monkeypatch, runtime_name
+):
+    manifest, output, events, _ = registered_suite
+    versions = [{"name": runtime_name, "version": "original"}]
+    monkeypatch.setattr(
+        Backend, "software_runtimes", lambda self: copy.deepcopy(versions)
+    )
+    assert _run_cli(manifest, output) == 0
+    before = output.read_bytes()
+    versions[0]["version"] = "changed"
+    events.clear()
+    with pytest.raises(SystemExit) as error:
+        _run_cli(manifest, output, resume=True)
+    assert error.value.code == 2
+    assert output.read_bytes() == before
+    assert "runtime-enter" not in events
+
+
 @pytest.fixture
 def source_checkout(tmp_path, monkeypatch):
     root = tmp_path / "checkout"
@@ -1225,12 +1321,19 @@ def source_checkout(tmp_path, monkeypatch):
     return root, module, git
 
 
-def test_source_resume_with_ignored_default_output(source_checkout):
+def test_source_resume_with_ignored_default_output(
+    source_checkout, monkeypatch
+):
     _, module, git = source_checkout
+    monkeypatch.setattr(get_backend("cuml"), "software_runtimes", lambda: [])
     suite = _suite(resolve_case(_request(), PROFILE), provider="cuml")
     output = cli.default_output_path(suite) / "cuml.json"
     original = harness.run_suite(suite, output)
-    package = original["run"]["software"]["packages"][0]
+    package = next(
+        package
+        for package in original["run"]["software"]["packages"]
+        if package["name"] == "cuml"
+    )
     assert package["source"] == {
         "repository": None,
         "revision": git("rev-parse", "HEAD"),

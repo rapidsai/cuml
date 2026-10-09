@@ -28,7 +28,7 @@ from .suite import ResolvedCase, Suite, SuiteError, Workload
 
 logger = logging.getLogger("cuml.benchmark")
 
-METHODOLOGY = "cuml-benchmark-observations-v3"
+METHODOLOGY = "cuml-benchmark-observations-v4"
 EXTENSION = "com.nvidia.cuml.benchmark"
 
 
@@ -54,7 +54,8 @@ def _run_record(suite: Suite, argv: list[str]) -> dict[str, Any]:
         },
         "software": {
             "runtimes": [
-                {"name": "python", "version": platform.python_version()}
+                {"name": "python", "version": platform.python_version()},
+                *suite.provider_spec.backend.software_runtimes(),
             ],
             "packages": suite.provider_spec.backend.software_packages(
                 suite.provider_spec.estimator_spec(case.estimator)

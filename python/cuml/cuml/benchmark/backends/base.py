@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import importlib.metadata
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -166,6 +167,10 @@ class Backend:
         """
         return None
 
+    def software_runtimes(self) -> list[dict[str, str]]:
+        """Return backend runtime versions used for resume compatibility."""
+        return []
+
     def software_packages(
         self, specs: Iterable[EstimatorSpec]
     ) -> list[dict[str, Any]]:
@@ -176,21 +181,45 @@ class Backend:
         specs : iterable of EstimatorSpec
             Estimator specifications whose packages should be recorded.
         """
-        names = {spec.package for spec in specs}
-        names.update(self.extra_packages)
+        # Snapshot the environment without importing optional GPU packages.
+        # Estimator distributions alone omit generators, numerical libraries,
+        # distributed execution, and CUDA libraries. A complete snapshot also
+        # handles CUDA-suffixed wheels and future transitive dependencies.
+        versions = {
+            distribution.metadata["Name"]: distribution.version
+            for distribution in importlib.metadata.distributions()
+            if distribution.metadata["Name"]
+        }
+        names = {spec.package for spec in specs} | set(self.extra_packages)
+        for name in names:
+            versions.setdefault(name, _version(name))
         return [
             {
                 "name": name,
-                "version": _version(name),
+                "version": version,
                 "build": None,
                 "source": self.package_source(name),
             }
-            for name in sorted(names)
+            for name, version in sorted(versions.items())
         ]
 
 
 class GPUBackend(Backend):
     """Provide device synchronization for GPU benchmark backends."""
+
+    def software_runtimes(self) -> list[dict[str, str]]:
+        """Record CUDA driver and runtime versions without suppressing errors."""
+        runtime = importlib.import_module("cupy").cuda.runtime
+        return [
+            {
+                "name": "cuda-driver",
+                "version": str(runtime.driverGetVersion()),
+            },
+            {
+                "name": "cuda-runtime",
+                "version": str(runtime.runtimeGetVersion()),
+            },
+        ]
 
     def synchronize(self, value: Any = None) -> None:
         """Wait for work on the current CUDA device to complete.
