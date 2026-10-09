@@ -217,7 +217,8 @@ Each module in `providers/` defines one provider's estimator catalog and backend
 binding; `providers/__init__.py` registers the selectable names. Shared types live
 in `providers/base.py`. Check generator constraints in `datasets.py`.
 Extend packaged manifests and provider catalogs together; the tests in
-`python/cuml/tests/test_benchmark.py` check coverage and workload identity.
+`python/cuml/tests/test_benchmark.py` validate packaged suites, workload
+identity, and exhaustive cuML and cuml.accel coverage in the `estimators` suite.
 
 ## Run from Python
 

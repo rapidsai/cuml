@@ -22,5 +22,5 @@ PROVIDERS: dict[str, Provider] = {
 
 
 def get_provider(name: str) -> Provider:
-    """Return a registered benchmark provider without importing estimators."""
+    """Return the benchmark provider registered under the given name."""
     return PROVIDERS[name]

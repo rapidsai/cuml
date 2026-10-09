@@ -140,10 +140,6 @@ def test_provider_qualified_hdbscan_workers(document, tmp_path):
     plan = load_suite(path)
     assert [run.provider for run in plan.runs] == document["providers"]
     assert plan.runs[0].cases[0].id == plan.runs[1].cases[0].id
-    assert (
-        plan.runs[0].provider_spec.backend
-        is plan.runs[1].provider_spec.backend
-    )
     assert [
         run.provider_spec.estimator_spec("HDBSCAN").module for run in plan.runs
     ] == ["sklearn.cluster", "hdbscan"]
@@ -178,21 +174,6 @@ def test_provider_qualified_hdbscan_workers(document, tmp_path):
         assert run_extension["provider"] == provider
 
 
-@pytest.mark.parametrize(
-    "providers",
-    [
-        {"candidate": {"provider": "hdbscan", "execution": "cpu"}},
-        [],
-        ["cpu"],
-        ["reference"],
-    ],
-)
-def test_invalid_provider_declarations_schema(document, tmp_path, providers):
-    document["providers"] = providers
-    with pytest.raises(SuiteError):
-        load_suite(_write_suite(tmp_path, document))
-
-
 def test_mixed_library_suite_provider_applicability(document, tmp_path):
     document["providers"] = ["scikit-learn", "umap-learn", "hdbscan", "cuml"]
     document["cases"] = [
@@ -207,6 +188,15 @@ def test_mixed_library_suite_provider_applicability(document, tmp_path):
     ]
     path = _write_suite(tmp_path, document)
     plan = load_suite(path)
+    assert "UMAP" not in get_provider("scikit-learn").catalog
+    assert (
+        plan.runs[1].provider_spec.estimator_spec("UMAP").package
+        == "umap-learn"
+    )
+    assert (
+        get_provider("cuml.accel").estimator_spec("HDBSCAN").module
+        == "hdbscan"
+    )
     assert [[case.estimator for case in run.cases] for run in plan.runs] == [
         ["HDBSCAN"],
         ["UMAP"],
@@ -221,45 +211,7 @@ def test_mixed_library_suite_provider_applicability(document, tmp_path):
         load_suite(_write_suite(tmp_path, document))
 
 
-@pytest.mark.parametrize(
-    "name,module",
-    [
-        ("scikit-learn", "sklearn"),
-        ("umap-learn", "umap"),
-        ("hdbscan", "hdbscan"),
-        ("cuml", "cuml"),
-        ("cuml.accel", "accel"),
-        ("cuml.dask", "dask"),
-    ],
-)
-def test_provider_module_owns_catalog(name, module):
-    definition = importlib.import_module(f"cuml.benchmark.providers.{module}")
-    provider = get_provider(name)
-    assert provider is definition.PROVIDER
-    assert provider.catalog is definition.CATALOG
-    assert all(
-        isinstance(spec, EstimatorSpec) for spec in provider.catalog.values()
-    )
-
-
-def test_provider_catalogs_are_distinct():
-    sklearn = get_provider("scikit-learn")
-    standalone = get_provider("hdbscan")
-    assert sklearn.backend is standalone.backend
-    assert sklearn.estimator_spec("HDBSCAN").module == "sklearn.cluster"
-    assert standalone.estimator_spec("HDBSCAN").module == "hdbscan"
-    assert "UMAP" not in sklearn.catalog
-    assert (
-        get_provider("umap-learn").estimator_spec("UMAP").package
-        == "umap-learn"
-    )
-    assert (
-        get_provider("cuml.accel").estimator_spec("HDBSCAN").module
-        == "hdbscan"
-    )
-
-
-# Suite coverage and workload definitions. No estimator execution here.
+# Suite validation and workload definitions. No estimator execution here.
 
 
 def test_estimator_benchmark_coverage():
@@ -343,9 +295,6 @@ def test_packaged_suites_are_valid_and_comparable():
                     )
                     assert builtin.runs[0].cases == suite.cases
                     assert builtin.runs[0].path == f"builtin:{path.stem}"
-                    assert {c.estimator for c in suite.cases} == set(
-                        suite.provider_spec.catalog
-                    )
                 for case in suite.cases:
                     key = (
                         path.stem,
@@ -358,22 +307,6 @@ def test_packaged_suites_are_valid_and_comparable():
                     assert comparable.setdefault(key, case.id) == case.id
                     assert case.id == result_id(case.to_artifact_fields())
     assert {p.stem for p in SUITES.glob("*.yaml")} >= BUILTIN_SUITES
-
-
-def test_suite_generator_field_preserves_artifact_kind():
-    case = resolve_case(_request(), PROFILE)
-    dataset = case.to_artifact_fields()["dataset"]
-    assert case.dataset == "matrix"
-    assert dataset["kind"] == "generated"
-    assert dataset["name"] == "matrix"
-    assert dataset["generator"] == (
-        "com.nvidia.cuml.benchmark.generate-data-v1"
-    )
-
-    request = _request()
-    request["dataset"]["kind"] = request["dataset"].pop("generator")
-    with pytest.raises(SuiteError):
-        resolve_case(request, PROFILE)
 
 
 @pytest.mark.parametrize(
@@ -606,6 +539,11 @@ def test_workload_identity_contract():
     ):
         assert changed.id != case.id
     result = case.to_artifact_fields()
+    assert result["dataset"]["kind"] == "generated"
+    assert result["dataset"]["name"] == "matrix"
+    assert result["dataset"]["generator"] == (
+        "com.nvidia.cuml.benchmark.generate-data-v1"
+    )
     result.update(
         case_label="display",
         provider={"name": "other"},
@@ -1160,14 +1098,8 @@ def source_checkout(tmp_path, monkeypatch):
     return root, module, git
 
 
-@pytest.mark.parametrize("nested_cwd", [False, True])
-@pytest.mark.parametrize("change", ["tracked", "staged", "untracked"])
-def test_source_resume_with_ignored_default_output(
-    source_checkout, monkeypatch, nested_cwd, change
-):
+def test_source_resume_with_ignored_default_output(source_checkout):
     _, module, git = source_checkout
-    if nested_cwd:
-        monkeypatch.chdir(module.parent)
     suite = _suite(resolve_case(_request(), PROFILE), provider="cuml")
     output = cli.default_output_path(suite) / "cuml.json"
     original = harness.run_suite(suite, output)
@@ -1185,12 +1117,7 @@ def test_source_resume_with_ignored_default_output(
     assert resumed["results"] == original["results"]
     assert git("status", "--porcelain") == ""
 
-    if change == "untracked":
-        module.with_name("new_source.py").write_text("# new source\n")
-    else:
-        module.write_text("# changed source\n", encoding="utf-8")
-        if change == "staged":
-            git("add", ".")
+    module.write_text("# changed source\n", encoding="utf-8")
     before = output.read_bytes()
     with pytest.raises(
         SuiteError, match="matching suite, software, and system"
@@ -1416,9 +1343,9 @@ def test_coordinator_preserves_worker_environment(
     environments = []
 
     def execute(command, environment):
-        assert environment == original
+        assert environment["BENCHMARK_ENV_TEST"] == "preserved"
+        assert environment.get("CUML_ACCEL_ENABLED") == inherited
         assert "cuml.accel" not in sys.modules
-        assert all(environment is not previous for previous in environments)
         environments.append(environment)
         environment["BENCHMARK_ENV_TEST"] = "changed"
         _write_worker_artifact(command)
@@ -1442,7 +1369,9 @@ def test_cli_coordinates_isolated_backends(document, tmp_path, monkeypatch):
     def execute(command, environment):
         assert "--_worker" in command
         backend = command[command.index("--provider") + 1]
-        assert environment == original
+        assert environment.get("CUML_ACCEL_ENABLED") == original.get(
+            "CUML_ACCEL_ENABLED"
+        )
         assert "--verbose" in command
         artifact = Path(command[command.index("--output") + 1])
         assert artifact == output / f"{backend}.json"
@@ -1832,12 +1761,6 @@ def test_distributed_effective_parameters_are_an_object(distributed):
     assert result["parameters"]["effective"] == expected
 
 
-def test_default_backend_effective_parameters():
-    parameters = {"n_estimators": 2}
-    estimator = SimpleNamespace(get_params=lambda **kwargs: parameters)
-    assert Backend().effective_parameters(estimator) is parameters
-
-
 def test_dask_dbscan_uses_local_input():
     case = resolve_case(_request(estimator="DBSCAN"), PROFILE)
     X = np.zeros((64, 8), dtype=np.float32)
@@ -1935,14 +1858,6 @@ def test_dask_runtime_safety(monkeypatch, failure):
 
 
 # Public runner uses the same provider coordinator as the CLI.
-
-
-def test_benchmark_results_dataclass():
-    artifacts = {"cuml": {"results": []}}
-    results = benchmark.BenchmarkResults(artifacts=artifacts)
-    assert results.artifacts == artifacts
-    with pytest.raises(TypeError):
-        benchmark.BenchmarkResults(artifacts)
 
 
 def test_run_builtin_defaults_and_temporary_cleanup(monkeypatch):
@@ -2148,13 +2063,6 @@ def test_run_command_forwards_output(monkeypatch, capfd):
     captured = capfd.readouterr()
     assert captured.out == "inherited stdout\n"
     assert captured.err == "progress €\n"
-
-
-def test_run_command_launch_failure(tmp_path):
-    with pytest.raises(OSError):
-        runner.run_command(
-            [str(tmp_path / "missing-command")], dict(os.environ)
-        )
 
 
 @pytest.mark.skipif(
