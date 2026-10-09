@@ -79,7 +79,10 @@ def _request(**changes):
         "operation": "fit",
         "input_selection": ["X"],
         "parameters": {"n_components": 2},
-        "dataset": {"kind": "matrix", "shape": {"rows": 64, "features": 8}},
+        "dataset": {
+            "generator": "matrix",
+            "shape": {"rows": 64, "features": 8},
+        },
         **changes,
     }
 
@@ -357,6 +360,22 @@ def test_packaged_suites_are_valid_and_comparable():
     assert {p.stem for p in SUITES.glob("*.yaml")} >= BUILTIN_SUITES
 
 
+def test_suite_generator_field_preserves_artifact_kind():
+    case = resolve_case(_request(), PROFILE)
+    dataset = case.to_artifact_fields()["dataset"]
+    assert case.dataset == "matrix"
+    assert dataset["kind"] == "generated"
+    assert dataset["name"] == "matrix"
+    assert dataset["generator"] == (
+        "com.nvidia.cuml.benchmark.generate-data-v1"
+    )
+
+    request = _request()
+    request["dataset"]["kind"] = request["dataset"].pop("generator")
+    with pytest.raises(SuiteError):
+        resolve_case(request, PROFILE)
+
+
 @pytest.mark.parametrize(
     "timeout,expected", [("omitted", 10), (None, None), (3, 3)]
 )
@@ -430,7 +449,7 @@ def test_invalid_suite_requests_are_rejected(
         case["estimator"] = "Unknown"
     elif change == "generator":
         case["dataset"].update(
-            kind="classification", parameters={"n_informative": 9}
+            generator="classification", parameters={"n_informative": 9}
         )
     elif change in {"fit_inputs", "train_rows"}:
         case["operation"] = "transform"
@@ -617,7 +636,7 @@ def test_generated_inputs_match_workload(
 ):
     request = _request(
         dataset={
-            "kind": kind,
+            "generator": kind,
             "shape": {"rows": 128, "features": 8},
             "dtype": dtype,
             "format": input_format,
@@ -684,7 +703,7 @@ def test_generated_dataset_is_independent_of_estimator(
             estimator=estimator,
             parameters={},
             dataset={
-                "kind": kind,
+                "generator": kind,
                 "shape": {"rows": 64, "features": 8},
             },
         ),
@@ -984,7 +1003,7 @@ def registered_suite(monkeypatch, tmp_path):
                     estimator="Custom",
                     parameters={"fail": fail},
                     dataset={
-                        "kind": "matrix",
+                        "generator": "matrix",
                         "shape": {"rows": rows, "features": 2},
                     },
                 )
@@ -1672,7 +1691,7 @@ def _real_backend_smoke(provider, workload, output, *, report_phase):
             parameters={"max_iter": 100},
         )
         request["dataset"].update(
-            kind="classification",
+            generator="classification",
             format="csr",
             dtype="float64",
             parameters={"density": 0.25},

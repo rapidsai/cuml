@@ -15,7 +15,7 @@ profiles:
 cases:
   - estimator: KMeans
     dataset:
-      kind: blobs
+      generator: blobs
       shape:
         rows: 128
         features: 8
@@ -30,7 +30,7 @@ cases:
 
   - estimator: LogisticRegression
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 128
         features: 8
@@ -46,7 +46,7 @@ cases:
 
   - estimator: PCA
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 128
         features: 8
@@ -58,7 +58,7 @@ cases:
 
   - estimator: PCA
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 128
         features: 8
@@ -70,7 +70,7 @@ cases:
 
   - estimator: LogisticRegression
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 128
         features: 8
@@ -89,7 +89,7 @@ cases:
 
   - estimator: LogisticRegression
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 128
         features: 8
@@ -108,7 +108,7 @@ cases:
 
   - estimator: LogisticRegression
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 128
         features: 8
@@ -129,7 +129,7 @@ cases:
 
   - estimator: LogisticRegression
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 128
         features: 8

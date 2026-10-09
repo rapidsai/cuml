@@ -19,7 +19,7 @@ cases:
   - estimator: KMeans
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: blobs
+      generator: blobs
       shape:
         rows: 5000000
         features: 128
@@ -31,7 +31,7 @@ cases:
   - estimator: DBSCAN
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: blobs
+      generator: blobs
       shape:
         rows: 500000
         features: 128
@@ -44,7 +44,7 @@ cases:
   - estimator: SpectralClustering
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: blobs
+      generator: blobs
       shape:
         rows: 750
         features: 64
@@ -56,7 +56,7 @@ cases:
   - estimator: AgglomerativeClustering
     providers: [cuml, scikit-learn]
     dataset:
-      kind: blobs
+      generator: blobs
       shape:
         rows: 1000
         features: 64
@@ -68,7 +68,7 @@ cases:
   - estimator: EmpiricalCovariance
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 500000
         features: 128
@@ -79,7 +79,7 @@ cases:
   - estimator: LedoitWolf
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 500000
         features: 128
@@ -90,7 +90,7 @@ cases:
   - estimator: PCA
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 12000000
         features: 128
@@ -102,7 +102,7 @@ cases:
   - estimator: IncrementalPCA
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 2000000
         features: 128
@@ -115,7 +115,7 @@ cases:
   - estimator: TruncatedSVD
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 12000000
         features: 128
@@ -127,7 +127,7 @@ cases:
   - estimator: GaussianRandomProjection
     providers: [cuml, scikit-learn]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 18000000
         features: 128
@@ -140,7 +140,7 @@ cases:
   - estimator: SparseRandomProjection
     providers: [cuml, scikit-learn]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 6000000
         features: 128
@@ -153,7 +153,7 @@ cases:
   - estimator: NearestNeighbors
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 50000
         train_rows: 450000
@@ -167,7 +167,7 @@ cases:
   - estimator: KNeighborsClassifier
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 25000
         train_rows: 225000
@@ -181,7 +181,7 @@ cases:
   - estimator: KNeighborsRegressor
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: regression
+      generator: regression
       shape:
         rows: 25000
         train_rows: 225000
@@ -195,7 +195,7 @@ cases:
   - estimator: KernelDensity
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 2000
         train_rows: 18000
@@ -209,7 +209,7 @@ cases:
   - estimator: LinearRegression
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: regression
+      generator: regression
       shape:
         rows: 1050000
         train_rows: 9450000
@@ -222,7 +222,7 @@ cases:
   - estimator: LogisticRegression
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 1050000
         train_rows: 9450000
@@ -236,7 +236,7 @@ cases:
   - estimator: ElasticNet
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: regression
+      generator: regression
       shape:
         rows: 2100000
         train_rows: 18900000
@@ -250,7 +250,7 @@ cases:
   - estimator: Ridge
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: regression
+      generator: regression
       shape:
         rows: 1050000
         train_rows: 9450000
@@ -264,7 +264,7 @@ cases:
   - estimator: Lasso
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: regression
+      generator: regression
       shape:
         rows: 2100000
         train_rows: 18900000
@@ -278,7 +278,7 @@ cases:
   - estimator: KernelRidge
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: regression
+      generator: regression
       shape:
         rows: 100
         train_rows: 900
@@ -292,7 +292,7 @@ cases:
   - estimator: RandomForestClassifier
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 80000
         train_rows: 720000
@@ -308,7 +308,7 @@ cases:
   - estimator: RandomForestRegressor
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: regression
+      generator: regression
       shape:
         rows: 12500
         train_rows: 112500
@@ -324,7 +324,7 @@ cases:
   - estimator: TSNE
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: blobs
+      generator: blobs
       shape:
         rows: 75000
         features: 64
@@ -338,7 +338,7 @@ cases:
   - estimator: SpectralEmbedding
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: blobs
+      generator: blobs
       shape:
         rows: 750
         features: 64
@@ -352,7 +352,7 @@ cases:
   - estimator: SVC
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 25000
         train_rows: 225000
@@ -366,7 +366,7 @@ cases:
   - estimator: SVR
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: regression
+      generator: regression
       shape:
         rows: 12500
         train_rows: 112500
@@ -380,7 +380,7 @@ cases:
   - estimator: LinearSVC
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 4000000
         train_rows: 36000000
@@ -394,7 +394,7 @@ cases:
   - estimator: LinearSVR
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: regression
+      generator: regression
       shape:
         rows: 2000000
         train_rows: 18000000
@@ -408,7 +408,7 @@ cases:
   - estimator: MultinomialNB
     providers: [cuml, scikit-learn, cuml.dask]
     dataset:
-      kind: positive
+      generator: positive
       shape:
         rows: 600000
         train_rows: 5400000
@@ -421,7 +421,7 @@ cases:
   - estimator: BernoulliNB
     providers: [cuml, scikit-learn]
     dataset:
-      kind: positive
+      generator: positive
       shape:
         rows: 20000
         train_rows: 180000
@@ -434,7 +434,7 @@ cases:
   - estimator: ComplementNB
     providers: [cuml, scikit-learn]
     dataset:
-      kind: positive
+      generator: positive
       shape:
         rows: 20000
         train_rows: 180000
@@ -447,7 +447,7 @@ cases:
   - estimator: CategoricalNB
     providers: [cuml, scikit-learn]
     dataset:
-      kind: categorical
+      generator: categorical
       shape:
         rows: 20000
         train_rows: 180000
@@ -463,7 +463,7 @@ cases:
   - estimator: GaussianNB
     providers: [cuml, scikit-learn]
     dataset:
-      kind: classification
+      generator: classification
       shape:
         rows: 300000
         train_rows: 2700000
@@ -476,7 +476,7 @@ cases:
   - estimator: StandardScaler
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 52000
         features: 512
@@ -487,7 +487,7 @@ cases:
   - estimator: MinMaxScaler
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 52000
         features: 512
@@ -498,7 +498,7 @@ cases:
   - estimator: MaxAbsScaler
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 52000
         features: 512
@@ -509,7 +509,7 @@ cases:
   - estimator: Normalizer
     providers: [cuml, scikit-learn]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 60000
         features: 512
@@ -520,7 +520,7 @@ cases:
   - estimator: RobustScaler
     providers: [cuml, scikit-learn]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 70000
         features: 512
@@ -531,7 +531,7 @@ cases:
   - estimator: PolynomialFeatures
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 500000
         features: 32
@@ -543,7 +543,7 @@ cases:
   - estimator: Binarizer
     providers: [cuml, scikit-learn]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 52000
         features: 512
@@ -555,7 +555,7 @@ cases:
   - estimator: KBinsDiscretizer
     providers: [cuml, scikit-learn]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 52000
         features: 512
@@ -567,7 +567,7 @@ cases:
   - estimator: PowerTransformer
     providers: [cuml, scikit-learn]
     dataset:
-      kind: positive
+      generator: positive
       shape:
         rows: 5000
         features: 64
@@ -578,7 +578,7 @@ cases:
   - estimator: QuantileTransformer
     providers: [cuml, scikit-learn]
     dataset:
-      kind: matrix
+      generator: matrix
       shape:
         rows: 25000
         features: 256
@@ -590,7 +590,7 @@ cases:
   - estimator: OneHotEncoder
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: categorical
+      generator: categorical
       shape:
         rows: 100000
         features: 16
@@ -601,7 +601,7 @@ cases:
   - estimator: OrdinalEncoder
     providers: [cuml, scikit-learn, cuml.dask]
     dataset:
-      kind: categorical
+      generator: categorical
       shape:
         rows: 500000
         features: 32
@@ -612,7 +612,7 @@ cases:
   - estimator: LabelEncoder
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: categorical
+      generator: categorical
       shape:
         rows: 10000000
         features: 16
@@ -626,7 +626,7 @@ cases:
   - estimator: LabelBinarizer
     providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
-      kind: categorical
+      generator: categorical
       shape:
         rows: 10000000
         features: 16
@@ -640,7 +640,7 @@ cases:
   - estimator: TargetEncoder
     providers: [cuml, scikit-learn, cuml.accel]
     dataset:
-      kind: categorical
+      generator: categorical
       shape:
         rows: 200000
         features: 16
@@ -652,7 +652,7 @@ cases:
   - estimator: UMAP
     providers: [cuml, umap-learn, cuml.accel]
     dataset:
-      kind: blobs
+      generator: blobs
       shape:
         rows: 10000
         features: 100
@@ -666,7 +666,7 @@ cases:
   - estimator: HDBSCAN
     providers: [cuml, scikit-learn, hdbscan, cuml.accel]
     dataset:
-      kind: blobs
+      generator: blobs
       shape:
         rows: 10000
         features: 100

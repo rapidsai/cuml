@@ -39,7 +39,7 @@ class ShapeManifest(msgspec.Struct, forbid_unknown_fields=True):
 class DatasetManifest(msgspec.Struct, forbid_unknown_fields=True):
     """Specify a generated dataset's shape, types, and representation."""
 
-    kind: NonEmptyString
+    generator: NonEmptyString
     shape: ShapeManifest
     parameters: dict[str, Any] = msgspec.field(default_factory=dict)
     dtype: ElementType | DtypeMapping = "float32"

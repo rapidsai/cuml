@@ -61,7 +61,7 @@ profiles:
 cases:
   - estimator: KMeans
     dataset:
-      kind: blobs
+      generator: blobs
       shape: {rows: 1024, features: 8}
       dtype: float32
       format: dense
@@ -120,7 +120,7 @@ profiles:
 cases:
   - estimator: HDBSCAN
     dataset:
-      kind: blobs
+      generator: blobs
       shape: {rows: 1024, features: 8}
       parameters: {centers: 5}
     operation: fit_predict

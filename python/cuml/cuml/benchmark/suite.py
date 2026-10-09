@@ -186,7 +186,7 @@ def _resolve_case(
         dtype = {"X": dtype.X, "y": dtype.y}
     try:
         parameters = resolve_dataset(
-            dataset.kind,
+            dataset.generator,
             shape.features,
             dataset.parameters,
             dtype,
@@ -196,7 +196,7 @@ def _resolve_case(
         raise SuiteError(f"dataset: {exc}") from exc
     return ResolvedCase(
         estimator=request.estimator,
-        dataset=dataset.kind,
+        dataset=dataset.generator,
         operation=request.operation,
         generated_rows=generated_rows,
         training_rows=training_rows,
