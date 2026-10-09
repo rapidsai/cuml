@@ -61,14 +61,14 @@ def _source() -> dict[str, Any]:
         }
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
-    # RAPIDS wheels include the source commit even without a checkout.
+    # Fall back to the commit recorded in the installed package.
     commit_file = module_path.parents[2] / "GIT_COMMIT"
     try:
         revision = commit_file.read_text(encoding="utf-8").strip()
     except OSError:
         revision = None
     return {
-        "repository": "https://github.com/rapidsai/cuml.git",
+        "repository": "https://github.com/nvidia/cuml.git",
         "revision": revision,
         "dirty": None,
     }
