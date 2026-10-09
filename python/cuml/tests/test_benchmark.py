@@ -1338,24 +1338,79 @@ def test_cli_output_safety(monkeypatch, tmp_path, capsys):
     assert first.read_text() == "existing artifact"
 
 
+@pytest.mark.parametrize("entrypoint", ["python", "cli"])
 @pytest.mark.parametrize(
-    "provider", ["cuml", "scikit-learn", "cuml.accel", "cuml.dask"]
+    "inherited,enabled",
+    [("1", False), ("true", False), ("TRUE", False), (None, True)],
 )
-@pytest.mark.parametrize("inherited", [None, "1"])
-def test_backend_worker_environment(monkeypatch, provider, inherited):
+def test_coordinator_rejects_accelerated_caller(
+    document, tmp_path, monkeypatch, capsys, entrypoint, inherited, enabled
+):
     if inherited is None:
         monkeypatch.delenv("CUML_ACCEL_ENABLED", raising=False)
     else:
         monkeypatch.setenv("CUML_ACCEL_ENABLED", inherited)
+    monkeypatch.setitem(
+        sys.modules, "cuml.accel", SimpleNamespace(enabled=lambda: enabled)
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "_execute_worker",
+        lambda *a, **k: pytest.fail("launched worker"),
+    )
+    path = _write_suite(tmp_path, document)
+    output = tmp_path / "results"
+    message = "process without cuml.accel enabled"
+    if entrypoint == "python":
+        with pytest.raises(SuiteError, match=message):
+            benchmark.run(path, providers=["scikit-learn"], output=output)
+    else:
+        with pytest.raises(SystemExit) as error:
+            cli.main(
+                [
+                    "--suite",
+                    str(path),
+                    "--provider",
+                    "scikit-learn",
+                    "--output",
+                    str(output),
+                ]
+            )
+        assert error.value.code == 2
+        assert message in capsys.readouterr().err
+    assert not output.exists()
+    assert os.environ.get("CUML_ACCEL_ENABLED") == inherited
+
+
+@pytest.mark.parametrize("inherited", [None, "0", "false"])
+def test_coordinator_preserves_worker_environment(
+    document, tmp_path, monkeypatch, inherited
+):
+    if inherited is None:
+        monkeypatch.delenv("CUML_ACCEL_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("CUML_ACCEL_ENABLED", inherited)
+    monkeypatch.delitem(sys.modules, "cuml.accel", raising=False)
     monkeypatch.setenv("BENCHMARK_ENV_TEST", "preserved")
     original = dict(os.environ)
-    environment = get_provider(provider).backend.worker_environment()
-    assert environment == {
-        k: v for k, v in original.items() if k != "CUML_ACCEL_ENABLED"
-    }
+    document["providers"] = ["cuml.accel", "scikit-learn"]
+    path = _write_suite(tmp_path, document)
+    environments = []
+
+    def execute(command, environment):
+        assert environment == original
+        assert "cuml.accel" not in sys.modules
+        assert all(environment is not previous for previous in environments)
+        environments.append(environment)
+        environment["BENCHMARK_ENV_TEST"] = "changed"
+        _write_worker_artifact(command)
+
+    monkeypatch.setattr(coordinator, "_execute_worker", execute)
+    benchmark.run(
+        path, providers=document["providers"], output=tmp_path / "results"
+    )
+    assert len(environments) == 2
     assert dict(os.environ) == original
-    environment["BENCHMARK_ENV_TEST"] = "changed"
-    assert os.environ["BENCHMARK_ENV_TEST"] == "preserved"
 
 
 def test_cli_coordinates_isolated_backends(document, tmp_path, monkeypatch):
@@ -1363,22 +1418,13 @@ def test_cli_coordinates_isolated_backends(document, tmp_path, monkeypatch):
     path = _write_suite(tmp_path, document)
     output = tmp_path / "results"
     calls = []
-    monkeypatch.setenv("CUML_ACCEL_ENABLED", "1")
-    # The launcher must forward backend policy, not synthesize its own env.
-    environments = {
-        name: {"TEST_BACKEND": name} for name in document["providers"]
-    }
-    for name, environment in environments.items():
-        monkeypatch.setattr(
-            get_provider(name).backend,
-            "worker_environment",
-            lambda env=environment: env,
-        )
+    monkeypatch.delenv("CUML_ACCEL_ENABLED", raising=False)
+    original = dict(os.environ)
 
     def execute(command, environment):
         assert "--_worker" in command
         backend = command[command.index("--provider") + 1]
-        assert environment is environments[backend]
+        assert environment == original
         assert "--verbose" in command
         artifact = Path(command[command.index("--output") + 1])
         assert artifact == output / f"{backend}.json"
@@ -1398,7 +1444,7 @@ def test_cli_coordinates_isolated_backends(document, tmp_path, monkeypatch):
     (output / "cuml.json").unlink()
     assert cli.main([*argv, *selected]) == 1
     assert calls == [(name, False) for name in document["providers"]]
-    assert os.environ["CUML_ACCEL_ENABLED"] == "1"
+    assert dict(os.environ) == original
     (output / "cuml.accel.json").unlink()
     calls.clear()
     assert cli.main([*argv, *selected, "--resume"]) == 1
@@ -1452,9 +1498,8 @@ def test_cli_coordinator_output_errors(document, tmp_path, monkeypatch):
     [["scikit-learn"], ["cuml.accel", "scikit-learn", "cuml"]],
 )
 def test_cli_real_workers(document, tmp_path, monkeypatch, providers):
-    # Even a caller running under accel must launch a genuinely CPU worker,
-    # including when the CPU backend follows accel in the execution plan.
-    monkeypatch.setenv("CUML_ACCEL_ENABLED", "1")
+    # A CPU worker must remain unaccelerated even after an accel worker.
+    monkeypatch.delenv("CUML_ACCEL_ENABLED", raising=False)
     document["providers"] = providers
     path = _write_suite(tmp_path, document)
     output = tmp_path / "results"

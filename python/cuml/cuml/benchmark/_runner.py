@@ -101,7 +101,8 @@ def run(
     Raises
     ------
     SuiteError
-        Invalid suite, selection or output configuration, before worker launch.
+        Invalid suite, selection or output configuration, or a caller with
+        cuml.accel enabled, before worker launch.
     BenchmarkRunError
         Execution or artifact failures, after attempting all selected providers.
         The exception retains available artifacts and failure diagnostics.
@@ -235,6 +236,16 @@ def _run_plan(
     entrypoint: list[str] | None = None,
 ) -> BenchmarkResults:
     """Run isolated provider workers sequentially, retaining each checkpoint."""
+    accel = sys.modules.get("cuml.accel")
+    if (
+        os.environ.get("CUML_ACCEL_ENABLED", "").lower() in ("1", "true")
+        or (accel is not None and accel.enabled())
+    ):
+        raise SuiteError(
+            "Benchmarks must be launched from a process without cuml.accel "
+            "enabled. Start a fresh Python process with CUML_ACCEL_ENABLED "
+            "unset. To benchmark acceleration, select the cuml.accel provider."
+        )
     if resume and not output.is_dir():
         raise SuiteError("--resume requires an existing output directory")
     for provider_run in suite.runs:
@@ -290,10 +301,7 @@ def _run_plan(
             len(provider_run.cases),
         )
         try:
-            _execute_worker(
-                command,
-                provider_run.provider_spec.backend.worker_environment(),
-            )
+            _execute_worker(command, os.environ.copy())
         except (OSError, RuntimeError) as exc:
             failures[provider] = str(exc)
         try:
