@@ -1,6 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+
+import gc
 
 import numpy as np
 import pytest
@@ -429,6 +431,29 @@ def test_core_point_prop3():
         cuml_dbscan.core_sample_indices_,
         params["eps"],
     )
+
+
+@pytest.mark.parametrize("algorithm", ["brute", "rbc"])
+def test_dbscan_fit_releases_device_memory(algorithm):
+    """Repeated fits must not accumulate device memory (e.g. the RBC index)."""
+    rmm_statistics = pytest.importorskip("rmm.statistics")
+
+    X, _ = make_blobs(n_samples=5000, n_features=3, random_state=0)
+    X = X.astype(np.float32)
+
+    def fit():
+        cuDBSCAN(eps=0.5, min_samples=5, algorithm=algorithm).fit(
+            X, out_dtype="int64"
+        )
+
+    fit()
+    with rmm_statistics.statistics():
+        for _ in range(3):
+            fit()
+        gc.collect()
+        current_bytes = rmm_statistics.get_statistics().current_bytes
+
+    assert current_bytes == 0
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
