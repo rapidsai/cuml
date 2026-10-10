@@ -99,7 +99,7 @@ template <typename TypeV, typename TypeK, bool Greater>
 
       if (abs(h_outv[j] - topk[j].val) > tolerance) {
         return ::testing::AssertionFailure()
-               << "actual=" << topk[j].val << " != expected=" << h_outv[j];
+               << "actual=" << h_outv[j] << " != expected=" << topk[j].val;
       }
     }
     // delete resource
