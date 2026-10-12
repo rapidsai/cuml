@@ -114,11 +114,13 @@ def run_command(command: list[str], environment: dict[str, str]) -> None:
         raise
     finally:
         process.stderr.close()
-    stderr = "".join(stderr_lines)
     if process.returncode:
+        tail = "".join(stderr_lines).strip()
+        if len(tail) > 8192:
+            tail = "...\n" + tail[-8192:]
         raise RuntimeError(
             f"worker exited with status {process.returncode}"
-            + (f":\n{stderr.strip()}" if stderr else "")
+            + (f":\n{tail}" if tail else "")
         )
 
 

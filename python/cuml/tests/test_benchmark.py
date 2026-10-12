@@ -2396,6 +2396,22 @@ def test_run_interrupt_output_cleanup(
     assert paths[0].parent.exists() == persistent
 
 
+@pytest.mark.parametrize(
+    "stderr", ["", "startup evidence\n", "x" * 10000 + "\nfailure evidence\n"]
+)
+def test_run_command_bounds_failure_diagnostics(stderr, capfd):
+    script = f"import sys; sys.stderr.write({stderr!r}); sys.exit(7)"
+    with pytest.raises(RuntimeError) as error:
+        runner.run_command([sys.executable, "-c", script], dict(os.environ))
+    tail = stderr.strip()
+    if len(tail) > 8192:
+        tail = "...\n" + tail[-8192:]
+    assert str(error.value) == "worker exited with status 7" + (
+        f":\n{tail}" if tail else ""
+    )
+    assert capfd.readouterr().err == stderr
+
+
 def test_run_command_forwards_output(monkeypatch, capfd):
     monkeypatch.setattr(
         runner.locale, "getpreferredencoding", lambda _: "utf-8"
