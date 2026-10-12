@@ -85,6 +85,9 @@ The evaluation uses [NVIDIA SkillEvaluator](https://github.com/NVIDIA/SkillEvalu
 runs each case twice, with and without the skill, with a coding agent inside a Docker container,
 grades both transcripts with an LLM judge, and reports the difference ("Skill Lift"). The setup
 below uses [NVIDIA Build](https://build.nvidia.com/) models for both the agent and the judge.
+This is easy to get started with, but for serious eval run use https://inference.nvidia.com.
+The service is more reliable and gives you access to models used in commercial coding agents.
+
 
 ### Set up
 
@@ -158,11 +161,39 @@ nothing still gets graded.
 
 ### Results
 
-`skillevaluator view skills/cuml` opens the HTML report of the latest run. Each run directory
-contains `result.json` and, per agent, `lift.json` and `pass_at_k_lift.json`. The report scores
+`skillevaluator view skills/cuml` opens the HTML report of the latest run. The report scores
 five dimensions (security, correctness, discoverability, effectiveness, efficiency); Skill Lift
-is the with-skill score minus the without-skill score. Record the image's package versions
+is the with-skill score minus the without-skill score.
+
+If any trial errors (an agent timeout, a provider error), SkillEvaluator reports no score for
+that arm: the report shows N/A and no `lift.json` is written. Check `execution_status` and
+`execution_errors` in the run's `result.json`. The trials that did run are still graded, each in
+`<agent>/<arm>/trials/*/reward.json`. [This script](https://gist.github.com/betatim/adabfe1689d88bd66724c40c23c11c74)
+summarises them per arm and per case and lists the trials it skipped:
+
+```bash
+python analyze_results.py ~/skilleval-results/cuml/latest
+python analyze_results.py RUN_DIR+FILL_IN_RUN_DIR   # merge two runs of the same skill
+```
+
+Use `accuracy`, `goal_accuracy` and `behavior_check` to judge answer quality. `skill_execution`
+and `skill_efficiency` measure use of the skill itself; the without-skill arm scores near zero on
+them by construction, and `overall` averages them in, so its lift overstates the benefit.
+Report how many trials were scored in each arm, and record the image's package versions
 (`pip freeze` inside the container) next to any results you report.
+
+### Using inference.nvidia.com
+
+To use a model like Opus 5.5 to evaluate the skill you have to use https://inference.nvidia.com.
+Get an API key and then set the following environment variables:
+```
+export SKILL_EVAL_LLM_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=<your NV inference API key>
+export ANTHROPIC_BASE_URL=https://inference-api.nvidia.com
+export SKILL_EVAL_LLM_MODEL=azure/anthropic/claude-sonnet-5-5
+export SKILLEVALUATOR_RESULTS_DIR=~/skilleval-results
+```
+
 
 ## Evaluation environment
 
