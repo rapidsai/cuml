@@ -1229,6 +1229,89 @@ def test_software_metadata_snapshots_dependencies(monkeypatch):
     assert [p["name"] for p in packages] == sorted(p["name"] for p in packages)
 
 
+@pytest.mark.parametrize("distribution", ["cuml", "cuml-cu12", "cuml-cu13"])
+def test_cuml_distribution_metadata(monkeypatch, distribution):
+    source = {"repository": "test", "revision": "abc", "dirty": False}
+    monkeypatch.setattr(cuml_backend, "_source", lambda: source)
+    monkeypatch.setattr(
+        base_backend.importlib.metadata,
+        "distributions",
+        lambda: [
+            SimpleNamespace(
+                metadata={"Name": distribution}, version="test-version"
+            )
+        ],
+    )
+
+    def version(name):
+        if name != distribution:
+            raise importlib.metadata.PackageNotFoundError(name)
+        return "test-version"
+
+    monkeypatch.setattr(base_backend.importlib.metadata, "version", version)
+    monkeypatch.setattr(
+        base_backend.importlib.metadata,
+        "packages_distributions",
+        lambda: {"cuml": [distribution]},
+    )
+    backend = get_backend("cuml")
+    assert backend.distribution_name("cuml") == distribution
+    assert backend.software_packages(
+        [EstimatorSpec("cuml.decomposition", "PCA", "cuml")]
+    ) == [
+        {
+            "name": distribution,
+            "version": "test-version",
+            "build": None,
+            "source": source,
+        }
+    ]
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_harness_resolves_implementation_distribution(
+    registered_suite, monkeypatch, interrupted
+):
+    manifest, output, _, state = registered_suite
+    backend = get_provider("test").backend
+    monkeypatch.setattr(
+        backend, "distribution_name", lambda name: "custom-dist"
+    )
+    monkeypatch.setattr(
+        backend,
+        "software_packages",
+        lambda specs: [{**PACKAGE, "name": "custom-dist"}],
+    )
+    if interrupted:
+        state["failure"] = KeyboardInterrupt()
+        with pytest.raises(KeyboardInterrupt):
+            _run_cli(manifest, output)
+    else:
+        assert _run_cli(manifest, output) == 0
+    artifact = json.loads(output.read_text())
+    _validate_artifact(artifact)
+    assert all(
+        r["implementation"]["name"] == "custom-dist"
+        for r in artifact["results"]
+    )
+
+
+@pytest.mark.parametrize("distributions", [[], ["first", "second"]])
+def test_distribution_resolution_retains_unmapped_or_ambiguous_names(
+    monkeypatch, distributions
+):
+    def missing(name):
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(base_backend.importlib.metadata, "version", missing)
+    monkeypatch.setattr(
+        base_backend.importlib.metadata,
+        "packages_distributions",
+        lambda: {"custom": distributions},
+    )
+    assert Backend().distribution_name("custom") == "custom"
+
+
 def test_gpu_runtime_metadata(monkeypatch):
     runtime = SimpleNamespace(
         driverGetVersion=lambda: 13010, runtimeGetVersion=lambda: 13000
@@ -1253,6 +1336,9 @@ def test_resume_rejects_changed_dependency(
 ):
     manifest, output, events, _ = registered_suite
     versions = {dependency: "original"}
+    monkeypatch.setattr(
+        base_backend.importlib.metadata, "packages_distributions", dict
+    )
     monkeypatch.setattr(
         base_backend.importlib.metadata,
         "distributions",

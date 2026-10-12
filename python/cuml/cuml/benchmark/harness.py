@@ -371,7 +371,8 @@ def _interrupted_result(
 ) -> dict[str, Any]:
     """Build a failed case result for a keyboard interruption."""
     spec = suite.provider_spec.estimator_spec(case.estimator)
-    result = _base_result(suite, case, package_records[spec.package])
+    package = suite.provider_spec.backend.distribution_name(spec.package)
+    result = _base_result(suite, case, package_records[package])
     error = _failure(exc, "interrupted")
     result["outcome"] = error
     result["observations"] = [
@@ -536,6 +537,9 @@ def run_suite(
                 package = suite.provider_spec.estimator_spec(
                     case.estimator
                 ).package
+                package = suite.provider_spec.backend.distribution_name(
+                    package
+                )
                 result = _run_case(
                     suite,
                     case,

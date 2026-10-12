@@ -171,6 +171,22 @@ class Backend:
         """Return backend runtime versions used for resume compatibility."""
         return []
 
+    def distribution_name(self, package: str) -> str:
+        """Resolve a logical package name to an installed distribution.
+
+        Prefer an exact distribution match. Import-name mappings are only a
+        fallback, and ambiguous mappings retain the original package identity.
+        """
+        try:
+            importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            names = importlib.metadata.packages_distributions().get(
+                package, []
+            )
+            if len(names) == 1:
+                return names[0]
+        return package
+
     def software_packages(
         self, specs: Iterable[EstimatorSpec]
     ) -> list[dict[str, Any]]:
@@ -191,14 +207,17 @@ class Backend:
             if distribution.metadata["Name"]
         }
         names = {spec.package for spec in specs} | set(self.extra_packages)
+        logical_names = {}
         for name in names:
-            versions.setdefault(name, _version(name))
+            distribution = self.distribution_name(name)
+            logical_names[distribution] = name
+            versions.setdefault(distribution, _version(distribution))
         return [
             {
                 "name": name,
                 "version": version,
                 "build": None,
-                "source": self.package_source(name),
+                "source": self.package_source(logical_names.get(name, name)),
             }
             for name, version in sorted(versions.items())
         ]
