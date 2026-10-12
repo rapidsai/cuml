@@ -27,6 +27,18 @@ from cuml.testing.utils import as_type
 shap = pytest.importorskip("shap")
 
 
+def _train_xgboost(xgb, *args, **kwargs):
+    try:
+        return xgb.train(*args, **kwargs)
+    except xgb.core.XGBoostError as exc:
+        if (
+            "cudaErrorNoKernelImageForDevice" in str(exc)
+            and cp.cuda.Device().compute_capability == "70"
+        ):
+            pytest.xfail("XGBoost wheel lacks SM70 kernels (see #8760)")
+        raise
+
+
 def make_classification_with_categorical(
     *,
     n_samples,
@@ -143,8 +155,12 @@ def test_xgb_regressor(objective):
         "device": "cuda",
     }
     num_round = 10
-    xgb_model = xgb.train(
-        params, dtrain, num_boost_round=num_round, evals=[(dtrain, "train")]
+    xgb_model = _train_xgboost(
+        xgb,
+        params,
+        dtrain,
+        num_boost_round=num_round,
+        evals=[(dtrain, "train")],
     )
     tl_model = treelite.frontend.from_xgboost(xgb_model)
 
@@ -222,7 +238,9 @@ def test_xgb_classifier(objective, n_classes):
         dtrain.set_group([10] * 10)
     if n_classes > 2 and objective.startswith("multi:"):
         params["num_class"] = n_classes
-    xgb_model = xgb.train(params, dtrain=dtrain, num_boost_round=num_round)
+    xgb_model = _train_xgboost(
+        xgb, params, dtrain=dtrain, num_boost_round=num_round
+    )
 
     # Insert NaN randomly into X
     X_test = X.copy()
