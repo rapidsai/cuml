@@ -670,6 +670,9 @@ dependencies:
           - nvidia-ml-py>=12
           - *onnxruntime
           - *skl2onnx
+          # psutil 7.2.2 has a process-wait race; remove pin after a fixed release.
+          # https://github.com/giampaolo/psutil/issues/2715
+          - psutil==7.2.1
           - pytest
           - pytest-benchmark
           - pytest-cov

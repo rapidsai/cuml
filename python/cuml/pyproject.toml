@@ -124,6 +124,7 @@ test = [
     "nltk",
     "nvidia-ml-py>=12",
     "onnxruntime",
+    "psutil==7.2.1",
     "pynndescent",
     "pytest",
     "pytest-benchmark",
