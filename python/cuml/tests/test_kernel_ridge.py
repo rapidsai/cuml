@@ -132,6 +132,18 @@ def test_pairwise_kernels_rejects_negative_y_for_chi2(metric):
         pairwise_kernels(X, Y, metric=metric)
 
 
+@pytest.mark.parametrize(
+    "dtype", ["int8", "uint8", "int16", "float16", "bfloat16"]
+)
+def test_additive_chi2_dtypes(dtype):
+    X = np.array([[1], [2], [3]], dtype="float64")
+    cu_X = cp.asarray(X, dtype=dtype)
+
+    sol = skl_pairwise_kernels(X, metric="additive_chi2")
+    res = pairwise_kernels(cu_X, metric="additive_chi2")
+    cp.testing.assert_allclose(res, sol)
+
+
 @cuda.jit(device=True)
 def custom_kernel(x, y, custom_arg=5.0):
     sum = 0.0
