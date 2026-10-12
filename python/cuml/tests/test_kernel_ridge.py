@@ -136,6 +136,11 @@ def test_pairwise_kernels_rejects_negative_y_for_chi2(metric):
     "dtype", ["int8", "uint8", "int16", "float16", "bfloat16"]
 )
 def test_additive_chi2_dtypes(dtype):
+    if dtype == "bfloat16":
+        try:
+            cp.dtype(dtype)
+        except TypeError:
+            pytest.skip(reason="bfloat16 not supported")
     X = np.array([[1], [2], [3]], dtype="float64")
     cu_X = cp.asarray(X, dtype=dtype)
 

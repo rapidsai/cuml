@@ -24,10 +24,17 @@ _dtype_str_map = {
     cp.dtype("uint32"): "unsigned int",
     cp.dtype("uint64"): "unsigned long long",
     cp.dtype("float16"): "__half",
-    cp.dtype("bfloat16"): "__nv_bfloat16",
     cp.dtype("float32"): "float",
     cp.dtype("float64"): "double",
 }
+
+# Check if bfloat16 support is installed
+try:
+    bfloat16 = cp.dtype("bfloat16")
+except TypeError:
+    pass
+else:
+    _dtype_str_map[bfloat16] = "__nv_bfloat16"
 
 
 @functools.lru_cache(maxsize=5000)
