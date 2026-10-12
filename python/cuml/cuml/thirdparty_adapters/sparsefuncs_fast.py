@@ -85,9 +85,9 @@ _PERFORM_EXPANSION_KERNEL = """
 ({0} *indptr,
  {0} *indices,
  {1} *data,
- {2} *expanded_indptr,
- {2} *expanded_indices,
- {1} *expanded_data,
+ {2} *out_indptr,
+ {2} *out_indices,
+ {1} *out_data,
  long long n_rows,
  long long n_cols,
  int interaction_only,
@@ -97,8 +97,8 @@ _PERFORM_EXPANSION_KERNEL = """
 
     if (row_i >= n_rows) return;
 
-    {2} expanded_index = expanded_indptr[row_i] + inrow_idx;
-    if (expanded_index >= expanded_indptr[row_i + 1]) return;
+    {2} expanded_index = out_indptr[row_i] + inrow_idx;
+    if (expanded_index >= out_indptr[row_i + 1]) return;
 
     {0} row_starts = indptr[row_i];
     {0} row_ends = indptr[row_i + 1];
@@ -141,22 +141,22 @@ _PERFORM_EXPANSION_KERNEL = """
     long long j = indices[j_ptr];
 
     if (is_degree_2) {
-        expanded_indices[expanded_index] = (
+        out_indices[expanded_index] = (
             interaction_only
             ? n_cols * i - (i*i + 3 * i) / 2 - 1 + j
             : n_cols * i - (i*i + i) / 2 + j
         );
-        expanded_data[expanded_index] = data[i_ptr] * data[j_ptr];
+        out_data[expanded_index] = data[i_ptr] * data[j_ptr];
     } else {
         long long k = indices[k_ptr];
-        expanded_indices[expanded_index] = (
+        out_indices[expanded_index] = (
             interaction_only
             ? (3*i*n_cols*n_cols - 3*i*i*n_cols + i*i*i + 11*i - 3*j*j - 9*j)/6
               + i*i - 2*i*n_cols + n_cols*j - n_cols + k
             : (3*i*n_cols*n_cols - 3*i*i*n_cols + i*i*i - i - 3*j*j - 3*j)/6
               + n_cols*j + k
         );
-        expanded_data[expanded_index] = data[i_ptr] * data[j_ptr] * data[k_ptr];
+        out_data[expanded_index] = data[i_ptr] * data[j_ptr] * data[k_ptr];
     }
 }
 """
@@ -188,15 +188,13 @@ def csr_polynomial_expansion(X, interaction_only, degree):
     interaction_only = int(bool(interaction_only))
 
     if degree == 2:
-        expanded_dimensionality = int(
-            (n_cols**2 + n_cols) / 2 - interaction_only * n_cols
-        )
+        out_n_cols = int((n_cols**2 + n_cols) / 2 - interaction_only * n_cols)
     else:
-        expanded_dimensionality = int(
+        out_n_cols = int(
             (n_cols**3 + 3 * n_cols**2 + 2 * n_cols) / 6
             - interaction_only * n_cols**2
         )
-    if expanded_dimensionality == 0:
+    if out_n_cols == 0:
         return None
 
     nnz = cp.diff(X.indptr)
@@ -208,17 +206,22 @@ def csr_polynomial_expansion(X, interaction_only, degree):
     nnz_sum = int(nnz.sum())
 
     # Use int32 for output indices when possible, falling back to int64
-    out_ind_dtype = "int32" if nnz_sum <= cp.iinfo("int32").max else "int64"
-    expanded_data = cp.empty(shape=nnz_sum, dtype=X.data.dtype)
-    expanded_indices = cp.empty(shape=nnz_sum, dtype=out_ind_dtype)
-    expanded_indptr = cp.empty(shape=X.shape[0] + 1, dtype=out_ind_dtype)
-    expanded_indptr[0] = X.indptr[0]
-    nnz.cumsum(out=expanded_indptr[1:])
+    int32_max = cp.iinfo("int32").max
+    out_ind_dtype = (
+        "int32"
+        if (nnz_sum <= int32_max and out_n_cols <= int32_max)
+        else "int64"
+    )
+    out_data = cp.empty(shape=nnz_sum, dtype=X.data.dtype)
+    out_indices = cp.empty(shape=nnz_sum, dtype=out_ind_dtype)
+    out_indptr = cp.empty(shape=X.shape[0] + 1, dtype=out_ind_dtype)
+    out_indptr[0] = X.indptr[0]
+    nnz.cumsum(out=out_indptr[1:])
     del nnz
 
     perform_expansion = cuda_kernel_factory(
         _PERFORM_EXPANSION_KERNEL,
-        (X.indptr.dtype, X.data.dtype, expanded_indptr.dtype),
+        (X.indptr.dtype, X.data.dtype, out_indptr.dtype),
         "perform_expansion",
     )
     perform_expansion(
@@ -228,16 +231,16 @@ def csr_polynomial_expansion(X, interaction_only, degree):
             X.indptr,
             X.indices,
             X.data,
-            expanded_indptr,
-            expanded_indices,
-            expanded_data,
-            X.shape[0],
-            X.shape[1],
-            interaction_only,
-            degree == 2,
+            out_indptr,
+            out_indices,
+            out_data,
+            cp.int64(X.shape[0]),
+            cp.int64(X.shape[1]),
+            cp.int32(interaction_only),
+            cp.int32(degree == 2),
         ),
     )
     return cupyx.scipy.sparse.csr_matrix(
-        (expanded_data, expanded_indices, expanded_indptr),
-        shape=(X.shape[0], expanded_dimensionality),
+        (out_data, out_indices, out_indptr),
+        shape=(X.shape[0], out_n_cols),
     )

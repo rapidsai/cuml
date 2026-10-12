@@ -97,11 +97,19 @@ def additive_chi2_kernel(X, Y):
     """
 
     kernel = cuda_kernel_factory(code, (X.dtype, Y.dtype), "additive_chi2")
-    K = cp.empty((X.shape[0], Y.shape[0]), dtype=X.dtype, order="C")
+    K = cp.empty((X.shape[0], Y.shape[0]), dtype="float64", order="C")
     kernel(
         (math.ceil(X.shape[0] / 32), math.ceil(Y.shape[0] / 32)),
         (32, 32),
-        (X, Y, K, X.shape[0], Y.shape[0], X.shape[1], X is Y),
+        (
+            X,
+            Y,
+            K,
+            np.int32(X.shape[0]),
+            np.int32(Y.shape[0]),
+            np.int32(X.shape[1]),
+            np.int32(X is Y),
+        ),
     )
     return K
 
