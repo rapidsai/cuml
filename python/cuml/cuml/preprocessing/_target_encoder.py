@@ -766,8 +766,12 @@ class TargetEncoder(InteropMixin, Base):
             categories_cpu.append(cp.asnumpy(cat))
         n_features = len(self.categories_)
 
-        # Use per-feature encodings if available (from independent mode or sklearn)
-        if hasattr(self, "_encodings_per_feature"):
+        # Use per-feature encodings if available (from independent mode or
+        # sklearn). Combination and median fits set the attribute to an empty
+        # list, so the check has to test its value rather than its presence:
+        # otherwise the single-feature branch and the UnsupportedOnCPU branch
+        # below are both unreachable.
+        if getattr(self, "_encodings_per_feature", None):
             encodings_list = []
             for enc in self._encodings_per_feature:
                 encodings_list.append(cp.asnumpy(enc))
@@ -780,7 +784,7 @@ class TargetEncoder(InteropMixin, Base):
                 if mask.any():
                     enc_val = float(self.encode_all.loc[mask, "out"].iloc[0])
                 else:
-                    enc_val = float(self.mean)
+                    enc_val = float(self.y_stat_val)
                 feature_encodings.append(enc_val)
             encodings_list = [np.array(feature_encodings)]
         else:
@@ -793,7 +797,11 @@ class TargetEncoder(InteropMixin, Base):
             "encodings_": encodings_list,
             "categories_": categories_cpu,
             "classes_": self.classes_,
-            "target_mean_": float(self.mean),
+            # sklearn falls back to `target_mean_` for unseen categories while
+            # cuML falls back to `y_stat_val`, so export the statistic cuML
+            # actually uses. Otherwise a model fitted with `stat="median"` or
+            # `stat="var"` silently disagrees with cuML on unseen categories.
+            "target_mean_": float(self.y_stat_val),
             # sklearn internal attributes needed for transform
             "_infrequent_enabled": False,
             "target_type_": self.target_type_,
