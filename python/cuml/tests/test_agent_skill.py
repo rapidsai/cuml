@@ -23,7 +23,9 @@ import cuml
 
 REPO = Path(__file__).resolve().parents[3]
 SKILL = REPO / "skills" / "cuml"
-TABLE = json.loads((SKILL / "scripts" / "removed_apis.json").read_text())
+TABLE = json.loads(
+    (SKILL / "scripts" / "removed_apis.json").read_text(encoding="utf-8")
+)
 ENTRIES = TABLE["entries"]
 
 
@@ -69,7 +71,7 @@ def test_removed_api_is_gone(entry):
             assert name not in params, f"{path} still accepts {name!r}"
     elif kind == "build_kwds_key":
         for source in entry["check_sources"]:
-            text = (REPO / source).read_text()
+            text = (REPO / source).read_text(encoding="utf-8")
             assert f'"{name}"' not in text, f"{source} still reads {name!r}"
     else:
         raise AssertionError(f"unknown kind {kind!r}")
@@ -109,7 +111,7 @@ def test_checker_flags_removed_apis(tmp_path, capsys):
     """The skill's scanner reports the removed APIs in a snippet of old code."""
     checker = _load_checker()
     script = tmp_path / "old.py"
-    script.write_text(OLD_CODE)
+    script.write_text(OLD_CODE, encoding="utf-8")
 
     assert checker.main(["--all", "--json", str(script)]) == 1
     findings = json.loads(capsys.readouterr().out)
@@ -128,7 +130,8 @@ def test_checker_ignores_current_code(tmp_path, capsys):
         "import nvforest\n"
         "from cuml.manifold import UMAP\n"
         "UMAP(build_kwds={'knn_n_clusters': 4, 'knn_overlap_factor': 2})\n"
-        "cuml.set_global_output_type('cupy')\n"
+        "cuml.set_global_output_type('cupy')\n",
+        encoding="utf-8",
     )
     assert checker.main(["--all", "--json", str(script)]) == 0
     assert json.loads(capsys.readouterr().out) == []
@@ -138,12 +141,14 @@ def test_compatibility_doc_path():
     """The skill sends agents to this file on GitHub; a rename must update the skill."""
     path = "docs/source/cuml-accel/compatibility.rst"
     assert (REPO / path).is_file()
-    assert path in (SKILL / "SKILL.md").read_text()
+    assert path in (SKILL / "SKILL.md").read_text(encoding="utf-8")
 
 
 def test_evals_json_is_valid():
     """The eval dataset is valid SkillEvaluator (agentskills.io) input."""
-    data = json.loads((SKILL / "evals" / "evals.json").read_text())
+    data = json.loads(
+        (SKILL / "evals" / "evals.json").read_text(encoding="utf-8")
+    )
     assert data["skill_name"] == "cuml"
     ids = [case["id"] for case in data["evals"]]
     assert len(ids) == len(set(ids))

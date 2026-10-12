@@ -281,7 +281,7 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true", help="print JSON")
     args = parser.parse_args(argv)
 
-    entries = json.loads(TABLE.read_text())["entries"]
+    entries = json.loads(TABLE.read_text(encoding="utf-8"))["entries"]
     installed = installed_cuml_version()
 
     findings = []
