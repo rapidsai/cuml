@@ -69,20 +69,23 @@ def additive_chi2_kernel(X, Y):
     assert X.shape[1] == Y.shape[1]
 
     code = """
-    ({0} *X, {1} *Y, double *K, int X_n_rows, int Y_n_rows, int n_cols, int X_is_y) {
-        int x_row = threadIdx.x + blockIdx.x * blockDim.x;
-        int y_row = threadIdx.y + blockIdx.y * blockDim.y;
+    ({0} *X, {1} *Y, {2} *K, int X_n_rows, int Y_n_rows, int n_cols, int X_is_y) {
+        long long x_row = threadIdx.x + blockIdx.x * blockDim.x;
+        long long y_row = threadIdx.y + blockIdx.y * blockDim.y;
 
         if (x_row >= X_n_rows) return;
         if (y_row >= Y_n_rows) return;
         if (X_is_y && x_row > y_row) return;
 
-        int x_start = x_row * n_cols;
-        int y_start = y_row * n_cols;
-        {0} res = 0.0;
+        long long x_start = x_row * n_cols;
+        long long y_start = y_row * n_cols;
+
+        // We always use float64 for accumulator to avoid excessive rounding
+        // errors, but may store result as float32 to reduce memory usage
+        double res = 0.0;
         for (int i = 0; i < n_cols; i++) {
-            {0} x = X[x_start + i];
-            {1} y = Y[y_start + i];
+            double x = X[x_start + i];
+            double y = Y[y_start + i];
             if (x != y) {
                 res += (x - y) * (x - y) / (x + y);
             }
@@ -96,8 +99,14 @@ def additive_chi2_kernel(X, Y):
     }
     """
 
-    kernel = cuda_kernel_factory(code, (X.dtype, Y.dtype), "additive_chi2")
-    K = cp.empty((X.shape[0], Y.shape[0]), dtype="float64", order="C")
+    K = cp.empty(
+        (X.shape[0], Y.shape[0]),
+        dtype="f4" if X.dtype == "f4" and Y.dtype == "f4" else "f8",
+        order="C",
+    )
+    kernel = cuda_kernel_factory(
+        code, (X.dtype, Y.dtype, K.dtype), "additive_chi2"
+    )
     kernel(
         (math.ceil(X.shape[0] / 32), math.ceil(Y.shape[0] / 32)),
         (32, 32),
