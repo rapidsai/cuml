@@ -149,29 +149,26 @@ def assert_membership_vectors(
     cu_vecs, sk_vecs, cu_labels=None, sk_labels=None
 ):
     """Compare membership rankings after optionally matching cluster columns."""
-    if cu_vecs.shape == sk_vecs.shape:
-        n_clusters = cu_vecs.shape[1]
-        if cu_labels is not None and n_clusters > 1:
-            if hasattr(cu_labels, "get"):
-                cu_labels = cu_labels.get()
-            if hasattr(sk_labels, "get"):
-                sk_labels = sk_labels.get()
-            overlap = confusion_matrix(
-                cu_labels, sk_labels, labels=np.arange(n_clusters)
-            )
-            cu_columns, sk_columns = linear_sum_assignment(
-                overlap, maximize=True
-            )
-            cu_vecs = cu_vecs[:, cu_columns[np.argsort(sk_columns)]]
+    assert cu_vecs.shape == sk_vecs.shape
+    n_clusters = cu_vecs.shape[1]
+    if cu_labels is not None and n_clusters > 1:
+        if hasattr(cu_labels, "get"):
+            cu_labels = cu_labels.get()
+        if hasattr(sk_labels, "get"):
+            sk_labels = sk_labels.get()
+        overlap = confusion_matrix(
+            cu_labels, sk_labels, labels=np.arange(n_clusters)
+        )
+        cu_columns, sk_columns = linear_sum_assignment(overlap, maximize=True)
+        cu_vecs = cu_vecs[:, cu_columns[np.argsort(sk_columns)]]
 
-        cu_labels_sorted = np.argsort(cu_vecs)[::-1]
-        sk_labels_sorted = np.argsort(sk_vecs)[::-1]
+    cu_labels_sorted = np.argsort(cu_vecs, axis=1)[:, ::-1]
+    sk_labels_sorted = np.argsort(sk_vecs, axis=1)[:, ::-1]
 
-        for i in range(min(n_clusters, 10)):
-            assert (
-                np.mean(cu_labels_sorted[:, i] == sk_labels_sorted[:, i])
-                >= 0.90
-            )
+    for i in range(min(n_clusters, 10)):
+        assert (
+            np.mean(cu_labels_sorted[:, i] == sk_labels_sorted[:, i]) >= 0.90
+        )
 
 
 def test_assert_membership_vectors_matches_clusters_and_rejects_bad_values():
@@ -191,6 +188,9 @@ def test_assert_membership_vectors_matches_clusters_and_rejects_bad_values():
     bad_vecs = cu_vecs[np.random.default_rng(42).permutation(cu_vecs.shape[0])]
     with pytest.raises(AssertionError):
         assert_membership_vectors(bad_vecs, sk_vecs, cu_labels, sk_labels)
+
+    with pytest.raises(AssertionError):
+        assert_membership_vectors(cu_vecs[:-1], sk_vecs, cu_labels, sk_labels)
 
 
 @pytest.mark.parametrize("nrows", [500])
