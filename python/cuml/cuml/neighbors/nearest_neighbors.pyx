@@ -458,8 +458,8 @@ def _normalize_ivf_params(algo, params, n_rows=None):
     if algo == "ivfpq" and "usePrecomputedTables" in params:
         # rapids-pre-commit-hooks: disable[verify-hardcoded-version]
         warnings.warn(
-            "'usePrecomputedTables' was deprecated in 26.10 and will be "
-            "removed in 26.12. It is ignored because cuVS IVF-PQ has no "
+            "'usePrecomputedTables' was deprecated in 26.12 and will be "
+            "removed in 27.02. It is ignored because cuVS IVF-PQ has no "
             "equivalent parameter.",
             FutureWarning,
             stacklevel=3,
@@ -478,8 +478,8 @@ def _normalize_ivf_params(algo, params, n_rows=None):
 
         # rapids-pre-commit-hooks: disable[verify-hardcoded-version]
         warnings.warn(
-            f"'{old}' was deprecated in 26.10 and will be removed in "
-            f"26.12. Use '{new}' instead.",
+            f"'{old}' was deprecated in 26.12 and will be removed in "
+            f"27.02. Use '{new}' instead.",
             FutureWarning,
             stacklevel=3,
         )
@@ -1267,12 +1267,12 @@ class NearestNeighbors(NeighborsBase):
             - max_internal_batch_size: (int, default=4096) internal search
               batch size
 
-        .. deprecated:: 26.10
+        .. deprecated:: 26.12
             The IVF parameter names ``nlist``, ``nprobe``, ``M``, and
-            ``n_bits`` were deprecated in 26.10 and will be removed in
-            26.12. Use ``n_lists``, ``n_probes``, ``pq_dim``, and
+            ``n_bits`` were deprecated in 26.12 and will be removed in
+            27.02. Use ``n_lists``, ``n_probes``, ``pq_dim``, and
             ``pq_bits`` instead. ``usePrecomputedTables`` was also
-            deprecated in 26.10 and will be removed in 26.12; it is ignored
+            deprecated in 26.12 and will be removed in 27.02; it is ignored
             because cuVS IVF-PQ has no equivalent option.
     metric_params : dict, optional (default = None)
         Additional keyword arguments for the metric function.

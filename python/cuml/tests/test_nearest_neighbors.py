@@ -373,7 +373,7 @@ def test_ivf_legacy_param_names_warn(algorithm, algo_params):
 
     with pytest.warns(
         FutureWarning,
-        match=r"deprecated in 26\.10.*removed in 26\.12",
+        match=r"deprecated in 26\.12.*removed in 27\.02",
     ):
         cuKNN(
             algorithm=algorithm,
