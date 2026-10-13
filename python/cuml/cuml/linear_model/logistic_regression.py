@@ -16,6 +16,7 @@ from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.qn import fit_qn
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+SKLEARN_110 = Version(sklearn.__version__) >= Version("1.10.0.dev0")
 
 
 class LogisticRegression(
@@ -169,11 +170,22 @@ class LogisticRegression(
             else:
                 penalty = "elasticnet"
 
+        # `C` was deprecated in sklearn 1.10 in favor of `alpha = 1 / C`
+        if model.C == "deprecated":
+            C = np.inf if model.alpha == 0 else 1.0 / model.alpha
+        elif SKLEARN_110 and model.alpha != 1.0:
+            # Setting both is an error in sklearn, fall back to CPU to raise it
+            raise UnsupportedOnGPU(
+                "Setting both `C` and `alpha` is not supported"
+            )
+        else:
+            C = model.C
+
         return {
             "penalty": penalty,
             "l1_ratio": l1_ratio,
             "tol": model.tol,
-            "C": model.C,
+            "C": C,
             "fit_intercept": model.fit_intercept,
             "class_weight": model.class_weight,
             "max_iter": model.max_iter,
@@ -187,8 +199,12 @@ class LogisticRegression(
                 "l1_ratio": {"l1": 1.0, "l2": 0.0, None: 0.0}.get(
                     self.l1_ratio
                 ),
-                "C": np.inf if self.penalty is None else self.C,
             }
+            # `C` was deprecated in sklearn 1.10 in favor of `alpha = 1 / C`
+            if SKLEARN_110:
+                extra["alpha"] = 0.0 if self.penalty is None else 1.0 / self.C
+            else:
+                extra["C"] = np.inf if self.penalty is None else self.C
         else:
             extra = {
                 "penalty": self.penalty,
