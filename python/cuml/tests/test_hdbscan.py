@@ -171,6 +171,14 @@ def assert_membership_vectors(
         )
 
 
+def assert_hdbscan_membership_vectors(cu_vecs, sk_vecs, cu_labels, sk_labels):
+    if cu_vecs.shape != sk_vecs.shape and Version(
+        importlib.metadata.version("hdbscan")
+    ) < Version("0.8.41"):
+        pytest.xfail("hdbscan < 0.8.41 may select a different cluster count")
+    assert_membership_vectors(cu_vecs, sk_vecs, cu_labels, sk_labels)
+
+
 def test_assert_membership_vectors_matches_clusters_and_rejects_bad_values():
     sk_labels = np.repeat(np.arange(3), 100)
     sk_vecs = np.full((sk_labels.size, 3), 0.1, dtype=np.float32)
@@ -682,7 +690,7 @@ def test_all_points_membership_vectors_moons(
         sk_agg
     ).astype("float32")
 
-    assert_membership_vectors(
+    assert_hdbscan_membership_vectors(
         cu_membership_vectors,
         sk_membership_vectors,
         cuml_agg.labels_,
@@ -742,7 +750,7 @@ def test_all_points_membership_vectors_circles(
         sk_agg
     ).astype("float32")
 
-    assert_membership_vectors(
+    assert_hdbscan_membership_vectors(
         cu_membership_vectors,
         sk_membership_vectors,
         cuml_agg.labels_,
@@ -1077,7 +1085,7 @@ def test_membership_vector_moons(
         "float32"
     )
 
-    assert_membership_vectors(
+    assert_hdbscan_membership_vectors(
         cu_membership_vectors,
         sk_membership_vectors,
         cuml_agg.labels_,
@@ -1145,7 +1153,7 @@ def test_membership_vector_circles(
         "float32"
     )
 
-    assert_membership_vectors(
+    assert_hdbscan_membership_vectors(
         cu_membership_vectors,
         sk_membership_vectors,
         cuml_agg.labels_,
