@@ -2032,9 +2032,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     return std::max(1, non_empty_n_bins - 1);
   }
 
-  auto MSE(std::vector<DataT> const& data,
-           std::vector<double> const&
-             sample_weights)  //  1/w * sum(w_i * (y - y_pred) * (y - y_pred))
+  auto MSE(
+    std::vector<DataT> const& data,
+    std::vector<double> const& sample_weights)  //  1/w * sum(w_i * (y - y_pred) * (y - y_pred))
   {
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
     DataT sum{0};
