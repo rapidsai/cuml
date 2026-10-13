@@ -219,12 +219,16 @@ def test_ivf_cuvs_defaults_for_small_dataset(algorithm):
     from cuml.neighbors.nearest_neighbors import _normalize_ivf_params
 
     params = _normalize_ivf_params(algorithm, None, n_rows=100)
-    assert params["n_lists"] == 50
-    assert params["n_probes"] == 20
+    assert params["n_lists"] == 10
+    assert params["n_probes"] == 10
 
     params = _normalize_ivf_params(algorithm, None, n_rows=10)
-    assert params["n_lists"] == 5
-    assert params["n_probes"] == 5
+    assert params["n_lists"] == 3
+    assert params["n_probes"] == 3
+
+    params = _normalize_ivf_params(algorithm, None, n_rows=500)
+    assert params["n_lists"] == 22
+    assert params["n_probes"] == 20
 
     params = _normalize_ivf_params(
         algorithm, {"n_lists": 8, "n_probes": 2}, n_rows=100

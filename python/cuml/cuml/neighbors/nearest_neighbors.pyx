@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+import math
 import warnings
 
 import cupy as cp
@@ -498,10 +499,12 @@ def _normalize_ivf_params(algo, params, n_rows=None):
     out = {**defaults, **params}
 
     if n_rows is not None and "n_lists" not in params:
-        # Keep the cuVS default for large datasets, but do not request more
-        # lists than rows selected for k-means training on a small dataset.
+        # The cuVS default targets large datasets. For smaller inputs, scale
+        # the lists with the dataset so the default probes retain recall.
+        # Also keep the list count within the k-means training set size.
         train_rows = max(1, int(n_rows * out["kmeans_trainset_fraction"]))
-        out["n_lists"] = min(out["n_lists"], train_rows)
+        out["n_lists"] = min(out["n_lists"], math.isqrt(n_rows), train_rows)
+        out["n_lists"] = max(1, out["n_lists"])
         if "n_probes" not in params:
             out["n_probes"] = min(out["n_probes"], out["n_lists"])
 
@@ -1223,7 +1226,8 @@ class NearestNeighbors(NeighborsBase):
         Parameters for algorithm ``'ivfflat'``:
 
             - n_lists: (int, default=1024) number of inverted lists; the
-              default is capped at the number of k-means training rows
+              default scales with dataset size and is capped at the number
+              of k-means training rows
             - n_probes: (int, default=20) lists searched per query
             - kmeans_n_iters: (int, default=20) k-means iterations
             - kmeans_trainset_fraction: (float, default=0.5) fraction of the
@@ -1234,7 +1238,8 @@ class NearestNeighbors(NeighborsBase):
         Parameters for algorithm ``'ivfpq'``:
 
             - n_lists: (int, default=1024) number of inverted lists; the
-              default is capped at the number of k-means training rows
+              default scales with dataset size and is capped at the number
+              of k-means training rows
             - n_probes: (int, default=20) lists searched per query
             - kmeans_n_iters: (int, default=20) k-means iterations
             - kmeans_trainset_fraction: (float, default=0.5) fraction of the
