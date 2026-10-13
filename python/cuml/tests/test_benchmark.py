@@ -1206,19 +1206,16 @@ def test_software_metadata_snapshots_dependencies(monkeypatch):
         SimpleNamespace(metadata={"Name": name}, version=version)
         for name, version in [
             ("numpy", "2.0"),
-            ("scipy", "1.0"),
-            ("scikit-learn", "1.9"),
-            ("cupy-cuda13x", "14.0"),
             ("dask", "2026.7"),
-            ("distributed", "2026.7"),
             ("cuml", "test-version"),
         ]
     ]
     monkeypatch.setattr(
         base_backend.importlib.metadata, "distributions", lambda: distributions
     )
-    monkeypatch.setattr(base_backend, "_version", lambda name: "unknown")
     backend = get_backend("cuml.dask")
+    monkeypatch.setattr(backend, "distribution_name", lambda name: name)
+    monkeypatch.setattr(base_backend, "_version", lambda name: "unknown")
     monkeypatch.setattr(backend, "package_source", lambda name: None)
     packages = backend.software_packages(
         [EstimatorSpec("cuml.decomposition", "PCA", "cuml")]
@@ -1407,19 +1404,37 @@ def source_checkout(tmp_path, monkeypatch):
     return root, module, git
 
 
+@pytest.mark.parametrize("distribution", ["cuml", "cuml-cu12", "cuml-cu13"])
 def test_source_resume_with_ignored_default_output(
-    source_checkout, monkeypatch
+    source_checkout, monkeypatch, distribution
 ):
     _, module, git = source_checkout
-    monkeypatch.setattr(get_backend("cuml"), "software_runtimes", lambda: [])
+    original_version = base_backend.importlib.metadata.version
+
+    def version(name):
+        if name == distribution:
+            return "test-version"
+        if name == "cuml":
+            raise importlib.metadata.PackageNotFoundError(name)
+        return original_version(name)
+
+    monkeypatch.setattr(base_backend.importlib.metadata, "version", version)
+    monkeypatch.setattr(
+        base_backend.importlib.metadata,
+        "packages_distributions",
+        lambda: {"cuml": [distribution]},
+    )
+    backend = get_backend("cuml")
+    monkeypatch.setattr(backend, "software_runtimes", lambda: [])
     suite = _suite(resolve_case(_request(), PROFILE), provider="cuml")
     output = cli.default_output_path(suite) / "cuml.json"
     original = harness.run_suite(suite, output)
     package = next(
         package
         for package in original["run"]["software"]["packages"]
-        if package["name"] == "cuml"
+        if package["name"] == backend.distribution_name("cuml")
     )
+    assert package["name"] == distribution
     assert package["source"] == {
         "repository": None,
         "revision": git("rev-parse", "HEAD"),
