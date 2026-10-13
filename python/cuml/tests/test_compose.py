@@ -1,9 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-
 import cudf
+import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
@@ -79,6 +78,33 @@ def test_column_transformer(
 
     assert_allclose(ft_X, sk_t_X)
     assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize("mem_type", ["host", "device"])
+def test_column_transformer_array_like(mem_type):
+    class MyArray:
+        def __init__(self, array):
+            self.array = (np if mem_type == "host" else cp).asarray(array)
+            self.shape = self.array.shape
+            self.ndim = self.array.ndim
+
+        if mem_type == "host":
+
+            def __array__(self, *args, **kwargs):
+                return self.array
+        else:
+
+            @property
+            def __cuda_array_interface__(self):
+                return self.array.__cuda_array_interface__
+
+    X = np.ones((2, 2), dtype=np.float32)
+
+    sk_model = skColumnTransformer([("keep", "passthrough", [0])])
+    sol = sk_model.fit_transform(X)
+    cu_model = cuColumnTransformer([("keep", "passthrough", [0])])
+    res = cu_model.fit_transform(MyArray(X))
+    cp.testing.assert_array_equal(res, sol)
 
 
 @pytest.mark.parametrize("remainder", ["drop", "passthrough"])

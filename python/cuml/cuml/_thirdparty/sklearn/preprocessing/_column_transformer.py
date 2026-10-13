@@ -260,6 +260,14 @@ def _safe_indexing(X, indices, *, axis=0):
 
 def _array_indexing(array, key, key_dtype, axis):
     """Index an array or a sparse array"""
+    array = check_array(
+        array,
+        order=None,
+        mem_type=None,
+        accept_sparse=True,
+        ensure_all_finite=False,
+        ensure_2d=False,
+    )
     if issparse(array):
         # check if we have an boolean array-likes to make the proper indexing
         if key_dtype == 'bool':
