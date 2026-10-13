@@ -60,6 +60,7 @@ from cuml.testing.utils import array_equal
 
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+SKLEARN_110 = Version(sklearn.__version__) >= Version("1.10.0.dev0")
 
 
 def _filter_scipy_lbfgsb_deprecation(func):
@@ -253,6 +254,22 @@ def test_logistic_regression(random_state):
     )
     original = LogisticRegression(C=5.0, max_iter=500)
     assert_estimator_roundtrip(original, SkLogisticRegression, X, y)
+
+
+@pytest.mark.skipif(not SKLEARN_110, reason="alpha added in sklearn 1.10")
+def test_logistic_regression_no_penalty_alpha(random_state):
+    # The roundtrip test covers `alpha = 1 / C`, this covers `alpha == 0`
+    X, y = make_classification(
+        n_samples=50, n_features=5, n_informative=3, random_state=random_state
+    )
+    sk_model = LogisticRegression(penalty=None).fit(X, y).as_sklearn()
+    assert sk_model.alpha == 0.0
+    assert sk_model.C == "deprecated"
+
+    model = LogisticRegression.from_sklearn(
+        SkLogisticRegression(alpha=0).fit(X, y)
+    )
+    assert model.C == np.inf
 
 
 def test_elasticnet(random_state):
