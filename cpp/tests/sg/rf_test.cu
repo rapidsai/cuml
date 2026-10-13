@@ -1440,7 +1440,8 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
   thrust::device_vector<DT::Split<DataT>> split(1);
   thrust::device_vector<int> mutex(1);
 
-  DT::RegressionObjectiveFunction<DataT, DataT> objective(1, 1, CRITERION::MSE);
+  // Four zeros and four twos have variance 1. The best split must exceed 0.75;
+  DT::RegressionObjectiveFunction<DataT, DataT> objective(1, 1, CRITERION::MSE, DataT{0.75});
   objectiveGainKernel<<<1, 32, 0, handle.get_stream().get()>>>(hist.data().get(),
                                                                quantiles.data().get(),
                                                                split.data().get(),
@@ -1464,6 +1465,7 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);
+  EXPECT_EQ(h_split.best_metric_val, DataT{1});
 }
 
 template <typename T>
@@ -2032,7 +2034,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto MSE(std::vector<DataT> const& data,
            std::vector<double> const&
-             sample_weights)  //  1/w * 1/2 * sum(w_i * (y - y_pred) * (y - y_pred))
+             sample_weights)  //  1/w * sum(w_i * (y - y_pred) * (y - y_pred))
   {
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
     DataT sum{0};
@@ -2047,7 +2049,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       mse += sample_weights[i] * (d - mean) * (d - mean);  // unit deviance
     }
 
-    mse /= 2 * weight_sum;
+    mse /= weight_sum;
     return std::make_tuple(mse, sum, DataT(data.size()), weight_sum);
   }
 
@@ -2070,7 +2072,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
     auto gain = parent_mse -
                 ((weight_sum_left / weight_sum) * left_mse +    // the minimizing objective function
-                                                                // is half deviance
+                                                                // is weighted variance
                  (weight_sum_right / weight_sum) * right_mse);  // gain in long form without proxy
 
     // edge cases
