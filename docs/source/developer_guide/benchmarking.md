@@ -226,8 +226,9 @@ identity, and exhaustive cuML and cuml.accel coverage in the `estimators` suite.
 
 ## Run from Python
 
-Use `cuml.benchmark.run()` to run a suite from Python with the same sequential
-isolated workers as the CLI:
+The experimental `cuml.benchmark.run()` interface runs a suite from Python
+with the same sequential isolated workers as the CLI. This interface is intended
+for benchmark development and is subject to change without deprecation:
 
 ```python
 from cuml import benchmark
@@ -242,8 +243,6 @@ JSON dictionaries keyed by provider. Temporary output is cleaned by default.
 Pass a directory path to `output`, such as `output="./results"`, to save results
 and checkpoints. Use the same directory with `resume=True` to
 continue a run. The CLI defaults to a timestamped directory.
-See the [API reference](../api/cuml.benchmark) for failure diagnostics,
-temporary cleanup and per-provider resume semantics.
 
 ## CPU-only execution
 
