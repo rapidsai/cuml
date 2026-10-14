@@ -3,6 +3,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 repos:
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.6
+    hooks:
+      - id: bandit
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
+        name: flake8-bugbear
+        args: [--select=B]
+        additional_dependencies: [flake8-bugbear==24.12.12]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
