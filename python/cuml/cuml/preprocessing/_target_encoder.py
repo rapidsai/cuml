@@ -7,6 +7,7 @@ import warnings
 import cudf
 import cupy as cp
 import numpy as np
+from sklearn.utils import ClassifierTags
 
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -204,6 +205,14 @@ class TargetEncoder(InteropMixin, Base):
         self.split_method = split_method
         self.stat = stat
         self.multi_feature_mode = multi_feature_mode
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.classifier_tags = ClassifierTags(multi_class=False)
+        tags.input_tags.categorical = True
+        tags.input_tags.allow_nan = True
+        tags.target_tags.required = True
+        return tags
 
     @mlfunc(set_input_type=True)
     def fit(self, X, y, *, fold_ids=None):

@@ -141,6 +141,7 @@ ESTIMATORS = [
     TfidfTransformer(),
     LabelEncoder(),
     LabelBinarizer(),
+    TargetEncoder(multi_feature_mode="independent"),
 ]
 
 
@@ -173,8 +174,6 @@ EXCLUDED = {
     # Meta-estimators
     OneVsRestClassifier: "Meta-estimator, requires an inner estimator",
     OneVsOneClassifier: "Meta-estimator, requires an inner estimator",
-    # Preprocessing (cuml-native)
-    TargetEncoder: "Not yet tested for sklearn compat",
     # Preprocessing (vendored sklearn)
     MinMaxScaler: "Vendored sklearn preprocessing, not yet tested",
     MaxAbsScaler: "Vendored sklearn preprocessing, not yet tested",
@@ -256,6 +255,10 @@ XFAILS = {
     StandardScaler: {
         "check_no_attributes_set_in_init": "Vendored __init__ sets copy/with_mean/with_std as attributes",
         "check_do_not_raise_errors_in_init_or_set_params": "StandardScaler(**params) raises an exception",
+    },
+    TargetEncoder: {
+        "check_dont_overwrite_parameters": "Fitted attributes without a leading/trailing `_` used",
+        "check_dict_unchanged": "Fitted attributes without a leading/trailing `_` used",
     },
 }
 
