@@ -522,7 +522,7 @@ def test_rf_zero_weight_on_one_worker(client, bootstrap, weight_type):
         pytest.param(cuRFC_mg, None, True, 0.9, id="sample-classifier"),
         pytest.param(cuRFR_mg, None, True, 0.9, id="sample-regressor"),
         pytest.param(cuRFC_mg, {0: 9, 1: 1}, True, 0.5, id="combined"),
-        pytest.param(cuRFC_mg, "balanced", True, 0.75, id="balanced-combined"),
+        pytest.param(cuRFC_mg, "balanced", True, 0.5, id="balanced-combined"),
     ],
 )
 def test_rf_weights(

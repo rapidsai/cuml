@@ -206,6 +206,23 @@ class RandomForestClassifier(
             counts_by_class = y.value_counts().compute().sort_index()
             classes = cp.asnumpy(cp.asarray(counts_by_class.index))
             class_counts = cp.asnumpy(cp.asarray(counts_by_class))
+
+        if (
+            sample_weight is not None
+            and self.kwargs.get("class_weight") == "balanced"
+        ):
+            # Use weighted class frequencies if class_weight="balanced"
+            # and sample_weight is provided.
+            class_counts = cp.asnumpy(
+                cp.asarray(
+                    dask.compute(
+                        *[
+                            (sample_weight * (y == class_value)).sum()
+                            for class_value in classes
+                        ]
+                    )
+                )
+            )
         self.classes_ = classes
         self._set_internal_model(None)
         self._fit(
