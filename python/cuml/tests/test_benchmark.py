@@ -266,12 +266,14 @@ def test_mixed_library_suite_provider_applicability(document, tmp_path):
 def test_estimator_benchmark_coverage():
     import cuml
     from cuml.internals.base import Base
-    from cuml.testing.utils import ClassEnumerator
+    from cuml.testing.utils import get_all_base_subclasses
 
     public = {
         name
-        for name, cls in ClassEnumerator(module=cuml).get_models().items()
-        if not name.startswith("_")
+        for name, cls in get_all_base_subclasses().items()
+        if getattr(cuml, name, None)
+        is cls  # Cover estimators exported at the top level.
+        and not name.startswith("_")
         and cls is not Base
         and not inspect.isabstract(cls)
     }
