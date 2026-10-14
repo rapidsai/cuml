@@ -82,7 +82,17 @@ TEST_P(RfMgRowSamplerTest, SamplesGlobalWeightDistribution)
   get_mpi_local_rank_size(local_rank, local_size);
   int n_gpus = 0;
   RAFT_CUDA_TRY(cudaGetDeviceCount(&n_gpus));
-  ASSERT_GE(n_gpus, local_size);
+  int insufficient_local_gpus = n_gpus < local_size;
+  int any_insufficient_gpus   = 0;
+  MPI_Allreduce(
+    &insufficient_local_gpus, &any_insufficient_gpus, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+  if (any_insufficient_gpus) {
+    if (insufficient_local_gpus) {
+      ADD_FAILURE() << "Number of GPUs is smaller than local MPI ranks: ngpus=" << n_gpus
+                    << ", local_ranks=" << local_size;
+    }
+    return;
+  }
   RAFT_CUDA_TRY(cudaSetDevice(local_rank));
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
