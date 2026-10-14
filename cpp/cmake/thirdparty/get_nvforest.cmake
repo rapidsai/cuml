@@ -43,8 +43,8 @@ endfunction()
 # To use a different nvForest locally, set the CMake variable
 # CPM_nvforest_SOURCE=/path/to/local/nvforest
 find_and_configure_nvforest(VERSION          ${CUML_MIN_VERSION_nvforest}
-        FORK             hcho3
-        PINNED_TAG       fcbb3b04ff05fd1e28881b398b9c38dd884537c7
+        FORK             chyunsu3
+        PINNED_TAG       20b8dd9ec6487b1d53ed65e2e7232154f3dd4be9
         EXCLUDE_FROM_ALL ${CUML_EXCLUDE_NVFOREST_FROM_ALL}
         # When PINNED_TAG above doesn't match cuml,
         # force local nvforest clone in build directory
