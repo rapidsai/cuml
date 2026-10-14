@@ -104,6 +104,7 @@ ESTIMATORS = [
     MultinomialNB(),
     UMAP(n_neighbors=5),
     TSNE(),
+    SpectralEmbedding(),
     TruncatedSVD(),
     IncrementalPCA(),
     PCA(),
@@ -170,8 +171,6 @@ EXCLUDED = {
     # Meta-estimators
     OneVsRestClassifier: "Meta-estimator, requires an inner estimator",
     OneVsOneClassifier: "Meta-estimator, requires an inner estimator",
-    # Manifold
-    SpectralEmbedding: "Not yet tested for sklearn compat",
     # Preprocessing (cuml-native)
     LabelEncoder: "Not yet tested for sklearn compat",
     TargetEncoder: "Not yet tested for sklearn compat",
