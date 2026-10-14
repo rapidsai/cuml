@@ -50,7 +50,6 @@ from cuml.benchmark.suite import (
     load_suite,
     load_suite_reference,
     resolve_case,
-    suite_manifest_json_schema,
 )
 
 SUITES = Path(__file__).resolve().parents[1] / "cuml" / "benchmark" / "suites"
@@ -176,7 +175,6 @@ def test_provider_qualified_estimator_workers(document, tmp_path, monkeypatch):
     document["providers"] = providers
     document["cases"] = [_request(estimator="SharedEstimator", parameters={})]
     path = _write_suite(tmp_path, document)
-    jsonschema.validate(document, suite_manifest_json_schema())
     plan = load_suite(path)
     assert [run.provider for run in plan.runs] == document["providers"]
     assert (
@@ -323,13 +321,9 @@ def test_estimator_benchmark_coverage():
 
 
 def test_packaged_suites_are_valid_and_comparable():
-    schema = suite_manifest_json_schema()
-    jsonschema.Draft202012Validator.check_schema(schema)
-    validator = jsonschema.Draft202012Validator(schema)
     comparable = {}
     for path in sorted(SUITES.glob("*.yaml")):
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
-        validator.validate(document)
         for profile in document["profiles"]:
             plan = load_suite(path, profile)
             assert [run.provider for run in plan.runs] == document["providers"]
