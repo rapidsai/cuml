@@ -16,6 +16,17 @@ if TYPE_CHECKING:
 from .cuml import CumlBackend
 
 
+def _wait_for_futures(distributed: Any, value: Any) -> None:
+    """Await partition futures and propagate task failures."""
+    futures = distributed.futures_of(value)
+    distributed.wait(futures)
+    for future in futures:
+        if future.status == "error":
+            raise future.exception()
+        if future.status == "cancelled":
+            raise RuntimeError("Dask execution was cancelled")
+
+
 class DaskBackend(CumlBackend):
     """Provide distributed inputs, estimators, and a multi-GPU runtime."""
 
@@ -87,16 +98,9 @@ class DaskBackend(CumlBackend):
         distributed = importlib.import_module("dask.distributed")
         client = runtime if runtime is not None else distributed.get_client()
         persisted = client.persist([inputs[index] for index in indices])
-        # wait() alone does not raise failed-task exceptions. Resolve partition
-        # futures (not their arrays) to surface conversion failures without
-        # gathering the complete inputs onto the client.
-        futures = distributed.futures_of(persisted)
-        distributed.wait(futures)
-        for future in futures:
-            if future.status == "error":
-                raise future.exception()
-            if future.status == "cancelled":
-                raise RuntimeError("Dask input preparation was cancelled")
+        # Inspect partition futures after completion to surface conversion
+        # failures while retaining input data on the workers.
+        _wait_for_futures(distributed, persisted)
         prepared = list(inputs)
         for index, value in zip(indices, persisted, strict=True):
             prepared[index] = value
@@ -154,19 +158,20 @@ class DaskBackend(CumlBackend):
         Parameters
         ----------
         value : Any, optional
-            Distributed output to wait for or compute.
+            Distributed output to persist on workers and await completion.
         """
         if isinstance(value, (tuple, list)):
             for item in value:
                 self.synchronize(item)
             return
         if value is not None:
-            # wait() only waits for existing futures; it does not execute a
-            # lazy collection's graph, and can return without doing any work.
-            if hasattr(value, "compute"):
-                value.compute()
-            else:
-                importlib.import_module("dask.distributed").wait(value)
+            # Persist lazy collections to execute their graphs on the workers,
+            # then await the resulting partition futures.
+            dask = importlib.import_module("dask")
+            distributed = importlib.import_module("dask.distributed")
+            if dask.is_dask_collection(value):
+                value = distributed.get_client().persist(value)
+            _wait_for_futures(distributed, value)
         super().synchronize(value)
 
     @contextlib.contextmanager

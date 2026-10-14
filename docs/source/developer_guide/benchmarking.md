@@ -181,7 +181,8 @@ Each results file contains:
   measurement observations to calculate performance summaries from raw timings.
 - **Timing:** synchronized wall time in seconds for the selected estimator
   operation. Preparation and setup are excluded, so these timings differ from
-  total elapsed console time.
+  total elapsed console time. Dask collection outputs are persisted on the
+  workers, and timing includes waiting for their partition futures to complete.
 
 Each provider saves its results file after every case, including failures.
 The results JSON Schema is packaged at

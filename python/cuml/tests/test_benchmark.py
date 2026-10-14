@@ -2141,11 +2141,18 @@ def test_dask_preparation_retains_real_persisted_inputs(tmp_path):
 def test_dask_synchronization(monkeypatch, collection, nested):
     events = []
 
-    def wait(value):
-        events.append("wait")
+    def persist(value):
+        events.append("persist")
+        return value
 
+    future = SimpleNamespace(status="finished")
     modules = {
-        "dask.distributed": SimpleNamespace(wait=wait),
+        "dask": SimpleNamespace(is_dask_collection=lambda value: collection),
+        "dask.distributed": SimpleNamespace(
+            wait=lambda values: events.append("wait"),
+            futures_of=lambda value: [future],
+            get_client=lambda: SimpleNamespace(persist=persist),
+        ),
         "cupy": SimpleNamespace(
             cuda=SimpleNamespace(
                 runtime=SimpleNamespace(
@@ -2155,14 +2162,65 @@ def test_dask_synchronization(monkeypatch, collection, nested):
         ),
     }
     monkeypatch.setattr(importlib, "import_module", modules.__getitem__)
-    value = (
-        SimpleNamespace(compute=lambda: events.append("compute"))
-        if collection
-        else object()
+    value = SimpleNamespace(
+        compute=lambda: pytest.fail(
+            "Synchronization should persist outputs on workers"
+        )
     )
     get_backend("cuml.dask").synchronize((value, [value]) if nested else value)
-    expected = ["compute", "gpu"] if collection else ["wait", "gpu"]
+    expected = ["persist", "wait", "gpu"] if collection else ["wait", "gpu"]
     assert events == expected * (2 if nested else 1)
+
+
+def test_dask_synchronization_executes_lazy_graph(monkeypatch, tmp_path):
+    da = pytest.importorskip("dask.array")
+    distributed = pytest.importorskip("dask.distributed")
+    from dask import delayed
+
+    calls = tmp_path / "outputs.txt"
+
+    @delayed(pure=False)
+    def execute():
+        calls.write_text("executed", encoding="utf-8")
+        return np.ones((4, 2))
+
+    output = da.from_delayed(execute(), shape=(4, 2), dtype=np.float64)
+    monkeypatch.setattr(
+        type(output),
+        "compute",
+        lambda *args, **kwargs: pytest.fail("Must not gather output"),
+    )
+    with (
+        distributed.LocalCluster(
+            n_workers=1,
+            threads_per_worker=1,
+            processes=False,
+            dashboard_address=None,
+        ) as cluster,
+        distributed.Client(cluster),
+    ):
+        get_backend("cuml.dask").synchronize(output)
+        assert calls.read_text(encoding="utf-8") == "executed"
+
+
+@pytest.mark.parametrize("collection", [False, True])
+@pytest.mark.parametrize("status", ["error", "cancelled"])
+def test_dask_synchronization_propagates_failure(
+    monkeypatch, collection, status
+):
+    failure = RuntimeError("output execution failed")
+    future = SimpleNamespace(status=status, exception=lambda: failure)
+    modules = {
+        "dask": SimpleNamespace(is_dask_collection=lambda value: collection),
+        "dask.distributed": SimpleNamespace(
+            futures_of=lambda value: [future],
+            wait=lambda values: None,
+            get_client=lambda: SimpleNamespace(persist=lambda value: value),
+        ),
+    }
+    monkeypatch.setattr(importlib, "import_module", modules.__getitem__)
+    with pytest.raises(RuntimeError, match="execution failed|cancelled"):
+        get_backend("cuml.dask").synchronize(object())
 
 
 @pytest.mark.parametrize("estimator", ["PCA", "LabelEncoder", "MultinomialNB"])
