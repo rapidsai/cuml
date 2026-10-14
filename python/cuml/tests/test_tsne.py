@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -61,41 +61,14 @@ def test_tsne_knn_graph_used(
         min_grad_norm=1e-12,
     )
 
-    # Perform tsne with normal knn_graph
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph)
+    # Fit works and results in decent score with provided knn_graph
+    Y = tsne.fit_transform(X, knn_graph=knn_graph)
+    trust = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
+    assert trust >= 0.80
 
-    trust_normal = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-
-    X_garbage = np.ones(X.shape)
-    knn_graph_garbage = neigh.kneighbors_graph(
-        X_garbage, mode="distance"
-    ).astype("float32")
-
-    if type_knn_graph == "cuml":
-        knn_graph_garbage = cupyx.scipy.sparse.csr_matrix(knn_graph_garbage)
-
-    tsne = TSNE(
-        random_state=1,
-        n_neighbors=DEFAULT_N_NEIGHBORS,
-        method=method,
-        perplexity=DEFAULT_PERPLEXITY,
-        learning_rate_method="none",
-        min_grad_norm=1e-12,
-    )
-
-    # Perform tsne with garbage knn_graph
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
-
-    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-    assert (trust_normal - trust_garbage) > 0.15
-
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-    assert (trust_normal - trust_garbage) > 0.15
-
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-    assert (trust_normal - trust_garbage) > 0.15
+    # Fit errors if graph is bad
+    with pytest.raises(ValueError, match="Expected a sparse array of shape"):
+        tsne.fit_transform(X, knn_graph=knn_graph[:20, :20])
 
 
 @pytest.mark.parametrize("type_knn_graph", ["cuml", "sklearn"])
@@ -125,17 +98,13 @@ def test_tsne_knn_parameters(
         perplexity=DEFAULT_PERPLEXITY,
     )
 
-    embed = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph)
+    embed = tsne.fit_transform(X, knn_graph=knn_graph)
     validate_embedding(X, embed)
 
-    embed = tsne.fit_transform(
-        X, convert_dtype=True, knn_graph=knn_graph.tocoo()
-    )
+    embed = tsne.fit_transform(X, knn_graph=knn_graph.tocoo())
     validate_embedding(X, embed)
 
-    embed = tsne.fit_transform(
-        X, convert_dtype=True, knn_graph=knn_graph.tocsc()
-    )
+    embed = tsne.fit_transform(X, knn_graph=knn_graph.tocsc())
     validate_embedding(X, embed)
 
 
@@ -174,6 +143,63 @@ def test_tsne_precomputed_knn(precomputed_type, sparse_input):
     embedding = model.fit_transform(data)
     trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
     assert trust >= 0.92
+
+
+@pytest.mark.parametrize("use_precomputed_knn", [False, True])
+@pytest.mark.parametrize("n_features", [4, 64, 256, 1024])
+def test_tsne_fft_random_state_reproducibility(
+    use_precomputed_knn, n_features
+):
+    data, _ = make_blobs(
+        n_samples=2000, n_features=n_features, centers=5, random_state=0
+    )
+    data = data.astype(np.float32)
+
+    n_neighbors = 30
+    perplexity = 10
+    knn_graph = None
+    if use_precomputed_knn:
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        knn_graph = nn.kneighbors_graph(data, mode="distance").astype(
+            "float32"
+        )
+
+    tsne_kwargs = {
+        "n_components": 2,
+        "random_state": 42,
+        "n_neighbors": n_neighbors,
+        "perplexity": perplexity,
+        "method": "fft",
+        "init": "random",
+        "learning_rate_method": "none",
+        "max_iter": 300,
+        "min_grad_norm": 1e-12,
+    }
+
+    embedding_a = TSNE(**tsne_kwargs).fit_transform(data, knn_graph=knn_graph)
+    embedding_b = TSNE(**tsne_kwargs).fit_transform(data, knn_graph=knn_graph)
+
+    assert np.array_equal(embedding_a, embedding_b)
+
+
+def test_tsne_fft_zero_random_state_reproducibility():
+    data, _ = make_blobs(
+        n_samples=30, n_features=10, centers=5, random_state=0
+    )
+    data = data.astype(np.float32)
+    tsne_kwargs = {
+        "random_state": 0,
+        "n_neighbors": 30,
+        "perplexity": 25,
+        "method": "fft",
+        "init": "random",
+    }
+
+    embedding_a = TSNE(**tsne_kwargs).fit_transform(data)
+    embedding_b = TSNE(**tsne_kwargs).fit_transform(data)
+
+    assert np.array_equal(embedding_a, embedding_b)
 
 
 @pytest.mark.parametrize("init", ["random", "pca"])
@@ -257,7 +283,7 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
         "float32"
     )
 
-    embedding = fitter.fit_transform(new_data, convert_dtype=True)
+    embedding = fitter.fit_transform(new_data)
 
     if input_type == "cupy":
         embedding = embedding.get()
@@ -299,21 +325,17 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     new_data = sp_prefix.csr_matrix(scipy.sparse.csr_matrix(digits))
 
-    Y = tsne.fit_transform(new_data, convert_dtype=True, knn_graph=knn_graph)
+    Y = tsne.fit_transform(new_data, knn_graph=knn_graph)
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
 
-    Y = tsne.fit_transform(
-        new_data, convert_dtype=True, knn_graph=knn_graph.tocoo()
-    )
+    Y = tsne.fit_transform(new_data, knn_graph=knn_graph.tocoo())
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
 
-    Y = tsne.fit_transform(
-        new_data, convert_dtype=True, knn_graph=knn_graph.tocsc()
-    )
+    Y = tsne.fit_transform(new_data, knn_graph=knn_graph.tocsc())
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
@@ -370,7 +392,6 @@ def test_tsne_distance_metrics(metric):
     assert array_equal(sk_trust, cuml_trust, 0.05, with_sign=True)
 
 
-@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/6682")
 @pytest.mark.parametrize("method", ["fft", "barnes_hut", "exact"])
 @pytest.mark.parametrize(
     "metric", ["l2", "euclidean", "cityblock", "l1", "manhattan", "cosine"]
@@ -433,3 +454,11 @@ def test_tsne_n_iter(algorithm):
     model = TSNE(n_components=2, random_state=42).fit(X)
     assert model.n_iter_ > 0
     assert model.n_iter_ <= model.max_iter
+
+
+def test_get_feature_names_out():
+    X, _ = make_blobs(n_features=5, random_state=42)
+    model = TSNE(n_components=2).fit(X)
+    res = model.get_feature_names_out()
+    sol = np.array(["tsne0", "tsne1"], dtype=object)
+    np.testing.assert_array_equal(res, sol)

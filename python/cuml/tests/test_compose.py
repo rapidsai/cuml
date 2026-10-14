@@ -1,12 +1,12 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-
 import cudf
+import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.base import clone as sk_clone
 from sklearn.compose import ColumnTransformer as skColumnTransformer
 from sklearn.compose import make_column_selector as sk_make_column_selector
 from sklearn.compose import (
@@ -78,6 +78,33 @@ def test_column_transformer(
 
     assert_allclose(ft_X, sk_t_X)
     assert_allclose(t_X, sk_t_X)
+
+
+@pytest.mark.parametrize("mem_type", ["host", "device"])
+def test_column_transformer_array_like(mem_type):
+    class MyArray:
+        def __init__(self, array):
+            self.array = (np if mem_type == "host" else cp).asarray(array)
+            self.shape = self.array.shape
+            self.ndim = self.array.ndim
+
+        if mem_type == "host":
+
+            def __array__(self, *args, **kwargs):
+                return self.array
+        else:
+
+            @property
+            def __cuda_array_interface__(self):
+                return self.array.__cuda_array_interface__
+
+    X = np.ones((2, 2), dtype=np.float32)
+
+    sk_model = skColumnTransformer([("keep", "passthrough", [0])])
+    sol = sk_model.fit_transform(X)
+    cu_model = cuColumnTransformer([("keep", "passthrough", [0])])
+    res = cu_model.fit_transform(MyArray(X))
+    cp.testing.assert_array_equal(res, sol)
 
 
 @pytest.mark.parametrize("remainder", ["drop", "passthrough"])
@@ -205,25 +232,46 @@ def test_make_column_transformer_sparse(
     assert_allclose(t_X, sk_t_X)
 
 
-@pytest.mark.skip(
-    reason="scikit-learn replaced get_feature_names with "
-    "get_feature_names_out"
-    "https://github.com/rapidsai/cuml/issues/5159"
-)
-def test_column_transformer_get_feature_names(clf_dataset):  # noqa: F811
+@pytest.mark.parametrize("remainder", ["drop", "passthrough"])
+def test_column_transformer_get_feature_names_out(clf_dataset, remainder):
     X_np, X = clf_dataset
 
-    cu_transformers = [("PolynomialFeatures", cuPolynomialFeatures(), [0, 2])]
-    transformer = cuColumnTransformer(cu_transformers)
-    transformer.fit_transform(X)
-    cu_feature_names = transformer.get_feature_names()
+    bool_mask = [False] * X_np.shape[1]
+    bool_mask[0] = True
+    bool_mask[-1] = True
 
-    sk_transformers = [("PolynomialFeatures", skPolynomialFeatures(), [0, 2])]
-    transformer = skColumnTransformer(sk_transformers)
-    transformer.fit_transform(X_np)
-    sk_feature_names = transformer.get_feature_names()
+    cu_transformer = cuColumnTransformer(
+        [
+            ("t1", cuPolynomialFeatures(), slice(0, 2)),
+            ("t2", cuPolynomialFeatures(), [0, 2]),
+            ("t3", cuPolynomialFeatures(), lambda X: [1]),
+            ("t4", cuPolynomialFeatures(), bool_mask),
+        ],
+        remainder=remainder,
+    ).fit(X)
+    cu_transformer.fit_transform(X)
 
-    assert cu_feature_names == sk_feature_names
+    sk_transformer = skColumnTransformer(
+        [
+            ("t1", skPolynomialFeatures(), slice(0, 2)),
+            ("t2", skPolynomialFeatures(), [0, 2]),
+            ("t3", skPolynomialFeatures(), lambda X: [1]),
+            ("t4", skPolynomialFeatures(), bool_mask),
+        ],
+        remainder=remainder,
+    ).fit(X_np)
+
+    res = cu_transformer.get_feature_names_out()
+    sol = sk_transformer.get_feature_names_out()
+    np.testing.assert_array_equal(res, sol)
+
+    # If the input data lacks feature names, also check the generated output
+    # names if feature names are provided explicitly.
+    if not hasattr(cu_transformer, "feature_names_in_"):
+        input_features = [f"c{i}" for i in range(X.shape[1])]
+        res = cu_transformer.get_feature_names_out(input_features)
+        sol = sk_transformer.get_feature_names_out(input_features)
+        np.testing.assert_array_equal(res, sol)
 
 
 def test_column_transformer_named_transformers_(clf_dataset):  # noqa: F811
@@ -240,6 +288,67 @@ def test_column_transformer_named_transformers_(clf_dataset):  # noqa: F811
     sk_named_transformers = transformer.named_transformers_
 
     assert cu_named_transformers.keys() == sk_named_transformers.keys()
+
+
+def test_normalizer_sklearn_clone_preserves_parameters():
+    normalizer = cuNormalizer(norm="l1", copy=False)
+
+    cloned = sk_clone(normalizer)
+
+    assert cloned.norm == "l1"
+    assert cloned.copy is False
+
+
+def test_column_transformer_preserves_normalizer_norm():
+    X = np.array([[0.0, 1.0, 2.0, 2.0], [1.0, 1.0, 0.0, 1.0]])
+
+    cu_transformer = cuColumnTransformer(
+        [
+            ("norm1", cuNormalizer(norm="l1"), [0, 1]),
+            ("norm2", cuNormalizer(norm="l1"), slice(2, 4)),
+        ]
+    )
+    sk_transformer = skColumnTransformer(
+        [
+            ("norm1", skNormalizer(norm="l1"), [0, 1]),
+            ("norm2", skNormalizer(norm="l1"), slice(2, 4)),
+        ]
+    )
+
+    assert_allclose(
+        cu_transformer.fit_transform(X), sk_transformer.fit_transform(X)
+    )
+
+
+def test_column_transformer_sklearn_clone_preserves_transformers():
+    transformer = cuColumnTransformer(
+        [("one_hot_encoder", skOneHotEncoder(), ["a", "b"])]
+    )
+
+    cloned = sk_clone(transformer)
+
+    assert len(cloned.transformers) == 1
+    assert isinstance(cloned.transformers[0][1], skOneHotEncoder)
+    assert cloned.transformers[0][2] == ["a", "b"]
+
+
+def test_column_transformer_sklearn_clone_default_transformers():
+    transformer = cuColumnTransformer()
+
+    assert transformer.get_params(deep=True)["transformers"] is None
+    cloned = sk_clone(transformer)
+
+    assert cloned.transformers is None
+
+
+def test_column_transformer_set_transformers_from_empty_list():
+    transformer = cuColumnTransformer([])
+
+    transformer._transformers = [("one_hot_encoder", skOneHotEncoder())]
+
+    assert len(transformer.transformers) == 1
+    assert isinstance(transformer.transformers[0][1], skOneHotEncoder)
+    assert transformer.transformers[0][2] is None
 
 
 def test_make_column_selector():

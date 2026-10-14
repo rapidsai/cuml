@@ -53,7 +53,7 @@ the `cuml.manifold.UMAP` docs for an example.
 Configuring the Memory Allocator
 --------------------------------
 
-Memory allocations in cuML are made using the `Rapids Memory Manager`_ (RMM).
+Memory allocations in cuML are made using `NVIDIA RMM`_ as the memory manager.
 We don't do any configuration of RMM on import; allocations are made using the
 default memory resource (:class:`rmm.mr.CudaMemoryResource`).
 
@@ -89,6 +89,6 @@ For more details, see the `RMM documentation`_.
 
 .. _per-thread default stream: https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/asynchronous-execution.html#per-thread-default-stream
 .. _legacy default stream: https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/asynchronous-execution.html#legacy-default-stream
-.. _Rapids Memory Manager:
-.. _RMM documentation: https://docs.rapids.ai/api/rmm/stable/
+.. _NVIDIA RMM:
+.. _RMM documentation: https://docs.nvidia.com/rmm/
 .. _CUDA Unified Memory: https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/unified-memory.html

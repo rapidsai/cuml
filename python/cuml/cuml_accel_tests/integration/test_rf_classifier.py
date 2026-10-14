@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -166,6 +166,33 @@ def test_rf_class_weight(classification_data, class_weight):
     )
     clf.fit(X, y)
     _ = accuracy_score(y, clf.predict(X))
+
+
+@pytest.mark.parametrize("bootstrap", [False, True])
+def test_rf_sample_weight(bootstrap):
+    zero_weight_X = np.linspace(-3.0, -1.0, 72).reshape(-1, 1)
+    one_weight_X = np.linspace(1.0, 3.0, 72).reshape(-1, 1)
+    X = np.vstack([zero_weight_X, one_weight_X])
+    y = np.array([0] * len(zero_weight_X) + [1] * len(one_weight_X))
+    sample_weight = np.array(
+        [0.0] * len(zero_weight_X) + [1.0] * len(one_weight_X)
+    )
+    probe = np.linspace(-3.5, 3.5, 17).reshape(-1, 1)
+
+    clf = RandomForestClassifier(
+        n_estimators=3,
+        bootstrap=bootstrap,
+        max_depth=3,
+        max_features=1.0,
+        random_state=42,
+    )
+    clf.fit(X, y, sample_weight=sample_weight)
+
+    expected = np.ones(probe.shape[0], dtype=y.dtype)
+    np.testing.assert_array_equal(clf.predict(probe), expected)
+    assert clf.score(X, y, sample_weight=sample_weight) == pytest.approx(
+        accuracy_score(y, clf.predict(X), sample_weight=sample_weight)
+    )
 
 
 @pytest.mark.parametrize("ccp_alpha", [0.0, 0.1])

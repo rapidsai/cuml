@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -16,6 +16,9 @@ include(rapids-export)
 include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
+
+include("${rapids-cmake-dir}/cmake/check_conda_env.cmake")
+rapids_cmake_check_conda_env()
 
 project(
   CUML
@@ -49,7 +52,6 @@ option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
-option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
@@ -83,9 +85,6 @@ message(VERBOSE "CUML_CPP: Building cuML multigpu algorithm tests: ${BUILD_CUML_
 message(VERBOSE "CUML_CPP: Building ml-prims tests: ${BUILD_PRIMS_TESTS}")
 message(VERBOSE "CUML_CPP: Building C++ API usage examples: ${BUILD_CUML_EXAMPLES}")
 message(VERBOSE "CUML_CPP: Building cuML C++ benchmark tests: ${BUILD_CUML_BENCH}")
-message(VERBOSE
-        "CUML_CPP: Building the MPI+NCCL Communicator (used for testing): ${BUILD_CUML_MPI_COMMS}"
-)
 message(VERBOSE
         "CUML_CPP: Enabling detection of conda environment for dependencies: ${DETECT_CONDA_ENV}"
 )
@@ -129,7 +128,10 @@ set_property(
 )
 message(VERBOSE "CUML: LIBCUML_LOGGING_LEVEL = '${LIBCUML_LOGGING_LEVEL}'.")
 
-if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
+if(BUILD_CUML_TESTS
+   OR BUILD_CUML_MG_TESTS
+   OR BUILD_PRIMS_TESTS
+)
   # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
   # to have different values for the `Threads::Threads` target. Setting this flag ensures
   # `Threads::Threads` is the same value in first run and subsequent runs.
@@ -141,7 +143,6 @@ endif()
 
 set(CUML_CPP_TARGET "cuml")
 set(CUML_CPP_BENCH_TARGET "sg_benchmark")
-set(CUML_MG_TEST_TARGET "ml_mg")
 set(PRIMS_BENCH_TARGET "prims_benchmark")
 
 # ##################################################################################################
@@ -155,6 +156,16 @@ if(DETECT_CONDA_ENV)
     )
     set(CMAKE_INSTALL_PREFIX "$ENV{CONDA_PREFIX}")
   endif()
+endif()
+
+# ##################################################################################################
+# * find C++ libraries from wheels in site-packages --------------------------------------
+find_package(Python COMPONENTS Interpreter)
+if(Python_FOUND)
+  include(${rapids-cmake-dir}/cython-core/find_prefix_paths.cmake)
+  rapids_cython_find_prefix_paths("${Python_EXECUTABLE}" wheel_prefix_paths)
+  set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE)
+  list(APPEND CMAKE_PREFIX_PATH ${wheel_prefix_paths})
 endif()
 
 # ##################################################################################################
@@ -210,13 +221,6 @@ if(SINGLEGPU)
   message(STATUS "CUML_CPP: Detected SINGLEGPU build option")
   message(STATUS "CUML_CPP: Disabling Multi-GPU components and comms libraries")
   set(BUILD_CUML_MG_TESTS OFF)
-  set(BUILD_CUML_MPI_COMMS OFF)
-  set(WITH_UCX OFF)
-endif()
-
-if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
-  message(STATUS "CUML_CPP: Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
-  set(BUILD_CUML_MPI_COMMS ON)
 endif()
 
 if(USE_CCACHE)
@@ -258,8 +262,15 @@ include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
 rapids_cpm_rapids_logger(BUILD_EXPORT_SET cuml-exports INSTALL_EXPORT_SET cuml-exports)
 create_logger_macros(CUML "ML::default_logger()" include/cuml/common)
 
-if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
+if(BUILD_CUML_TESTS
+   OR BUILD_CUML_MG_TESTS
+   OR BUILD_PRIMS_TESTS
+)
   find_package(Threads)
+endif()
+
+if(BUILD_CUML_MG_TESTS)
+  find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 
 # CCCL before RMM, and RMM before RAFT
@@ -276,7 +287,7 @@ endif()
 
 if(LINK_NVFOREST)
   include(cmake/thirdparty/get_nvforest.cmake)
-  set(CUML_NVFOREST_TARGET nvforest::nvforest++)
+  set(CUML_NVFOREST_TARGET nvforest::nvforest)
 endif()
 
 if(all_algo OR treeshap_algo)
@@ -285,7 +296,10 @@ endif()
 
 # cumlprims_mg functionality has been moved into cuML directly
 
-if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
+if(BUILD_CUML_TESTS
+   OR BUILD_CUML_MG_TESTS
+   OR BUILD_PRIMS_TESTS
+)
   include(${rapids-cmake-dir}/cpm/gtest.cmake)
   rapids_cpm_gtest(BUILD_STATIC)
 endif()
@@ -331,18 +345,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_compile_definitions(cuml_objs PUBLIC CUML_ENABLE_GPU)
   endif()
 
-  if(all_algo OR arima_algo)
-    target_sources(
-      cuml_objs PRIVATE src/arima/arima_common.cu src/arima/batched_arima.cu
-                        src/arima/batched_kalman.cu
-    )
-  endif()
-
   if(all_algo OR datasets_algo)
-    target_sources(
-      cuml_objs PRIVATE src/datasets/make_arima.cu src/datasets/make_blobs.cu
-                        src/datasets/make_regression.cu
-    )
+    target_sources(cuml_objs PRIVATE src/datasets/make_blobs.cu src/datasets/make_regression.cu)
   endif()
 
   if(all_algo OR dbscan_algo)
@@ -354,8 +358,13 @@ if(BUILD_CUML_CPP_LIBRARY)
       cuml_objs
       PRIVATE src/decisiontree/batched-levelalgo/kernels/classification-double.cu
               src/decisiontree/batched-levelalgo/kernels/classification-float.cu
+              src/decisiontree/batched-levelalgo/kernels/node-split.cu
               src/decisiontree/batched-levelalgo/kernels/regression-double.cu
               src/decisiontree/batched-levelalgo/kernels/regression-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-classification-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-classification-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-regression-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-regression-float.cu
               src/decisiontree/decisiontree.cu
     )
   endif()
@@ -378,18 +387,14 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(cuml_objs PRIVATE src/glm/glm.cu)
   endif()
 
-  if(all_algo OR genetic_algo)
-    target_sources(cuml_objs PRIVATE src/genetic/genetic.cu src/genetic/node.cu)
-  endif()
-
   if(all_algo OR hdbscan_algo)
     target_sources(
-      cuml_objs PRIVATE src/genetic/program.cu src/genetic/node.cu src/hdbscan/hdbscan.cu
-                        src/hdbscan/condensed_hierarchy.cu src/hdbscan/prediction_data.cu
+      cuml_objs PRIVATE src/hdbscan/hdbscan.cu src/hdbscan/condensed_hierarchy.cu
+                        src/hdbscan/prediction_data.cu
     )
 
     # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as
-    # errors. See this issue: https://github.com/rapidsai/cuml/issues/6225
+    # errors. See this issue: https://github.com/NVIDIA/cuml/issues/6225
     set_property(
       SOURCE src/hdbscan/condensed_hierarchy.cu
       APPEND_STRING
@@ -407,14 +412,10 @@ if(BUILD_CUML_CPP_LIBRARY)
     )
   endif()
 
-  if(all_algo OR holtwinters_algo)
-    target_sources(cuml_objs PRIVATE src/holtwinters/holtwinters.cu)
-  endif()
-
   if(all_algo OR kmeans_algo)
     target_sources(
       cuml_objs PRIVATE src/kmeans/kmeans_transform.cu src/kmeans/kmeans_fit.cu
-                        src/kmeans/kmeans_predict.cu src/kmeans/kmeans_params.cpp
+                        src/kmeans/kmeans_predict.cu
     )
   endif()
 
@@ -455,6 +456,13 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(cuml_objs PRIVATE src/randomforest/randomforest.cu)
   endif()
 
+  if(all_algo
+     OR isolationforest_algo
+     OR randomforest_algo
+  )
+    target_sources(cuml_objs PRIVATE src/isolation_forest/isolation_forest.cu)
+  endif()
+
   # todo: separate solvers better
   if(all_algo OR solvers_algo)
     target_sources(cuml_objs PRIVATE src/solver/lars.cu src/solver/solver.cu)
@@ -467,14 +475,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR svm_algo)
-    target_sources(
-      cuml_objs PRIVATE src/svm/svc.cu src/svm/svr.cu src/svm/linear.cu
-                        src/matrix/kernel_params.cpp
-    )
-  endif()
-
-  if(all_algo OR autoarima_algo)
-    target_sources(cuml_objs PRIVATE src/tsa/auto_arima.cu src/tsa/stationarity.cu)
+    target_sources(cuml_objs PRIVATE src/svm/svc.cu src/svm/svr.cu src/svm/linear.cu)
   endif()
 
   if(all_algo OR tsne_algo)
@@ -556,7 +557,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/metrics>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
-            $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_INCLUDE_PATH}>
     INTERFACE $<INSTALL_INTERFACE:include>
   )
 
@@ -572,14 +572,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   # These are always private:
-  list(
-    APPEND
-    _cuml_cpp_private_libs
-    $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
-    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
-    ${OpenMP_CXX_LIB_NAMES}
-    $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
-    $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
+  list(APPEND _cuml_cpp_private_libs $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
+       $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}> ${OpenMP_CXX_LIB_NAMES}
   )
 
   # Add CTK include paths because we're going to make our CTK library links private below
@@ -745,7 +739,10 @@ endif()
 # ##################################################################################################
 # * build test executables ---------------------------------------------------
 
-if(BUILD_CUML_TESTS)
+if(BUILD_CUML_TESTS
+   OR BUILD_CUML_MG_TESTS
+   OR BUILD_PRIMS_TESTS
+)
   include(CTest)
   add_subdirectory(tests)
 endif()

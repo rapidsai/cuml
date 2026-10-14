@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -24,7 +24,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
         int n) except +
 
 
-def kl_divergence(P, Q, convert_dtype=True):
+def kl_divergence(P, Q):
     """
     Calculates the "Kullback-Leibler" Divergence
     The KL divergence tells us how well the probability distribution Q
@@ -44,11 +44,6 @@ def kl_divergence(P, Q, convert_dtype=True):
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy.
 
-    convert_dtype : bool, optional (default = True)
-        When set to True, the method will, convert P and
-        Q to be the same data type: float32. This
-        will increase memory used for the method.
-
     Returns
     -------
     float
@@ -62,7 +57,6 @@ def kl_divergence(P, Q, convert_dtype=True):
         ensure_2d=False,
         order='C',
         dtype=[np.float32, np.float64],
-        convert_dtype=convert_dtype,
         input_name='P',
     )
     if P_m.ndim == 2 and P_m.shape[1] != 1:
@@ -78,7 +72,6 @@ def kl_divergence(P, Q, convert_dtype=True):
         ensure_2d=False,
         order='C',
         dtype=[dtype_p],
-        convert_dtype=convert_dtype,
         input_name='Q',
     )
     if Q_m.ndim == 2 and Q_m.shape[1] != 1:

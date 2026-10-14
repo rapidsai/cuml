@@ -64,13 +64,6 @@ def test_trustworthiness_mismatched_rows():
         )
 
 
-def test_trustworthiness_convert_dtype_false_rejects_float64():
-    X, _ = make_blobs(n_samples=20, n_features=4, random_state=0)  # float64
-    X_embedded, _ = make_blobs(n_samples=20, n_features=2, random_state=0)
-    with pytest.raises(ValueError, match="dtype"):
-        cuml_trustworthiness(X, X_embedded, convert_dtype=False)
-
-
 def test_trustworthiness_rejects_1d_input():
     X = np.arange(20, dtype=np.float32)
     X_embedded = np.arange(20, dtype=np.float32)

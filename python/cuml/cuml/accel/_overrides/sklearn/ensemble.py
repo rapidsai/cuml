@@ -1,14 +1,20 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+
+import numpy as np
 
 import cuml.ensemble
 from cuml.accel.estimator_proxy import ProxyBase
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.validation import check_array
 
-__all__ = ("RandomForestRegressor", "RandomForestClassifier")
+__all__ = (
+    "IsolationForest",
+    "RandomForestClassifier",
+    "RandomForestRegressor",
+)
 
 
 class _RandomForestMixin:
@@ -24,9 +30,6 @@ class _RandomForestMixin:
                     "Missing values are not supported"
                 ) from None
             raise
-
-        if sample_weight is not None:
-            raise UnsupportedOnGPU("`sample_weight` is not supported")
 
         if y is not None:
             y = check_array(
@@ -48,7 +51,7 @@ class _RandomForestMixin:
 
     def _gpu_fit(self, X, y, sample_weight=None):
         self._check_inputs(X, y, sample_weight=sample_weight)
-        return self._gpu.fit(X, y)
+        return self._gpu.fit(X, y, sample_weight=sample_weight)
 
     def _gpu_predict(self, X):
         self._check_inputs(X)
@@ -56,7 +59,7 @@ class _RandomForestMixin:
 
     def _gpu_score(self, X, y, sample_weight=None):
         self._check_inputs(X, y, sample_weight=sample_weight)
-        return self._gpu.score(X, y)
+        return self._gpu.score(X, y, sample_weight=sample_weight)
 
 
 class RandomForestRegressor(ProxyBase, _RandomForestMixin):
@@ -91,3 +94,57 @@ class RandomForestClassifier(ProxyBase, _RandomForestMixin):
 
     def __getitem__(self, index):
         return self._call_method("__getitem__", index)
+
+
+class IsolationForest(ProxyBase):
+    _gpu_class = cuml.ensemble.IsolationForest
+    _other_attributes = frozenset(("_max_samples",))
+
+    @staticmethod
+    def _validate_input(X):
+        # Sparse inputs are handled by ProxyBase before dispatch. Fall back only
+        # for non-finite dense inputs, which scikit-learn supports but cuML does
+        # not, and preserve unrelated validation errors.
+        try:
+            check_array(
+                X, mem_type=None, order=None, ensure_2d=False, input_name="X"
+            )
+        except ValueError as exc:
+            message = str(exc)
+            if "contains NaN" in message or "contains infinity" in message:
+                raise UnsupportedOnGPU(message) from None
+            raise
+
+    def _gpu_fit(self, X, y=None, sample_weight=None):
+        self._validate_input(X)
+        if sample_weight is not None:
+            raise UnsupportedOnGPU("sample_weight is not supported")
+        return self._gpu.fit(X, y=y)
+
+    def _gpu_fit_predict(self, X, y=None, **kwargs):
+        # IsolationForest.fit_predict() doesn't declare sample_weight itself;
+        # it inherits OutlierMixin.fit_predict(self, X, y=None, **kwargs),
+        # which forwards kwargs straight to fit(). Match that signature here
+        # (rather than declaring sample_weight explicitly) so the proxy stays
+        # signature-compatible with the CPU method.
+        self._validate_input(X)
+        sample_weight = kwargs.pop("sample_weight", None)
+        if sample_weight is not None:
+            raise UnsupportedOnGPU("sample_weight is not supported")
+        if kwargs:
+            raise UnsupportedOnGPU(
+                "Additional fit parameters are not supported"
+            )
+        return self._gpu.fit_predict(X, y=y)
+
+    def _gpu_predict(self, X):
+        self._validate_input(X)
+        return self._gpu.predict(X)
+
+    def _gpu_decision_function(self, X):
+        self._validate_input(X)
+        return self._gpu.decision_function(X).astype(np.float64)
+
+    def _gpu_score_samples(self, X):
+        self._validate_input(X)
+        return self._gpu.score_samples(X).astype(np.float64)

@@ -6,9 +6,11 @@ import multiprocessing
 from inspect import Parameter, signature
 
 import pytest
+import sklearn
 from packaging.version import Version
 
 import cuml.accel
+from cuml.accel.core import _CONSTRAINTS, CheckConstraint
 from cuml.accel.estimator_proxy import ProxyBase
 
 
@@ -142,3 +144,62 @@ def test_proxied_methods_signature_compatibility(cls, name):
                 Parameter.KEYWORD_ONLY,
                 Parameter.VAR_KEYWORD,
             }
+
+
+def test_check_constraints(capsys):
+    # A constraint we know to be met
+    constraint = CheckConstraint("scikit-learn>=1.0")
+    assert constraint()
+    stdout, _ = capsys.readouterr()
+    logs = [
+        line for line in stdout.split("\n") if line.startswith("[cuml.accel]")
+    ]
+    assert not logs
+
+    # A constraint we know to not be met
+    constraint = CheckConstraint("scikit-learn>=1.0,<=1.4")
+
+    assert not constraint()
+    stdout, _ = capsys.readouterr()
+    logs = [
+        line for line in stdout.split("\n") if line.startswith("[cuml.accel]")
+    ]
+    assert len(logs) == 1
+    log = logs[0]
+    assert str(constraint.requirement) in log
+    assert sklearn.__version__ in log
+
+
+def test_constraints_match_installed_versions(capsys):
+    """This test checks all registered version constraints, and errors if
+    they're not met in the test environment. Since we test oldest and latest
+    versions in CI, this test will error if we ever update our dependencies
+    without also updating the constraints."""
+
+    missed_constraints = []
+    for constraint in _CONSTRAINTS.values():
+        version = importlib.metadata.version(constraint.requirement.name)
+        # Skip checking constraints on prereleases so this test doesn't fail
+        # when run with sklearn prereleases as part of nightly runs.
+        if not Version(version).is_prerelease and not constraint():
+            missed_constraints.append(constraint)
+
+    if missed_constraints:
+        constraint_lines = "\n".join(
+            f"- {c.requirement!s}" for c in missed_constraints
+        )
+        stdout, _ = capsys.readouterr()
+        log_lines = "\n".join(
+            line
+            for line in stdout.split("\n")
+            if line.startswith("[cuml.accel]")
+        )
+        msg = (
+            "Please update `cuml.accel.core._CONSTRAINTS` to match the new "
+            "runtime constraints.\n\n"
+            "Currently the following constraints failed:\n\n"
+            f"{constraint_lines}\n\n"
+            "leading to the following user-facing logs:\n\n"
+            f"{log_lines}"
+        )
+        assert False, msg

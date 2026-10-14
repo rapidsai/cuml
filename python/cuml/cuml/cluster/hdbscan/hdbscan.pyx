@@ -1,21 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import numpy as np
 
 import cuml
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger, reflect
-from cuml.internals.array import CumlArray
+from cuml.internals import logger
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 from cython.operator cimport dereference as deref
@@ -171,8 +165,8 @@ cdef class _HDBSCANState:
         return self
 
     @staticmethod
-    def from_sklearn(model, X):
-        """Initialize internal state from a `hdbscan.HDBSCAN` instance."""
+    def from_sklearn(model, X, dendrogram=None):
+        """Initialize internal state from a fitted CPU HDBSCAN instance."""
         cdef DistanceType metric = _metrics_mapping[model.metric]
         cdef lib.CLUSTER_SELECTION_METHOD cluster_selection_method = {
             "eom": lib.CLUSTER_SELECTION_METHOD.EOM,
@@ -185,11 +179,18 @@ cdef class _HDBSCANState:
         cdef int n_cols = X.shape[1]
 
         handle = get_handle()
-        self._init_from_condensed_tree_array(handle, model._condensed_tree, n_rows)
+        if dendrogram is None:
+            self._init_from_condensed_tree_array(
+                handle, model._condensed_tree, n_rows
+            )
+        else:
+            self._init_from_dendrogram(
+                handle, dendrogram, model.min_cluster_size
+            )
 
         self.core_dists = cp.empty(n_rows, dtype=np.float32)
         cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-        cdef float* X_ptr = <float*><uintptr_t>X.ptr
+        cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
         cdef float* core_dists_ptr = <float*><uintptr_t>self.core_dists.data.ptr
         cdef bool allow_single_cluster = model.allow_single_cluster
         cdef int64_t max_cluster_size = model.max_cluster_size
@@ -238,6 +239,36 @@ cdef class _HDBSCANState:
 
         return self
 
+    def _init_from_dendrogram(
+        self, handle, dendrogram, int min_cluster_size
+    ):
+        """Initialize the condensed hierarchy from a linkage dendrogram."""
+        children = cp.asarray(
+            dendrogram[:, 0:2], order="C", dtype="int64"
+        )
+        lambdas = cp.asarray(dendrogram[:, 2], order="C", dtype="float32")
+        sizes = cp.asarray(dendrogram[:, 3], order="C", dtype="int64")
+
+        cdef size_t n_leaves = dendrogram.shape[0] + 1
+        cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+
+        self.condensed_tree = new lib.CondensedHierarchy[int64_t, float](
+            handle_[0], n_leaves
+        )
+        cdef int64_t* children_ptr = <int64_t*><uintptr_t>children.data.ptr
+        cdef float* lambdas_ptr = <float*><uintptr_t>lambdas.data.ptr
+        cdef int64_t* sizes_ptr = <int64_t*><uintptr_t>sizes.data.ptr
+        with nogil:
+            lib.build_condensed_hierarchy(
+                handle_[0],
+                children_ptr,
+                lambdas_ptr,
+                sizes_ptr,
+                min_cluster_size,
+                n_leaves,
+                deref(self.condensed_tree)
+            )
+
     cdef lib.CondensedHierarchy[int64_t, float]* get_condensed_tree(self) nogil:
         if self.hdbscan_output != NULL:
             return &(self.hdbscan_output.get_condensed_tree())
@@ -257,29 +288,8 @@ cdef class _HDBSCANState:
         """
         cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
 
-        children = cp.asarray(dendrogram[:, 0:2], order="C", dtype="int64")
-        lambdas = cp.asarray(dendrogram[:, 2], order="C", dtype="float32")
-        sizes = cp.asarray(dendrogram[:, 3], order="C", dtype="int64")
-
-        cdef size_t n_leaves = dendrogram.shape[0] + 1
-
         handle = get_handle()
-        cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-
-        self.condensed_tree = new lib.CondensedHierarchy[int64_t, float](handle_[0], n_leaves)
-        cdef int64_t* children_ptr = <int64_t*><uintptr_t>children.data.ptr
-        cdef float* lambdas_ptr = <float*><uintptr_t>lambdas.data.ptr
-        cdef int64_t* sizes_ptr = <int64_t*><uintptr_t>sizes.data.ptr
-        with nogil:
-            lib.build_condensed_hierarchy(
-                handle_[0],
-                children_ptr,
-                lambdas_ptr,
-                sizes_ptr,
-                min_cluster_size,
-                n_leaves,
-                deref(self.condensed_tree)
-            )
+        self._init_from_dendrogram(handle, dendrogram, min_cluster_size)
         return self
 
     @staticmethod
@@ -406,7 +416,7 @@ cdef class _HDBSCANState:
 
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
-        cdef int64_t* labels_ptr = <int64_t*><uintptr_t>labels.ptr
+        cdef int64_t* labels_ptr = <int64_t*><uintptr_t>labels.data.ptr
         cdef int64_t* inverse_label_map_ptr = (
             <int64_t*><uintptr_t>self.inverse_label_map.data.ptr
         )
@@ -493,15 +503,14 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
     Recursively merges the pair of clusters that minimally increases a
     given linkage distance.
 
-    Note that while the algorithm is generally deterministic and should
-    provide matching results between RAPIDS and the Scikit-learn Contrib
-    versions, the construction of the k-nearest neighbors graph and
-    minimum spanning tree can introduce differences between the two
-    algorithms, especially when several nearest neighbors around a
-    point might have the same distance. While the differences in
-    the minimum spanning trees alone might be subtle, they can
-    (and often will) lead to some points being assigned different
-    cluster labels between the two implementations.
+    Note that while the algorithm is generally deterministic and should provide
+    similar results with the Scikit-learn Contrib version, the construction of
+    the k-nearest neighbors graph and minimum spanning tree can introduce
+    differences between the two algorithms, especially when several nearest
+    neighbors around a point might have the same distance. While the
+    differences in the minimum spanning trees alone might be subtle, they can
+    (and often will) lead to some points being assigned different cluster
+    labels between the two implementations.
 
     Parameters
     ----------
@@ -515,12 +524,18 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
     min_cluster_size : int, optional (default = 5)
         The minimum number of samples in a group for that group to be
         considered a cluster; groupings smaller than this size will be left
-        as noise.
+        as noise. Must be greater than one.
 
     min_samples : int, optional (default=None)
-        The number of samples in a neighborhood for a point
-        to be considered as a core point. This includes the point itself.
-        If 'None', it defaults to the min_cluster_size.
+        The number of nearest neighbors, excluding the point itself, used to
+        determine a point's core distance. This follows the effective
+        convention implemented by ``hdbscan.HDBSCAN`` from
+        scikit-learn-contrib. It differs from
+        ``sklearn.cluster.HDBSCAN``, where ``min_samples`` includes the point
+        itself. For ``k >= 2``, to match
+        ``sklearn.cluster.HDBSCAN(min_samples=k)``, use
+        ``cuml.cluster.HDBSCAN(min_samples=k - 1)``. The ``k = 1`` case is not
+        supported by cuML. If 'None', it defaults to the min_cluster_size.
 
     cluster_selection_epsilon : float, optional (default=0.0)
         A distance threshold. Clusters below this value will be merged.
@@ -565,8 +580,7 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
         utilizing plotting tools. This requires the `hdbscan` CPU Python
         package to be installed.
 
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -667,9 +681,9 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
         Even then in some optimized cases a tree may not be generated.
 
     """
-    labels_ = CumlArrayDescriptor()
-    probabilities_ = CumlArrayDescriptor()
-    cluster_persistence_ = CumlArrayDescriptor()
+    labels_ = ReflectedAttr()
+    probabilities_ = ReflectedAttr()
+    cluster_persistence_ = ReflectedAttr()
 
     _cpu_class_path = "hdbscan.HDBSCAN"
 
@@ -749,8 +763,8 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
             # Sparse input
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
-        raw_data = to_gpu(raw_data_cpu, order="C", dtype="float32")
-        labels = to_gpu(model.labels_, order="C", dtype="int64")
+        raw_data = cp.asarray(raw_data_cpu, order="C", dtype="float32")
+        labels = cp.asarray(model.labels_, order="C", dtype="int64")
         state = _HDBSCANState.from_sklearn(model, raw_data)
         if model._prediction_data is not None:
             state.generate_prediction_data(raw_data, labels)
@@ -759,10 +773,10 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
             # XXX: `hdbscan.HDBSCAN` doesn't set `n_features_in_` currently, we need
             # to infer this ourselves from the raw data.
             "n_features_in_": raw_data_cpu.shape[1],
-            "labels_": labels,
-            "probabilities_": to_gpu(model.probabilities_, dtype="float32"),
-            "cluster_persistence_": to_gpu(model.cluster_persistence_, dtype="float32"),
-            "_raw_data": raw_data,
+            "labels_": ArrayIndexPair(labels, None),
+            "probabilities_": cp.asarray(model.probabilities_, dtype="float32"),
+            "cluster_persistence_": cp.asarray(model.cluster_persistence_, dtype="float32"),
+            "_raw_data": ArrayIndexPair(raw_data, None),
             "_raw_data_cpu": raw_data_cpu,
             "_state": state,
             "n_clusters_": state.n_clusters,
@@ -774,9 +788,9 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
 
     def _attrs_to_cpu(self, model):
         out = {
-            "labels_": to_cpu(self.labels_),
-            "probabilities_": to_cpu(self.probabilities_),
-            "cluster_persistence_": to_cpu(self.cluster_persistence_),
+            "labels_": self.labels_.array.get(order="A"),
+            "probabilities_": self.probabilities_.get(order="A"),
+            "cluster_persistence_": self.cluster_persistence_.get(order="A"),
             "_condensed_tree": self._condensed_tree,
             "_single_linkage_tree": self._single_linkage_tree,
             "_min_spanning_tree": self._min_spanning_tree,
@@ -832,7 +846,7 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
 
     def _get_raw_data_cpu(self):
         if getattr(self, "_raw_data_cpu") is None:
-            self._raw_data_cpu = self._raw_data.to_output("numpy")
+            self._raw_data_cpu = self._raw_data.array.get(order="A")
         return self._raw_data_cpu
 
     @property
@@ -905,12 +919,12 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
         with cuml.using_output_type("cuml"):
             labels = self.labels_
 
-        self._state.generate_prediction_data(self._raw_data, labels)
+        self._state.generate_prediction_data(self._raw_data.array, labels)
         self.prediction_data = True
 
     @generate_docstring()
-    @reflect(reset="type")
-    def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y=None) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
         """
@@ -930,16 +944,18 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
             self,
             X,
             dtype="float32",
-            convert_dtype=convert_dtype,
             mem_type=mem_type,
+            order="C",
             ensure_min_samples=2,
             return_index=True,
             reset=True,
         )
-        self._raw_data = CumlArray(X, index=index)
+        self._raw_data = ArrayIndexPair(X, index)
         self._raw_data_cpu = None
 
         # Validate and prepare hyperparameters
+        if self.min_cluster_size <= 1:
+            raise ValueError("min_cluster_size must be greater than one")
         if (min_samples := self.min_samples) is None:
             min_samples = self.min_cluster_size
         if not (1 <= min_samples <= 1023):
@@ -1053,9 +1069,9 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
         # Store state on model
         self._state = state
         self.n_clusters_ = n_clusters
-        self.labels_ = CumlArray(data=labels, index=index)
-        self.probabilities_ = CumlArray(data=probabilities)
-        self.cluster_persistence_ = CumlArray(data=cluster_persistence)
+        self.labels_ = ArrayIndexPair(labels, index)
+        self.probabilities_ = probabilities
+        self.cluster_persistence_ = cluster_persistence
         self._min_spanning_tree = min_spanning_tree
         self._single_linkage_tree = single_linkage_tree
 
@@ -1068,8 +1084,8 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
                                        "type": "dense",
                                        "description": "Cluster indexes",
                                        "shape": "(n_samples, 1)"})
-    @reflect
-    def fit_predict(self, X, y=None) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def fit_predict(self, X, y=None):
         """
         Fit the HDBSCAN model from features and return
         cluster labels.
@@ -1117,7 +1133,7 @@ def _check_clusterer(clusterer):
     return state
 
 
-@reflect(model="clusterer", array=None)
+@mlfunc(model_arg="clusterer", array_arg=None)
 def all_points_membership_vectors(clusterer, int batch_size=4096):
     """
     Predict soft cluster membership vectors for all points in the
@@ -1148,19 +1164,19 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
-    n_rows = clusterer._raw_data.shape[0]
+    n_rows = clusterer._raw_data.array.shape[0]
 
     if clusterer.n_clusters_ == 0:
-        return CumlArray(
-            data=cp.zeros(n_rows, dtype=np.float32, order="C"),
-            index=clusterer._raw_data.index,
+        return ArrayIndexPair(
+            cp.zeros(n_rows, dtype=np.float32, order="C"),
+            clusterer._raw_data.index,
         )
 
     membership_vec = cp.empty(
         (n_rows, clusterer.n_clusters_,), dtype="float32", order="C",
     )
 
-    raw_data = clusterer._raw_data.to_output("cupy")
+    raw_data = clusterer._raw_data.array
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
     cdef float* X_ptr = <float*><uintptr_t>raw_data.data.ptr
     cdef float* membership_vec_ptr = <float*><uintptr_t>membership_vec.data.ptr
@@ -1180,11 +1196,11 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
         )
     handle.sync()
 
-    return CumlArray(data=membership_vec, index=clusterer._raw_data.index)
+    return ArrayIndexPair(membership_vec, clusterer._raw_data.index)
 
 
-@reflect(model="clusterer", array="points_to_predict")
-def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert_dtype=True):
+@mlfunc(model_arg="clusterer", array_arg="points_to_predict", preserve_index=True)
+def membership_vector(clusterer, points_to_predict, int batch_size=4096):
     """
     Predict soft cluster membership. The result produces a vector
     for each point in ``points_to_predict`` that gives a probability that
@@ -1219,13 +1235,11 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
-    points_to_predict, index = check_inputs(
+    points_to_predict = check_inputs(
         clusterer,
         points_to_predict,
         dtype="float32",
-        convert_dtype=convert_dtype,
         order="C",
-        return_index=True,
     )
     cdef int n_prediction_points = points_to_predict.shape[0]
 
@@ -1233,9 +1247,9 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
         (n_prediction_points, clusterer.n_clusters_,), dtype="float32", order="C"
     )
     if clusterer.n_clusters_ == 0:
-        return CumlArray(data=membership_vec, index=index)
+        return membership_vec
 
-    raw_data = clusterer._raw_data.to_output("cupy")
+    raw_data = clusterer._raw_data.array
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
     cdef float* X_ptr = <float*><uintptr_t>raw_data.data.ptr
     cdef float* points_to_predict_ptr = <float*><uintptr_t>points_to_predict.data.ptr
@@ -1260,11 +1274,11 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
         )
     handle.sync()
 
-    return CumlArray(data=membership_vec, index=index)
+    return membership_vec
 
 
-@reflect(model="clusterer", array="points_to_predict")
-def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
+@mlfunc(model_arg="clusterer", array_arg="points_to_predict", preserve_index=True)
+def approximate_predict(clusterer, points_to_predict):
     """Predict the cluster label of new points. The returned labels
     will be those of the original clustering found by ``clusterer``,
     and therefore are not (necessarily) the cluster labels that would
@@ -1304,23 +1318,21 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
             "will be automatically predicted as outliers."
         )
 
-    points_to_predict, index = check_inputs(
+    points_to_predict = check_inputs(
         clusterer,
         points_to_predict,
         dtype="float32",
-        convert_dtype=convert_dtype,
         order="C",
-        return_index=True,
     )
     cdef int n_prediction_points = points_to_predict.shape[0]
 
     prediction_labels = cp.empty(n_prediction_points, dtype="int64")
     prediction_probs = cp.empty(n_prediction_points, dtype="float32")
 
-    raw_data = clusterer._raw_data.to_output("cupy")
+    raw_data = clusterer._raw_data.array
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
     cdef float* X_ptr = <float*><uintptr_t>raw_data.data.ptr
-    cdef int64_t* labels_ptr = <int64_t*><uintptr_t>clusterer.labels_.ptr
+    cdef int64_t* labels_ptr = <int64_t*><uintptr_t>clusterer.labels_.array.data.ptr
     cdef float* points_to_predict_ptr = <float*><uintptr_t>points_to_predict.data.ptr
     cdef int64_t* prediction_labels_ptr = <int64_t*><uintptr_t>prediction_labels.data.ptr
     cdef float* prediction_probs_ptr = <float*><uintptr_t>prediction_probs.data.ptr
@@ -1345,10 +1357,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         )
     handle.sync()
 
-    return (
-        CumlArray(data=prediction_labels, index=index),
-        CumlArray(data=prediction_probs, index=index),
-    )
+    return prediction_labels, prediction_probs
 
 
 ###########################################################

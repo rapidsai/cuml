@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -128,7 +128,7 @@ def test_predict_and_score(dataset, datatype, parameters, client):
         client=client, n_neighbors=n_neighbors, batch_size=batch_size
     )
     d_model.fit(X_train, y_train)
-    d_outputs = d_model.predict(X_test, convert_dtype=True)
+    d_outputs = d_model.predict(X_test)
     d_outputs = d_outputs.compute()
 
     d_outputs = (
@@ -163,7 +163,7 @@ def test_predict_proba(dataset, datatype, parameters, client):
 
     d_model = dKNNClf(client=client, n_neighbors=n_neighbors)
     d_model.fit(X_train, y_train)
-    d_probas = d_model.predict_proba(X_test, convert_dtype=True)
+    d_probas = d_model.predict_proba(X_test)
     d_probas = da.compute(d_probas)[0]
 
     if datatype == "dask_cudf":

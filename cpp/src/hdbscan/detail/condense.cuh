@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,7 +16,6 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <cub/cub.cuh>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -100,7 +99,7 @@ void _build_condensed_hierarchy(const raft::handle_t& handle,
                                 rmm::device_uvector<value_t>& out_lambda,
                                 rmm::device_uvector<value_idx>& out_size)
 {
-  cudaStream_t stream  = handle.get_stream();
+  cudaStream_t stream  = handle.get_stream().get();
   value_idx root       = 2 * (n_leaves - 1);
   value_idx n_samples  = n_leaves;
   value_idx next_label = n_samples + 1;
@@ -243,7 +242,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                                int n_leaves,
                                Common::CondensedHierarchy<value_idx, value_t>& condensed_tree)
 {
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = handle.get_stream().get();
   auto exec_policy    = handle.get_thrust_policy();
 
   // Root is the last edge in the dendrogram
@@ -256,9 +255,9 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
   // connectivities graph.
   RAFT_EXPECTS(n_vertices == root,
                "Multiple components found in MST or MST is invalid. "
-               "Cannot find single-linkage solution. Found %d vertices "
+               "Cannot find single-linkage solution. Found %lld vertices "
                "total.",
-               static_cast<int>(n_vertices));
+               static_cast<long long>(n_vertices));
 
   // Allocate output arrays
   rmm::device_uvector<value_idx> out_parent((root + 1) * 2, stream);

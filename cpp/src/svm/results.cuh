@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include "sparse_util.cuh"
 #include "ws_util.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/svm/svm_model.h>
 
 #include <raft/core/handle.hpp>
@@ -23,6 +24,7 @@
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
+#include <cub/device/device_reduce.cuh>
 #include <cub/device/device_select.cuh>
 
 #include <math.h>
@@ -66,7 +68,7 @@ class Results {
           SvmType svmType,
           bool is_precomputed = false)
     : rmm_alloc(rmm::mr::get_current_device_resource_ref()),
-      stream(handle.get_stream()),
+      stream(handle.get_stream().get()),
       handle(handle),
       n_rows(n_rows),
       n_cols(n_cols),
@@ -151,10 +153,9 @@ class Results {
     if (is_precomputed) { return support_matrix; }
 
     // allow ~1GB dense support matrix
-    if (isDenseType<MatrixViewType>() ||
-        ((size_t)n_support * n_cols * sizeof(math_t) < (1 << 30))) {
-      support_matrix.data =
-        (math_t*)rmm_alloc.allocate(stream, n_support * n_cols * sizeof(math_t));
+    auto const dense_bytes = checked_mul<std::size_t>(n_support, n_cols, sizeof(math_t));
+    if (isDenseType<MatrixViewType>() || (dense_bytes < (1 << 30))) {
+      support_matrix.data = (math_t*)rmm_alloc.allocate(stream, dense_bytes);
       ML::SVM::extractRows<math_t>(matrix, support_matrix.data, idx, n_support, handle);
     } else {
       ML::SVM::extractRows<math_t>(matrix,

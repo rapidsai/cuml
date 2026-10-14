@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 
-from cuml.internals.array import CumlArray
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.linear_model.linear_regression import Algo, LinearRegression
 
@@ -91,4 +90,4 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
 
         self.handle.sync()
 
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef

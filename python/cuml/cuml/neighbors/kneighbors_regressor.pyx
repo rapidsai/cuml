@@ -1,13 +1,11 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
-import numpy as np
 
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import get_handle, reflect
-from cuml.internals.array import CumlArray
+from cuml.internals import get_handle, mlfunc
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.internals.validation import check_consistent_length, check_y
@@ -15,6 +13,7 @@ from cuml.neighbors.nearest_neighbors import NeighborsBase
 from cuml.neighbors.weights import compute_weights
 
 from libc.stdint cimport int64_t, uintptr_t
+from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
@@ -26,8 +25,19 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
         float *out,
         int64_t *knn_indices,
         vector[float *] &y,
-        size_t n_rows,
-        size_t n_samples,
+        size_t n_index_rows,
+        size_t n_query_rows,
+        int k,
+        float *sample_weight
+    ) except +
+
+    void knn_regress(
+        handle_t &handle,
+        double *out,
+        int64_t *knn_indices,
+        vector[double *] &y,
+        size_t n_index_rows,
+        size_t n_query_rows,
         int k,
         float *sample_weight
     ) except +
@@ -109,8 +119,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -132,7 +141,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
         >>> knn = KNeighborsRegressor(n_neighbors=10)
         >>> knn.fit(X_train, y_train)
-        KNeighborsRegressor()
+        KNeighborsRegressor(n_neighbors=10)
         >>> knn.predict(X_test) # doctest: +SKIP
         array([ 14.770798  ,  51.8834    ,  66.15657   ,  46.978275  ,
             21.589611  , -14.519918  , -60.25534   , -20.856869  ,
@@ -172,10 +181,12 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         }
 
     def _attrs_from_cpu(self, model):
-        return {
-            "_y": cp.asarray(model._y, dtype=np.float32, order="F"),
-            **super()._attrs_from_cpu(model),
-        }
+        y = cp.asarray(
+            model._y,
+            dtype="float64" if model._y.dtype == "float64" else "float32",
+            order="F",
+        )
+        return {"_y": y, **super()._attrs_from_cpu(model)}
 
     def _attrs_to_cpu(self, model):
         return {
@@ -210,9 +221,14 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         )
         self.weights = weights
 
-    @generate_docstring(convert_dtype_cast='np.float32')
-    @reflect(reset="type")
-    def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.multi_output = True
+        return tags
+
+    @generate_docstring()
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
 
@@ -221,82 +237,81 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
             raise ValueError(
                 f"weights must be 'uniform', 'distance', or a callable, got {self.weights}"
             )
-        super().fit(X, convert_dtype=convert_dtype)
+        super().fit(X)
 
-        y = check_y(
-            y,
-            dtype="float32",
-            convert_dtype=convert_dtype,
-            order="F",
-            accept_multi_output=True,
-        )
+        y = check_y(y, dtype=("float32", "float64"), order="F", accept_multi_output=True)
         check_consistent_length(self._fit_X, y)
         self._y = y
 
         return self
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
+    @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X):
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
 
         """
         # Get KNN results - always get distances to compute weights
-        knn_distances, knn_indices = self.kneighbors(
-            X, return_distance=True, convert_dtype=convert_dtype
-        )
-
-        inds_cp = cp.ascontiguousarray(
-            knn_indices.to_output("cupy"), dtype=np.int64
-        )
-        dists_cp = knn_distances.to_output("cupy")
-        cdef size_t n_rows = inds_cp.shape[0]
-        cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds_cp.data.ptr
+        distances, indices = self.kneighbors(X, return_distance=True)
+        indices = cp.ascontiguousarray(indices, dtype=cp.int64)
+        cdef size_t n_rows = indices.shape[0]
+        cdef int64_t* inds_ptr = <int64_t*><uintptr_t>indices.data.ptr
 
         res_cols = 1 if self._y.ndim == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
 
-        out = CumlArray.zeros(
-            res_shape, dtype=np.float32, order="C", index=knn_indices.index
-        )
+        out = cp.zeros(res_shape, dtype=self._y.dtype, order="C")
+        cdef uintptr_t out_ptr = <uintptr_t>out.data.ptr
+        cdef bool use_f32 = self._y.dtype == "float32"
 
-        cdef float* out_ptr = <float*><uintptr_t>out.ptr
-
-        cdef vector[float*] y_vec
-        cdef float* y_ptr
+        cdef vector[float*] y_f32_vec
+        cdef vector[double*] y_f64_vec
         for col_num in range(res_cols):
             col = self._y if res_cols == 1 else self._y[:, col_num]
-            y_ptr = <float*><uintptr_t>col.data.ptr
-            y_vec.push_back(y_ptr)
+            if use_f32:
+                y_f32_vec.push_back(<float*><uintptr_t>col.data.ptr)
+            else:
+                y_f64_vec.push_back(<double*><uintptr_t>col.data.ptr)
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Compute weights (returns None for uniform weights)
-        weights_cp = compute_weights(dists_cp, self.weights)
-        cdef float* weights_ctype = <float*><uintptr_t>(
-            0 if weights_cp is None else weights_cp.data.ptr
+        weights = compute_weights(distances, self.weights)
+        cdef float* weights_ptr = <float*><uintptr_t>(
+            0 if weights is None else weights.data.ptr
         )
 
         cdef size_t n_samples_fit = self._y.shape[0]
         cdef int n_neighbors = self.n_neighbors
         with nogil:
-            knn_regress(
-                handle_[0],
-                out_ptr,
-                inds_ctype,
-                y_vec,
-                n_samples_fit,
-                n_rows,
-                n_neighbors,
-                weights_ctype
-            )
+            if use_f32:
+                knn_regress(
+                    handle_[0],
+                    <float *>out_ptr,
+                    inds_ptr,
+                    y_f32_vec,
+                    n_samples_fit,
+                    n_rows,
+                    n_neighbors,
+                    weights_ptr
+                )
+            else:
+                knn_regress(
+                    handle_[0],
+                    <double *>out_ptr,
+                    inds_ptr,
+                    y_f64_vec,
+                    n_samples_fit,
+                    n_rows,
+                    n_neighbors,
+                    weights_ptr
+                )
 
         handle.sync()
 

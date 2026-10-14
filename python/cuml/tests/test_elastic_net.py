@@ -286,7 +286,7 @@ def test_elastic_net_default(datatype, nrows, column_info):
 
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
-def test_elastic_net_predict_convert_dtype(train_dtype, test_dtype):
+def test_elastic_net_predict_mixed_dtypes(train_dtype, test_dtype):
     X, y = make_regression(
         n_samples=50, n_features=10, n_informative=5, random_state=0
     )
@@ -303,7 +303,7 @@ def test_elastic_net_predict_convert_dtype(train_dtype, test_dtype):
 
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
-def test_lasso_predict_convert_dtype(train_dtype, test_dtype):
+def test_lasso_predict_mixed_dtypes(train_dtype, test_dtype):
     X, y = make_regression(
         n_samples=50, n_features=10, n_informative=5, random_state=0
     )

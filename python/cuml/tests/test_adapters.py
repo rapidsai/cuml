@@ -10,7 +10,6 @@ import cupyx as cpx
 import numpy as np
 import pytest
 from scipy import stats
-from sklearn.preprocessing import normalize as sk_normalize
 from sklearn.utils._mask import _get_mask as sk_get_mask
 
 from cuml.testing.test_preproc_utils import assert_allclose
@@ -24,8 +23,6 @@ from cuml.thirdparty_adapters.sparsefuncs_fast import (
     _csc_mean_variance_axis0,
     csc_mean_variance_axis0,
     csr_mean_variance_axis0,
-    inplace_csr_row_normalize_l1,
-    inplace_csr_row_normalize_l2,
 )
 
 IS_ARM = platform.processor() == "aarch64"
@@ -104,26 +101,6 @@ def test__csc_mean_variance_axis0(failure_logger, sparse_random_dataset):
     assert_allclose(means, ref_means)
     assert_allclose(variances, ref_variances)
     assert_allclose(counts_nan, ref_counts_nan)
-
-
-def test_inplace_csr_row_normalize_l1(failure_logger, sparse_random_dataset):
-    X_np, _, _, X_sparse = sparse_random_dataset
-    if X_sparse.format != "csr":
-        pytest.skip("Skip non CSR matrices")
-
-    inplace_csr_row_normalize_l1(X_sparse)
-    X_np = sk_normalize(X_np, norm="l1", axis=1)
-    assert_allclose(X_sparse, X_np)
-
-
-def test_inplace_csr_row_normalize_l2(failure_logger, sparse_random_dataset):
-    X_np, _, _, X_sparse = sparse_random_dataset
-    if X_sparse.format != "csr":
-        pytest.skip("Skip non CSR matrices")
-
-    inplace_csr_row_normalize_l2(X_sparse)
-    X_np = sk_normalize(X_np, norm="l2", axis=1)
-    assert_allclose(X_sparse, X_np)
 
 
 def test_get_mask(failure_logger, mask_dataset):

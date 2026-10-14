@@ -21,6 +21,7 @@ cuml.preprocessing
    MissingIndicator
    Normalizer
    OneHotEncoder
+   OrdinalEncoder
    PolynomialFeatures
    PowerTransformer
    QuantileTransformer
@@ -36,15 +37,3 @@ cuml.preprocessing
    normalize
    robust_scale
    scale
-
-Text Preprocessing
-------------------
-
-.. currentmodule:: cuml.preprocessing.text.stem
-
-.. autosummary::
-   :nosignatures:
-   :toctree: generated/
-   :template: base.rst
-
-   PorterStemmer

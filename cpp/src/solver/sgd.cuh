@@ -8,6 +8,7 @@
 #include "learning_rate.h"
 #include "shuffle.h"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/solvers/params.hpp>
 
 #include <raft/core/handle.hpp>
@@ -131,7 +132,7 @@ void sgdFit(const raft::handle_t& handle,
 
   rmm::device_uvector<math_t> grads(n_cols, stream);
   rmm::device_uvector<int> indices(batch_size, stream);
-  rmm::device_uvector<math_t> input_batch(batch_size * n_cols, stream);
+  rmm::device_uvector<math_t> input_batch(checked_mul<std::size_t>(batch_size, n_cols), stream);
   rmm::device_uvector<math_t> labels_batch(batch_size, stream);
   rmm::device_scalar<math_t> loss_value(stream);
 

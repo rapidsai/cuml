@@ -1,17 +1,11 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
-import sys
 
 import hdbscan
 import numpy as np
 import pytest
 import umap
-
-# TODO: restore these after onnxruntime has 3.14 support
-# import onnxruntime as ort
-# from skl2onnx import convert_sklearn
-# from skl2onnx.common.data_types import FloatTensorType
+from packaging.version import Version
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.datasets import make_classification, make_regression
 from sklearn.decomposition import PCA, TruncatedSVD
@@ -27,27 +21,17 @@ from sklearn.neighbors import (
 )
 from sklearn.svm import SVC, SVR, LinearSVC, LinearSVR
 
-# TODO: remove these after onnxruntime has 3.14 support
-###
-if sys.version_info >= (3, 14):
-    ort = pytest.importorskip("onnxruntime")
-    pytest.importorskip("skl2onnx")
-    from skl2onnx import convert_sklearn  # noqa: E402
-    from skl2onnx.common.data_types import FloatTensorType  # noqa: E402
-else:
-    import onnxruntime as ort
-    from skl2onnx import convert_sklearn
-    from skl2onnx.common.data_types import FloatTensorType
-###
+ort = pytest.importorskip("onnxruntime")
+skl2onnx = pytest.importorskip("skl2onnx")
+ORT_VERSION = Version(ort.__version__)
+
+convert_sklearn = skl2onnx.convert_sklearn
+FloatTensorType = skl2onnx.common.data_types.FloatTensorType
 
 # Which estimators are supported and not is also mentioned in the cuml.accel docs,
 # make sure to update the docs if you make changes here.
 xfail_unsupported = pytest.mark.xfail(
     reason="not supported by skl2onnx", strict=True
-)
-xfail_proxy_private_attr = pytest.mark.xfail(
-    reason="skl2onnx accesses private attributes not exposed by the proxy",
-    strict=True,
 )
 xfail_skl2onnx_bug = pytest.mark.xfail(
     reason="skl2onnx conversion error", strict=True
@@ -82,15 +66,17 @@ def regression_data():
 classifiers = [
     pytest.param(
         RandomForestClassifier(n_estimators=20, max_depth=8, random_state=42),
-        marks=xfail_skl2onnx_bug,
+        marks=(xfail_skl2onnx_bug if ORT_VERSION < Version("1.28.0") else ()),
         id="RandomForestClassifier",
     ),
     pytest.param(KNeighborsClassifier(), id="KNeighborsClassifier"),
     pytest.param(LinearSVC(dual="auto"), id="LinearSVC"),
     pytest.param(
         SVC(kernel="linear"),
-        marks=xfail_proxy_private_attr,
         id="SVC",
+        marks=pytest.mark.filterwarnings(
+            "ignore:Attribute `prob[A|B]_` was deprecated:FutureWarning"
+        ),
     ),
     pytest.param(
         OneVsOneClassifier(LinearSVC(dual="auto")),
@@ -111,11 +97,7 @@ regressors = [
     ),
     pytest.param(KNeighborsRegressor(), id="KNeighborsRegressor"),
     pytest.param(LinearSVR(dual="auto"), id="LinearSVR"),
-    pytest.param(
-        SVR(kernel="linear"),
-        marks=xfail_proxy_private_attr,
-        id="SVR",
-    ),
+    pytest.param(SVR(kernel="linear"), id="SVR"),
 ]
 
 transformers = [

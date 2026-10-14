@@ -1,11 +1,11 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import cuml.neighbors
 from cuml.accel.estimator_proxy import ProxyBase
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = (
@@ -44,10 +44,6 @@ class KNeighborsClassifier(ProxyBase):
 class KNeighborsRegressor(ProxyBase):
     _gpu_class = cuml.neighbors.KNeighborsRegressor
     _other_attributes = frozenset(("_fit_method", "_tree", "_fit_X", "_y"))
-
-    def _gpu_predict(self, X):
-        # Fixup return dtype to always be float64
-        return self._gpu.predict(X).astype("float64", copy=False)
 
 
 class KernelDensity(ProxyBase):

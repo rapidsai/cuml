@@ -8,6 +8,7 @@
 set(cython_sources "")
 add_module_gpu_default("linear_regression.pyx" ${linearregression_algo} ${linear_model_algo})
 add_module_gpu_default("ridge.pyx" ${ridge_algo} ${linear_model_algo})
+add_module_gpu_default("lars.pyx" ${lars_algo} ${linear_model_algo})
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources linear_regression_mg.pyx logistic_regression_mg.pyx ridge_mg.pyx)

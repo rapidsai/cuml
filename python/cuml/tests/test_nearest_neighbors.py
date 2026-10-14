@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -10,7 +10,6 @@ import cudf
 import cupy as cp
 import cupyx
 import numpy as np
-import pandas as pd
 import pytest
 import sklearn
 import sklearn.datasets
@@ -86,7 +85,7 @@ def metric_p_combinations():
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("metric_p", metric_p_combinations())
+@pytest.mark.parametrize("metric_p", list(metric_p_combinations()))
 @pytest.mark.parametrize("nrows", [1000, stress_param(10000)])
 def test_self_neighboring(datatype, metric_p, nrows):
     """Test that searches using an indexed vector itself return sensible
@@ -223,7 +222,7 @@ def test_ivfpq_pred(
     nrows, ncols, n_neighbors, nlist, M, n_bits, usePrecomputedTables
 ):
     if ncols == 512:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5603")
+        pytest.skip("https://github.com/NVIDIA/cuml/issues/5603")
     algo_params = {
         "nlist": nlist,
         "nprobe": int(nlist * 0.2),
@@ -422,30 +421,6 @@ def test_knn_fit_twice():
     knn_cu.kneighbors(X, k)
 
     del knn_cu
-
-
-@pytest.mark.parametrize("input_type", ["ndarray"])
-@pytest.mark.parametrize("nrows", [unit_param(500), stress_param(70000)])
-@pytest.mark.parametrize("n_feats", [unit_param(20), stress_param(1000)])
-def test_nn_downcast_fails(input_type, nrows, n_feats):
-    X, y = sklearn.datasets.make_blobs(
-        n_samples=nrows, n_features=n_feats, random_state=0
-    )
-
-    knn_cu = cuKNN()
-    if input_type == "dataframe":
-        X_pd = pd.DataFrame({"fea%d" % i: X[0:, i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame(X_pd)
-        knn_cu.fit(X_cudf, convert_dtype=True)
-
-    with pytest.raises(Exception):
-        knn_cu.fit(X, convert_dtype=False)
-
-    # Test fit() fails when downcast corrupted data
-    X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
-    knn_cu = cuKNN()
-    with pytest.raises(Exception):
-        knn_cu.fit(X, convert_dtype=False)
 
 
 def check_knn_graph(
@@ -735,6 +710,58 @@ def test_nearest_neighbors_sparse(
         # (.5% in this case) to allow differences from non-determinism.
         diffs = abs(cuI - skI)
         assert (len(diffs[diffs > 0]) / len(np.ravel(skI))) <= 0.005
+
+
+def test_nearest_neighbors_sparse_x_none_self_edge_swap_indices_int64():
+    X_dense = np.array(
+        [
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            [10.0, 0.0, 0.0, 0.0],
+            [10.25, 0.0, 0.0, 0.0],
+        ],
+        dtype=np.float32,
+    )
+    X = cupyx.scipy.sparse.csr_matrix(cp.asarray(X_dense))
+
+    nn = cuKNN(
+        metric="euclidean",
+        n_neighbors=2,
+        algorithm="brute",
+        output_type="cupy",
+    )
+    nn.fit(X)
+
+    explicit_distances, explicit_indices = nn.kneighbors(X, n_neighbors=2)
+    assert explicit_indices.dtype == cp.int32
+    assert explicit_distances.dtype == cp.float32
+
+    distances, indices = nn.kneighbors(X=None, n_neighbors=1)
+    assert indices.dtype == cp.int64
+    assert indices.flags.c_contiguous
+    assert distances.dtype == cp.float32
+    assert distances.flags.c_contiguous
+
+    indices_np = cp.asnumpy(indices)
+    distances_np = cp.asnumpy(distances)
+    for row, row_indices in enumerate(indices_np):
+        assert row not in row_indices
+
+    sk_distances, sk_indices = (
+        skKNN(
+            metric="euclidean",
+            n_neighbors=1,
+            algorithm="brute",
+        )
+        .fit(X_dense)
+        .kneighbors(X=None, n_neighbors=1)
+    )
+
+    np.testing.assert_allclose(
+        distances_np, sk_distances, atol=1e-5, rtol=1e-5
+    )
+    for row_indices, expected_indices in zip(indices_np, sk_indices):
+        assert set(row_indices.tolist()) == set(expected_indices.tolist())
 
 
 @pytest.mark.parametrize("n_neighbors", [1, 5, 6])

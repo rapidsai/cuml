@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,6 +11,8 @@
  */
 
 #pragma once
+
+#include <raft/util/cuda_utils.cuh>
 
 #include <cuComplex.h>
 
@@ -159,6 +161,9 @@ CUML_KERNEL void compute_interpolated_indices(value_t* __restrict__ w_coefficien
                                               const value_idx n_boxes,
                                               const value_idx n_terms)
 {
+  // Fast unseeded path: many points can contribute to the same interpolation
+  // coefficient, so this uses atomicAdd. The resulting accumulation order is
+  // scheduler-dependent and therefore not byte reproducible.
   value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * n_interpolation_points * n_interpolation_points * N) return;
 
@@ -176,6 +181,100 @@ CUML_KERNEL void compute_interpolated_indices(value_t* __restrict__ w_coefficien
   atomicAdd(w_coefficients_device + idx * n_terms + current_term,
             x_interpolated_values[i + interp_i * N] * y_interpolated_values[i + interp_j * N] *
               chargesQij[i * n_terms + current_term]);
+}
+
+// Deterministic seeded path for the FFT interpolation coefficients. Points are
+// sorted by (box, point id) before this kernel runs, so every chunk covers a
+// fixed contiguous range of points in a single box. Each thread computes one
+// coefficient for one chunk by walking that range in increasing point-id order.
+// The chunking keeps high-occupancy boxes parallel without using atomicAdd.
+template <typename value_idx, typename value_t>
+CUML_KERNEL void compute_interpolated_chunk_partials_3_4(
+  value_t* __restrict__ chunk_partials,
+  const value_idx* const chunk_box_indices,
+  const value_idx* const chunk_offsets,
+  const value_idx* const box_offsets,
+  const value_idx* const sorted_point_indices,
+  const value_t* const chargesQij,
+  const value_t* const x_interpolated_values,
+  const value_t* const y_interpolated_values,
+  const value_idx N,
+  const value_idx chunk_size,
+  const value_idx n_active_chunks)
+{
+  const value_idx TID                         = threadIdx.x + blockIdx.x * blockDim.x;
+  constexpr value_idx n_interpolation_points  = 3;
+  constexpr value_idx n_terms                 = 4;
+  constexpr value_idx n_coefficients_per_node = n_interpolation_points * n_terms;
+  constexpr value_idx n_coefficients_per_box_chunk =
+    n_interpolation_points * n_interpolation_points * n_terms;
+  if (TID >= n_active_chunks * n_coefficients_per_box_chunk) return;
+
+  const value_idx active_chunk = TID / n_coefficients_per_box_chunk;
+  const value_idx coeff        = TID - active_chunk * n_coefficients_per_box_chunk;
+  const value_idx box_idx      = chunk_box_indices[active_chunk];
+  const value_idx local_chunk  = active_chunk - chunk_offsets[box_idx];
+  const value_idx interp_i     = coeff / n_coefficients_per_node;
+  const value_idx remainder    = coeff - interp_i * n_coefficients_per_node;
+  const value_idx interp_j     = remainder / n_terms;
+  const value_idx current_term = remainder % n_terms;
+
+  const value_idx start =
+    min(box_offsets[box_idx] + local_chunk * chunk_size, box_offsets[box_idx + 1]);
+  const value_idx end      = min(start + chunk_size, box_offsets[box_idx + 1]);
+  const value_idx x_offset = interp_i * N;
+  const value_idx y_offset = interp_j * N;
+
+  value_t sum = 0;
+  for (value_idx offset = start; offset < end; ++offset) {
+    // sorted_point_indices is ordered by (box, point id), making this
+    // floating-point reduction order identical across repeated seeded runs.
+    const value_idx i = sorted_point_indices[offset];
+    sum += x_interpolated_values[i + x_offset] * y_interpolated_values[i + y_offset] *
+           chargesQij[(i << 2) + current_term];
+  }
+
+  chunk_partials[TID] = sum;
+}
+
+template <typename value_idx, typename value_t>
+CUML_KERNEL void reduce_interpolated_chunk_partials_3_4(value_t* __restrict__ w_coefficients_device,
+                                                        const value_t* const chunk_partials,
+                                                        const value_idx* const chunk_offsets,
+                                                        const value_idx* const chunk_counts,
+                                                        const value_idx n_boxes,
+                                                        const value_idx n_coefficients)
+{
+  // Finish the deterministic interpolation reduction. Each output coefficient
+  // is owned by one thread, which sums the precomputed chunk partials in
+  // increasing chunk order for that box.
+  const value_idx TID                        = threadIdx.x + blockIdx.x * blockDim.x;
+  constexpr value_idx n_interpolation_points = 3;
+  constexpr value_idx n_terms                = 4;
+  constexpr value_idx n_coefficients_per_box_chunk =
+    n_interpolation_points * n_interpolation_points * n_terms;
+  if (TID >= n_coefficients) return;
+
+  const value_idx coeff        = TID % n_terms;
+  const value_idx idx          = TID / n_terms;
+  const value_idx n_nodes      = n_boxes * n_interpolation_points;
+  const value_idx node_j       = idx % n_nodes;
+  const value_idx node_i       = idx / n_nodes;
+  const value_idx box_i        = node_i / n_interpolation_points;
+  const value_idx interp_i     = node_i - box_i * n_interpolation_points;
+  const value_idx box_j        = node_j / n_interpolation_points;
+  const value_idx interp_j     = node_j - box_j * n_interpolation_points;
+  const value_idx box_idx      = box_j * n_boxes + box_i;
+  const value_idx partial_coef = (interp_i * n_interpolation_points + interp_j) * n_terms + coeff;
+
+  value_t sum                 = 0;
+  const value_idx chunk_start = chunk_offsets[box_idx];
+  const value_idx chunk_count = chunk_counts[box_idx];
+  for (value_idx chunk = 0; chunk < chunk_count; ++chunk) {
+    sum += chunk_partials[(chunk_start + chunk) * n_coefficients_per_box_chunk + partial_coef];
+  }
+
+  w_coefficients_device[TID] = sum;
 }
 
 template <typename value_idx, typename value_t>
@@ -251,6 +350,44 @@ CUML_KERNEL void compute_potential_indices(value_t* __restrict__ potentialsQij,
               y_tilde_values[idx * n_terms + current_term]);
 }
 
+// Deterministic equivalent of compute_potential_indices. Each thread owns a
+// single output element and accumulates its fixed 3x3 interpolation stencil in
+// a fixed order, avoiding floating-point atomic ordering differences.
+template <typename value_idx, typename value_t, int n_terms, int n_interpolation_points>
+CUML_KERNEL void compute_potential_indices_deterministic(value_t* __restrict__ potentialsQij,
+                                                         const value_idx* const point_box_indices,
+                                                         const value_t* const y_tilde_values,
+                                                         const value_t* const x_interpolated_values,
+                                                         const value_t* const y_interpolated_values,
+                                                         const value_idx N,
+                                                         const value_idx n_boxes)
+{
+  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
+  if (TID >= n_terms * N) return;
+
+  const value_idx current_term = TID % n_terms;
+  const value_idx i            = TID / n_terms;
+  const value_idx box_idx      = point_box_indices[i];
+  const value_idx box_i        = box_idx % n_boxes;
+  const value_idx box_j        = box_idx / n_boxes;
+
+  value_t potential = 0;
+  for (value_idx interp_i = 0; interp_i < n_interpolation_points; interp_i++) {
+    for (value_idx interp_j = 0; interp_j < n_interpolation_points; interp_j++) {
+      // The 3x3 stencil is tiny, so assigning one thread per output lets us
+      // preserve parallelism while replacing atomics with a fixed nested loop.
+      const value_idx idx =
+        (box_i * n_interpolation_points + interp_i) * (n_boxes * n_interpolation_points) +
+        (box_j * n_interpolation_points) + interp_j;
+      potential += x_interpolated_values[i + interp_i * N] *
+                   y_interpolated_values[i + interp_j * N] *
+                   y_tilde_values[idx * n_terms + current_term];
+    }
+  }
+
+  potentialsQij[i * n_terms + current_term] = potential;
+}
+
 template <typename value_idx>
 CUML_KERNEL void broadcast_column_vector(cuComplex* __restrict__ mat,
                                          cuComplex* __restrict__ vec,
@@ -306,30 +443,101 @@ CUML_KERNEL void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
                                           const value_t dof)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (TID >= num_nonzero) return;
-  const value_idx i = coo_rows[TID];
-  const value_idx j = coo_cols[TID];
+  // Lanes past the end stay in the warp (with a row index no real edge can
+  // match) so the warp-wide primitives below always see a full mask.
+  const bool active = TID < num_nonzero;
+  const value_idx i = active ? coo_rows[TID] : value_idx(-1);
 
-  value_t ix = points[i];
-  value_t iy = points[num_points + i];
-  value_t jx = points[j];
-  value_t jy = points[num_points + j];
+  value_t x_force = 0;
+  value_t y_force = 0;
+  if (active) {
+    const value_idx j = coo_cols[TID];
 
-  value_t dx = ix - jx;
-  value_t dy = iy - jy;
+    value_t ix = points[i];
+    value_t iy = points[num_points + i];
+    value_t jx = points[j];
+    value_t jy = points[num_points + j];
 
-  const value_t dist = (dx * dx) + (dy * dy);
+    value_t dx = ix - jx;
+    value_t dy = iy - jy;
 
-  const value_t P  = pij[TID];
-  const value_t Q  = compute_q(dist, dof);
-  const value_t PQ = P * Q;
+    const value_t dist = (dx * dx) + (dy * dy);
 
-  atomicAdd(attr_forces + i, PQ * dx);
-  atomicAdd(attr_forces + num_points + i, PQ * dy);
+    const value_t P  = pij[TID];
+    const value_t Q  = compute_q(dist, dof);
+    const value_t PQ = P * Q;
 
-  if (Qs) {  // when computing KL div
-    Qs[TID] = Q;
+    x_force = PQ * dx;
+    y_force = PQ * dy;
+
+    if (Qs) {  // when computing KL div
+      Qs[TID] = Q;
+    }
   }
+
+  // The symmetrized COO is laid out row by row, so a warp normally covers one
+  // or two rows and the two atomicAdds below would serialize 32 deep on a
+  // single address.  Sum each run of equal rows inside the warp first and let
+  // the run's last lane issue one atomic per row.  The reduction is driven by
+  // lane position rather than by comparing row indices pairwise, so a row that
+  // appears in two separate runs is still counted once.
+  constexpr unsigned full_mask = 0xffffffffu;
+  const int lane               = threadIdx.x % raft::WarpSize;
+  const value_idx prev         = __shfl_up_sync(full_mask, i, 1);
+  const unsigned head_mask     = __ballot_sync(full_mask, lane == 0 || prev != i);
+  // Lowest lane of this run: the highest run head at or before this lane.
+  const int run_start = raft::WarpSize - 1 - __clz(head_mask & ((2u << lane) - 1));
+#pragma unroll
+  for (int offset = 1; offset < raft::WarpSize; offset <<= 1) {
+    const value_t other_x = __shfl_up_sync(full_mask, x_force, offset);
+    const value_t other_y = __shfl_up_sync(full_mask, y_force, offset);
+    if (lane - offset >= run_start) {
+      x_force += other_x;
+      y_force += other_y;
+    }
+  }
+  const bool run_end = lane == raft::WarpSize - 1 || ((head_mask >> (lane + 1)) & 1u);
+  if (active && run_end) {
+    atomicAdd(attr_forces + i, x_force);
+    atomicAdd(attr_forces + num_points + i, y_force);
+  }
+}
+
+// Deterministic equivalent of compute_Pij_x_Qij_kernel. The COO matrix has been
+// sorted lexicographically by (row, col, value), and row_offsets gives each row's
+// contiguous span. One thread owns the row and walks that span in order, so the
+// attractive force sum uses the same floating-point order on every seeded run.
+template <typename value_idx, typename value_t>
+CUML_KERNEL void compute_Pij_x_Qij_deterministic_rows(value_t* __restrict__ attr_forces,
+                                                      value_t* __restrict__ Qs,
+                                                      const value_t* __restrict__ pij,
+                                                      const value_idx* __restrict__ coo_cols,
+                                                      const value_idx* __restrict__ row_offsets,
+                                                      const value_t* __restrict__ points,
+                                                      const value_idx num_points,
+                                                      const value_t dof)
+{
+  const value_idx row = threadIdx.x + blockIdx.x * blockDim.x;
+  if (row >= num_points) return;
+
+  const value_t ix = points[row];
+  const value_t iy = points[num_points + row];
+
+  value_t x_force = 0;
+  value_t y_force = 0;
+  for (value_idx k = row_offsets[row]; k < row_offsets[row + 1]; ++k) {
+    const value_idx j = coo_cols[k];
+    const value_t dx  = ix - points[j];
+    const value_t dy  = iy - points[num_points + j];
+    const value_t Q   = compute_q((dx * dx) + (dy * dy), dof);
+    const value_t PQ  = pij[k] * Q;
+    x_force += PQ * dx;
+    y_force += PQ * dy;
+    if (Qs) { Qs[k] = Q; }
+  }
+
+  attr_forces[row]              = x_force;
+  attr_forces[num_points + row] = y_force;
 }
 
 template <typename value_idx, typename value_t>

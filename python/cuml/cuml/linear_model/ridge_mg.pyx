@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 
-from cuml.internals.array import CumlArray
 from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
 
@@ -117,4 +116,4 @@ class RidgeMG(MGFitMixin, Ridge):
 
         self.solver_ = solver
         self.intercept_ = (intercept_f32 if use_float32 else intercept_f64)
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef

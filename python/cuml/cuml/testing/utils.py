@@ -1,31 +1,22 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import inspect
-from copy import deepcopy
-from itertools import dropwhile
-from numbers import Number
 from textwrap import dedent, indent
 
-import cudf
 import cupy as cp
 import numpy as np
-import pandas as pd
 import pytest
-from cudf.pandas import LOADED as cudf_pandas_active
-from numba import cuda
-from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
-from cuml.internals.mem_type import MemoryType
+from cuml.internals.outputs import convert_arrays
 
 
 def array_difference(a, b, with_sign=True):
     """
     Utility function to compute the difference between 2 arrays.
     """
-    a = to_nparray(a)
-    b = to_nparray(b)
+    a = as_numpy(a)
+    b = as_numpy(b)
 
     if len(a) == 0 and len(b) == 0:
         return 0
@@ -46,8 +37,8 @@ class array_equal:
     """
 
     def __init__(self, a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
-        self.a = to_nparray(a)
-        self.b = to_nparray(b)
+        self.a = np.atleast_1d(as_numpy(a))
+        self.b = np.atleast_1d(as_numpy(b))
         self.unit_tol = unit_tol
         self.total_tol = total_tol
         self.with_sign = with_sign
@@ -134,68 +125,42 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
         raise AssertionError(assertion_error_msg)
 
 
-def normalize_clusters(a0, b0, n_clusters):
-    a = to_nparray(a0)
-    b = to_nparray(b0)
-
-    c = deepcopy(b)
-
-    for i in range(n_clusters):
-        (idx,) = np.where(a == i)
-        a_to_b = c[idx[0]]
-        b[c == a_to_b] = i
-
-    return a, b
+def as_type(output_type, *arrays):
+    """Convert input arrays (cupy or numpy) to the requested output type"""
+    out = convert_arrays(
+        arrays, output_type=output_type, one_col_2d_as_series=False
+    )
+    return out[0] if len(out) == 1 else tuple(out)
 
 
-def as_type(type, *args):
-    # Convert array args to type supported by
-    # CumlArray.to_output ('numpy','cudf','cupy'...)
-    # Ensure 2 dimensional inputs are not converted to 1 dimension
-    # None remains as None
-    # Scalar remains a scalar
-    result = []
-    for arg in args:
-        if arg is None or np.isscalar(arg):
-            result.append(arg)
+def as_numpy(*arrays):
+    """Convert input array-likes to numpy arrays"""
+    out = []
+    for x in arrays:
+        if hasattr(x, "to_numpy"):
+            # XXX: ensure copy for pandas, some downstream sklearn functions
+            # don't work for non-writable buffers.
+            out.append(x.to_numpy(copy=True))
+        elif x is None or np.isscalar(x):
+            out.append(x)
         else:
-            # make sure X with a single feature remains 2 dimensional
-            if type in ("cudf", "pandas", "df_obj") and len(arg.shape) > 1:
-                if type == "pandas":
-                    mem_type = MemoryType.host
-                else:
-                    mem_type = None
-                result.append(
-                    input_to_cuml_array(arg).array.to_output(
-                        output_type="dataframe", output_mem_type=mem_type
-                    )
-                )
-            else:
-                result.append(input_to_cuml_array(arg).array.to_output(type))
-    if len(result) == 1:
-        return result[0]
-    return tuple(result)
+            out.append(cp.asnumpy(x))
+    return out[0] if len(out) == 1 else tuple(out)
 
 
-def to_nparray(x):
-    if isinstance(x, Number):
-        return np.asarray([x])
-    elif isinstance(x, pd.DataFrame):
-        return x.values
-    elif isinstance(x, cudf.DataFrame):
-        return x.to_pandas().values
-    elif isinstance(x, cudf.Series):
-        return x.to_pandas().values
-    elif isinstance(x, DeviceNDArray):
-        return x.copy_to_host()
-    elif isinstance(x, cp.ndarray):
-        return cp.asnumpy(x)
-    return np.asarray(x)
-
-
-def clusters_equal(a0, b0, n_clusters, tol=1e-4):
-    a, b = normalize_clusters(a0, b0, n_clusters)
-    return array_equal(a, b, total_tol=tol)
+def as_cupy(*arrays):
+    """Convert input array-likes to cupy arrays"""
+    out = []
+    for x in arrays:
+        if hasattr(x, "to_cupy"):
+            out.append(x.to_cupy())
+        elif hasattr(x, "to_numpy"):
+            out.append(cp.asarray(x.to_numpy()))
+        elif x is None or cp.isscalar(x):
+            out.append(x)
+        else:
+            out.append(cp.asarray(x))
+    return out[0] if len(out) == 1 else tuple(out)
 
 
 def assert_dbscan_equal(ref, actual, X, core_indices, eps):
@@ -357,56 +322,6 @@ def get_all_base_subclasses() -> dict[str, type]:
     return out
 
 
-def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
-    """
-    Generates random labels to act as ground_truth and predictions for tests.
-
-    Parameters
-    ----------
-    random_generation_lambda : lambda function [numpy.random] -> ndarray
-        A lambda function used to generate labels for either y_true or y_pred
-        using a seeded numpy.random object.
-    seed : int
-        Seed for the numpy.random object.
-    as_cupy : bool
-        Choose return type of y_true and y_pred.
-        True: returns Cupy ndarray
-        False: returns Numba cuda DeviceNDArray
-
-    Returns
-    -------
-    y_true, y_pred, np_y_true, np_y_pred : tuple
-        y_true : Numba cuda DeviceNDArray or Cupy ndarray
-            Random target values.
-        y_pred : Numba cuda DeviceNDArray or Cupy ndarray
-            Random predictions.
-        np_y_true : Numpy ndarray
-            Same as y_true but as a numpy ndarray.
-        np_y_pred : Numpy ndarray
-            Same as y_pred but as a numpy ndarray.
-    """
-    rng = np.random.RandomState(seed)  # makes it reproducible
-    a = random_generation_lambda(rng)
-    b = random_generation_lambda(rng)
-
-    if as_cupy:
-        return cp.array(a), cp.array(b), a, b
-    else:
-        return cuda.to_device(a), cuda.to_device(b), a, b
-
-
-def get_number_positional_args(func, default=2):
-    # function to return number of positional arguments in func
-    if hasattr(func, "__code__"):
-        all_args = func.__code__.co_argcount
-        if func.__defaults__ is not None:
-            kwargs = len(func.__defaults__)
-        else:
-            kwargs = 0
-        return all_args - kwargs
-    return default
-
-
 def get_shap_values(
     model,
     explainer,
@@ -424,55 +339,6 @@ def get_shap_values(
         shap_values = explainer(explained_dataset)
 
     return explainer, shap_values
-
-
-def generate_inputs_from_categories(
-    categories=None, n_samples=10, seed=5060, as_array=False
-):
-    if categories is None:
-        if as_array:
-            categories = {
-                "strings": list(range(1000, 4000, 3)),
-                "integers": list(range(1000)),
-            }
-        else:
-            categories = {
-                "strings": ["Foo", "Bar", "Baz"],
-                "integers": list(range(1000)),
-            }
-
-    rd = np.random.RandomState(seed)
-    pandas_df = pd.DataFrame(
-        {name: rd.choice(cat, n_samples) for name, cat in categories.items()}
-    )
-    ary = from_df_to_numpy(pandas_df)
-    if as_array:
-        inp_ary = cp.array(ary)
-        return inp_ary, ary
-    else:
-        if cudf_pandas_active:
-            df = pandas_df
-        else:
-            df = cudf.DataFrame(pandas_df)
-        return df, ary
-
-
-def assert_inverse_equal(ours, ref, **kwargs):
-    if isinstance(ours, cp.ndarray):
-        cp.testing.assert_array_equal(ours, ref)
-    else:
-        if hasattr(ours, "to_pandas"):
-            ours = ours.to_pandas()
-        if hasattr(ref, "to_pandas"):
-            ref = ref.to_pandas()
-        pd.testing.assert_frame_equal(ours, ref, **kwargs)
-
-
-def from_df_to_numpy(df):
-    if isinstance(df, pd.DataFrame):
-        return list(zip(*[df[feature] for feature in df.columns]))
-    else:
-        return list(zip(*[df[feature].to_numpy() for feature in df.columns]))
 
 
 def compare_svm(
@@ -565,7 +431,7 @@ def compare_svm(
     # We skip this test for multiclass (when intercept_ is an array). Apart
     # from the larger discrepancies in multiclass case, sklearn also uses a
     # different sign convention for intercept in that case.
-    if (not is_array_like(svm2.intercept_)) or svm2.intercept_.shape[0] == 1:
+    if cp.isscalar(svm2.intercept_) or svm2.intercept_.shape[0] == 1:
         if abs(svm2.intercept_) > 1e-6:
             assert (
                 abs((svm1.intercept_ - svm2.intercept_) / svm2.intercept_)
@@ -637,24 +503,3 @@ def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
             np.mean(b),
         )
     return equal
-
-
-def normalized_shape(shape):
-    """Normalize shape to tuple."""
-    return (shape,) if isinstance(shape, int) else shape
-
-
-def squeezed_shape(shape):
-    """Remove all trailing axes of length 1 from shape.
-
-    Similar to, but not exactly like np.squeeze().
-    """
-    return tuple(reversed(list(dropwhile(lambda d: d == 1, reversed(shape)))))
-
-
-def series_squeezed_shape(shape):
-    """Remove all but one axes of length 1 from shape."""
-    if shape:
-        return tuple([d for d in normalized_shape(shape) if d != 1]) or (1,)
-    else:
-        return ()

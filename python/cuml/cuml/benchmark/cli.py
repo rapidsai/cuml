@@ -29,7 +29,7 @@ def build_parser():
           # Compare impact of RF parameters and data sets for multiclass
           python run_benchmarks.py --dataset classification  \
                 --max-rows 100000 --min-rows 10000 \
-                --dataset-param-sweep n_classes=[2,8] \
+                --dataset-param-sweep n_classes=[2] \
                 --cuml-param-sweep n_bins=[4,16] n_estimators=[10,100] \
                 --csv results.csv \
                 RandomForestClassifier
@@ -79,6 +79,12 @@ def build_parser():
         "--quiet", "-q", action="store_false", dest="verbose", default=True
     )
     parser.add_argument("--csv", nargs="?")
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Path to write the canonical JSON benchmark results artifact",
+    )
     parser.add_argument(
         "--config",
         type=str,
@@ -193,5 +199,15 @@ def build_parser():
         choices=["cuda", "managed", "prefetched"],
         default="cuda",
         help="RMM memory resource to use (default: cuda). Ignored if --skip-gpu.",
+    )
+    parser.add_argument(
+        "--metadata-override",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help=(
+            "Override a JSON metadata field using dotted KEY=VALUE syntax. "
+            "VALUE is parsed as JSON when possible. May be repeated."
+        ),
     )
     return parser

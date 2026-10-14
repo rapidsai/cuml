@@ -1,25 +1,18 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import warnings
 
-import cupy
-import numpy as np
+import cupy as cp
+from sklearn.base import ClassNamePrefixFeaturesOutMixin
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
-from cuml.common.sparsefuncs import extract_knn_graph
-from cuml.internals.array import CumlArray
+from cuml.common.sparse import is_sparse
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_random_seed
+from cuml.manifold.utils import extract_knn_graph
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
@@ -243,6 +236,7 @@ cdef _init_params(self, int n_samples, TSNEParams &params):
 class TSNE(InteropMixin,
            CMajorInputTagMixin,
            SparseInputTagMixin,
+           ClassNamePrefixFeaturesOutMixin,
            Base):
     """
     t-SNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
@@ -293,9 +287,8 @@ class TSNE(InteropMixin,
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     random_state : int (default None)
-        Setting this can make repeated runs look more similar. Note, however,
-        that this highly parallelized t-SNE implementation is not completely
-        deterministic between runs, even with the same `random_state`.
+        Controls random initialization. For the FFT method, setting this value
+        makes repeated runs with the same inputs deterministic.
     method : str 'fft', 'barnes_hut' or 'exact' (default 'fft')
         'barnes_hut' and 'fft' are fast approximations. 'exact' is more
         accurate but slower.
@@ -329,16 +322,27 @@ class TSNE(InteropMixin,
         'sqeuclidean' metric, the distances will still be squared when True.
         Note: This argument should likely be set to False for distance metrics
         other than 'euclidean' and 'l2'.
-    precomputed_knn : array / sparse array / tuple, optional (device or host)
-        Either one of a tuple (indices, distances) of
-        arrays of shape (n_samples, n_neighbors), a pairwise distances
-        dense array of shape (n_samples, n_samples) or a KNN graph
-        sparse array (preferably CSR/COO). This feature allows
-        the precomputation of the KNN outside of TSNE
-        and also allows the use of a custom distance function. This function
-        should match the metric used to train the TSNE embeedings.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    precomputed_knn : tuple[array, array], sparse-matrix, array, optional
+        This feature allows the precomputation of the KNN outside of TSNE.
+        Options are:
+
+        - A tuple (indices, distances) of dense arrays of shape (n_samples,
+          n_neighbors), where n_neighbors is >= the ``n_neighbors`` parameter.
+          Self references should be included (i.e. the first column of
+          `indices` should be [0, 1, ...], denotating that the nearest neighbor
+          to each row is itself). This is the most efficient representation.
+
+        - A sparse matrix KNN graph, as may be output by
+          ``cuml.neighbors.kneighbors_graph`` with ``mode="distance"`` and
+          ``include_self=True``. The ``n_neighbors`` used to calculate the
+          graph must be >= the ``n_neighbors`` parameter.
+
+        - A pairwise distances dense array of shape (n_samples, n_samples).
+
+        In all cases the KNN should be computed using the same ``metric`` as
+        provided to ``TSNE``.
+
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -372,11 +376,11 @@ class TSNE(InteropMixin,
 
     .. tip::
         Maaten and Linderman showcased how t-SNE can be very sensitive to both
-        the starting conditions (i.e. random initialization), and how parallel
-        versions of t-SNE can generate vastly different results between runs.
-        You can run t-SNE multiple times to settle on the best configuration.
-        Note that using the same random_state across runs does not guarantee
-        similar results each time.
+        the starting conditions (i.e. random initialization) and its
+        hyperparameters. You can run t-SNE with different random seeds to
+        compare embeddings and settle on the best configuration. For the FFT
+        method, reusing the same `random_state` and inputs reproduces the same
+        result.
 
     .. note::
         The CUDA implementation is derived from the excellent CannyLabs open
@@ -388,7 +392,7 @@ class TSNE(InteropMixin,
         (https://arxiv.org/abs/1807.11824).
 
     """
-    embedding_ = CumlArrayDescriptor(order="F")
+    embedding_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.manifold.TSNE"
 
@@ -449,8 +453,8 @@ class TSNE(InteropMixin,
             "method": method,
         }
         if model.learning_rate != "auto":
-            # For now have `learning_rate="auto"` just use cuml's default
-            params["learning_rate"]: model.learning_rate
+            params["learning_rate"] = model.learning_rate
+            params["learning_rate_method"] = "none"
 
         if (max_iter := getattr(model, "max_iter", None)) is not None:
             params["max_iter"] = max_iter
@@ -478,8 +482,8 @@ class TSNE(InteropMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "embedding_": to_gpu(model.embedding_),
-            "kl_divergence_": to_gpu(model.kl_divergence_),
+            "embedding_": ArrayIndexPair(cp.asarray(model.embedding_, order="F"), None),
+            "kl_divergence_": model.kl_divergence_,
             "learning_rate_": model.learning_rate_,
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model)
@@ -487,8 +491,8 @@ class TSNE(InteropMixin,
 
     def _attrs_to_cpu(self, model):
         return {
-            "embedding_": to_cpu(self.embedding_),
-            "kl_divergence_": to_cpu(self.kl_divergence_),
+            "embedding_": self.embedding_.array.get(order="A"),
+            "kl_divergence_": self.kl_divergence_,
             "learning_rate_": self.learning_rate_,
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model)
@@ -547,30 +551,28 @@ class TSNE(InteropMixin,
         self.precomputed_knn = precomputed_knn
 
     @property
+    @mlfunc(convert_output=False)
     def _n_features_out(self):
         """Number of transformed output features."""
         # Exposed to support sklearn's `get_feature_names_out`
-        return self.embedding_.shape[1]
+        return self.embedding_.array.shape[1]
 
     @generate_docstring(skip_parameters_heading=True,
-                        X='dense_sparse',
-                        convert_dtype_cast='np.float32')
-    @reflect(reset="type")
-    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
+                        X='dense_sparse')
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y=None, *, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
 
         Parameters
         ----------
-        knn_graph : array / sparse array / tuple, optional (device or host)
-        Either one of a tuple (indices, distances) of
-        arrays of shape (n_samples, n_neighbors), a pairwise distances
-        dense array of shape (n_samples, n_samples) or a KNN graph
-        sparse array (preferably CSR/COO). This feature allows
-        the precomputation of the KNN outside of TSNE
-        and also allows the use of a custom distance function. This function
-        should match the metric used to train the TSNE embeedings.
-        Takes precedence over the precomputed_knn parameter.
+        knn_graph : tuple[array, array], sparse-matrix, array, optional
+            This feature allows the precomputation of the KNN outside of TSNE.
+
+            This may take any of the valid forms accepted by the
+            ``precomputed_knn`` parameter to ``TSNE``, and takes precedence
+            over it. See the ``TSNE`` docstring on ``precomputed_knn`` for more
+            information.
         """
         cdef int n_samples, n_features
         cdef uintptr_t X_ptr = 0
@@ -583,9 +585,10 @@ class TSNE(InteropMixin,
             self,
             X,
             dtype="float32",
-            convert_dtype=convert_dtype,
             order="F",
             accept_sparse="csr",
+            ensure_min_samples=2,
+            ensure_min_features=2,
             reset=True,
             return_index=True,
         )
@@ -610,26 +613,20 @@ class TSNE(InteropMixin,
         if knn_graph is None:
             knn_graph = self.precomputed_knn
         if knn_graph is not None:
-            knn_indices, knn_dists = extract_knn_graph(knn_graph, params.n_neighbors)
-
-            knn_dists_cp = knn_dists.to_output("cupy")
-
-            if sparse_fit:
-                # Sparse fitting requires the indices to be int32
-                knn_indices_cp = cupy.asarray(
-                    knn_indices.to_output("cupy"), dtype=np.int32
-                )
-            else:
-                knn_indices_cp = knn_indices.to_output("cupy")
-
-            knn_dists_ptr = <uintptr_t>knn_dists_cp.data.ptr
-            knn_indices_ptr = <uintptr_t>knn_indices_cp.data.ptr
+            knn_indices, knn_dists = extract_knn_graph(
+                knn_graph,
+                n_samples,
+                params.n_neighbors,
+                indices_dtype="int32" if sparse_fit else "int64",
+            )
+            knn_dists_ptr = <uintptr_t>knn_dists.data.ptr
+            knn_indices_ptr = <uintptr_t>knn_indices.data.ptr
 
         # Allocate output array
-        embedding = cupy.zeros(
+        embedding = cp.zeros(
             (n_samples, self.n_components),
             order="F",
-            dtype=np.float32,
+            dtype=cp.float32,
         )
         cdef uintptr_t embed_ptr = <uintptr_t>embedding.data.ptr
 
@@ -675,23 +672,22 @@ class TSNE(InteropMixin,
         self._kl_divergence_ = kl_divergence
         self.n_iter_ = n_iter
         self.learning_rate_ = params.pre_learning_rate
-        self.embedding_ = CumlArray(data=embedding, index=index)
+        self.embedding_ = ArrayIndexPair(embedding, index)
 
         return self
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
+    @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Embedding of the \
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @reflect
-    def fit_transform(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> CumlArray:
+    @mlfunc(preserve_index=True, column_names="feature_names_out")
+    def fit_transform(self, X, y=None, *, knn_graph=None):
         """
         Fit X into an embedded space and return that transformed output.
         """
-        self.fit(X, convert_dtype=convert_dtype, knn_graph=knn_graph)
+        self.fit(X, knn_graph=knn_graph)
         return self.embedding_
 
     @property

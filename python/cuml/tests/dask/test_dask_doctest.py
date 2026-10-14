@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -73,7 +73,7 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
 
 @pytest.mark.parametrize(
     "docstring",
-    _find_doctests_in_obj(cuml.dask),
+    list(_find_doctests_in_obj(cuml.dask)),
     ids=lambda docstring: docstring.name,
 )
 def test_docstring(docstring):

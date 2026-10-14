@@ -12,12 +12,6 @@
 
 #include <optional>
 
-namespace cuvs::preprocessing::spectral_embedding {
-
-struct params;
-
-}  // end namespace cuvs::preprocessing::spectral_embedding
-
 namespace CUML_EXPORT ML {
 namespace SpectralEmbedding {
 
@@ -40,8 +34,6 @@ struct params {
   /** @brief Random seed for reproducibility */
   std::optional<uint64_t> seed = std::nullopt;
 };
-
-cuvs::preprocessing::spectral_embedding::params to_cuvs(ML::SpectralEmbedding::params& config);
 
 void transform(raft::resources const& handle,
                ML::SpectralEmbedding::params config,

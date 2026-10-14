@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import numpy as np
@@ -203,7 +203,7 @@ def test_linear_regression_model_default(dataset):
 
 # TODO: Replace test_linear_regression_model_default with this test once #4963
 # is resolved.
-@pytest.mark.skip(reason="https://github.com/rapidsai/cuml/issues/4963")
+@pytest.mark.skip(reason="https://github.com/NVIDIA/cuml/issues/4963")
 @given(split_datasets(regression_datasets()))
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
@@ -236,7 +236,7 @@ def test_linear_regression_model_default_generalized(dataset):
 @example(train_dtype=np.float32, test_dtype=np.float64)
 @example(train_dtype=np.float64, test_dtype=np.float32)
 @example(train_dtype=np.float64, test_dtype=np.float64)
-def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
+def test_linreg_predict_mixed_dtypes(train_dtype, test_dtype):
     X, y = make_regression(
         n_samples=50, n_features=10, n_informative=5, random_state=0
     )

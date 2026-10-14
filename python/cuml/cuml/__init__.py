@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -13,9 +13,7 @@ else:
     libcuml.load_library()
     del libcuml
 
-import cupy
-from rmm.allocators.cupy import rmm_cupy_allocator
-
+import cuml.accel
 import cuml.feature_extraction
 from cuml._version import __git_commit__, __version__
 from cuml.cluster.agglomerative import AgglomerativeClustering
@@ -24,19 +22,18 @@ from cuml.cluster.hdbscan import HDBSCAN
 from cuml.cluster.kmeans import KMeans
 from cuml.covariance.empirical_covariance import EmpiricalCovariance
 from cuml.covariance.ledoit_wolf import LedoitWolf
-from cuml.datasets.arima import make_arima
 from cuml.datasets.blobs import make_blobs
 from cuml.datasets.classification import make_classification
 from cuml.datasets.regression import make_regression
 from cuml.decomposition.incremental_pca import IncrementalPCA
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.ensemble.isolation_forest import IsolationForest
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.fil import ForestInference
 from cuml.internals.base import Base
 from cuml.internals.global_settings import (
     GlobalSettings,
@@ -45,6 +42,7 @@ from cuml.internals.global_settings import (
 from cuml.internals.outputs import set_global_output_type, using_output_type
 from cuml.kernel_ridge.kernel_ridge import KernelRidge
 from cuml.linear_model.elastic_net import ElasticNet
+from cuml.linear_model.lars import Lars
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.logistic_regression import LogisticRegression
@@ -70,14 +68,30 @@ from cuml.solvers.cd import CD
 from cuml.solvers.qn import QN
 from cuml.solvers.sgd import SGD
 from cuml.svm import SVC, SVR, LinearSVC, LinearSVR
-from cuml.tsa import stationarity
-from cuml.tsa.arima import ARIMA
-from cuml.tsa.auto_arima import AutoARIMA
-from cuml.tsa.holtwinters import ExponentialSmoothing
 
-# Enable rmm_cupy_allocator
-cupy.cuda.set_allocator(rmm_cupy_allocator)
-del cupy, rmm_cupy_allocator
+
+def _setup_cupy():
+    """One-time setup calls for cupy interop"""
+    import copyreg
+
+    import cupy as cp
+    from packaging.version import Version
+    from rmm.allocators.cupy import rmm_cupy_allocator
+
+    # Enable rmm_cupy_allocator
+    cp.cuda.set_allocator(rmm_cupy_allocator)
+
+    # TODO: this is a workaround for https://github.com/cupy/cupy/issues/10084
+    # This can be removed once we require cupy >= 14.2.0
+    if Version(cp.__version__) < Version("14.2.0"):
+        copyreg.dispatch_table[cp.ndarray] = lambda x: (
+            cp.array,
+            (x.get(order="A"),),
+        )
+
+
+_setup_cupy()
+del _setup_cupy
 
 
 def __getattr__(name):
@@ -102,25 +116,23 @@ __all__ = [
     "explainer",
     # Classes
     "AgglomerativeClustering",
-    "ARIMA",
-    "AutoARIMA",
     "Base",
     "CD",
     "DBSCAN",
     "ElasticNet",
     "EmpiricalCovariance",
-    "ExponentialSmoothing",
-    "ForestInference",
     "GaussianRandomProjection",
     "Handle",
     "HDBSCAN",
     "IncrementalPCA",
+    "IsolationForest",
     "KernelDensity",
     "KernelExplainer",
     "KernelRidge",
     "KMeans",
     "KNeighborsClassifier",
     "KNeighborsRegressor",
+    "Lars",
     "Lasso",
     "LedoitWolf",
     "LinearRegression",
@@ -146,9 +158,7 @@ __all__ = [
     "UMAP",
     # Functions
     "johnson_lindenstrauss_min_dim",
-    "make_arima",
     "make_blobs",
     "make_classification",
     "make_regression",
-    "stationarity",
 ]

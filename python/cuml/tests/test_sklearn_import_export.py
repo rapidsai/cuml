@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import cudf
 import cupy as cp
 import numpy as np
 import pytest
@@ -14,6 +15,7 @@ import sklearn.svm
 import umap
 from numpy.testing import assert_allclose
 from packaging.version import Version
+from sklearn.cluster import HDBSCAN as SkHDBSCAN
 from sklearn.cluster import KMeans as SkKMeans
 from sklearn.cluster import SpectralClustering as SkSpectralClustering
 from sklearn.datasets import (
@@ -29,12 +31,14 @@ from sklearn.linear_model import Lasso as SkLasso
 from sklearn.linear_model import LinearRegression as SkLinearRegression
 from sklearn.linear_model import LogisticRegression as SkLogisticRegression
 from sklearn.linear_model import Ridge as SkRidge
+from sklearn.manifold import TSNE as SkTSNE
 from sklearn.manifold import trustworthiness
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_is_fitted
 
 import cuml
+from cuml.accel._overrides.sklearn.cluster import _SklearnHDBSCAN
 from cuml.cluster import DBSCAN, KMeans, SpectralClustering
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
@@ -55,6 +59,7 @@ from cuml.testing.utils import array_equal
 
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+SKLEARN_110 = Version(sklearn.__version__) >= Version("1.10.0.dev0")
 
 
 def _filter_scipy_lbfgsb_deprecation(func):
@@ -250,6 +255,22 @@ def test_logistic_regression(random_state):
     assert_estimator_roundtrip(original, SkLogisticRegression, X, y)
 
 
+@pytest.mark.skipif(not SKLEARN_110, reason="alpha added in sklearn 1.10")
+def test_logistic_regression_no_penalty_alpha(random_state):
+    # The roundtrip test covers `alpha = 1 / C`, this covers `alpha == 0`
+    X, y = make_classification(
+        n_samples=50, n_features=5, n_informative=3, random_state=random_state
+    )
+    sk_model = LogisticRegression(penalty=None).fit(X, y).as_sklearn()
+    assert sk_model.alpha == 0.0
+    assert sk_model.C == "deprecated"
+
+    model = LogisticRegression.from_sklearn(
+        SkLogisticRegression(alpha=0).fit(X, y)
+    )
+    assert model.C == np.inf
+
+
 def test_elasticnet(random_state):
     X, y = make_regression(
         n_samples=50, n_features=5, noise=0.1, random_state=random_state
@@ -292,6 +313,16 @@ def test_tsne(random_state):
 
     assert array_equal(original_embedding, sklearn_embedding)
     assert array_equal(original_embedding, roundtrip_embedding)
+
+
+def test_tsne_from_sklearn_numeric_learning_rate():
+    model = TSNE.from_sklearn(
+        SkTSNE(learning_rate=100.0, early_exaggeration=10.0)
+    )
+
+    assert model.learning_rate == 100.0
+    assert model.learning_rate_method == "none"
+    assert model.early_exaggeration == 10.0
 
 
 def test_spectral_embedding(random_state):
@@ -779,6 +810,13 @@ def test_random_forest_classifier(random_state, oob_score):
     assert isinstance(sk_model2.classes_, np.ndarray)
     assert isinstance(cu_model2.classes_, np.ndarray)
     assert (sk_model2.classes_ == cu_model2.classes_).all()
+    for estimator in sk_model2.estimators_:
+        estimator_classes = np.arange(
+            sk_model2.n_classes_, dtype=estimator.classes_.dtype
+        )
+        assert isinstance(estimator.classes_, np.ndarray)
+        assert (estimator.classes_ == estimator_classes).all()
+        assert estimator.n_classes_ == sk_model2.n_classes_
 
     # Ensure params/attrs roundtrip
     # Exclude classes_ due to dtype differences between implementations
@@ -795,6 +833,10 @@ def test_random_forest_classifier(random_state, oob_score):
         assert hasattr(sk_model2, "oob_score_")
         assert cu_model.oob_score_ == sk_model2.oob_score_
         assert cu_model2.oob_score_ == sk_model.oob_score_
+        assert isinstance(sk_model2.oob_decision_function_, np.ndarray)
+        with cuml.using_output_type("cupy"):
+            assert isinstance(cu_model.oob_decision_function_, cp.ndarray)
+            assert isinstance(cu_model2.oob_decision_function_, cp.ndarray)
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
@@ -807,6 +849,29 @@ def test_random_forest_classifier(random_state, oob_score):
     # Refit models have similar results
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
+
+
+def test_random_forest_classifier_as_sklearn_estimator_classes(random_state):
+    X, y = make_classification(
+        n_samples=200, n_features=5, n_informative=3, random_state=random_state
+    )
+    y = np.where(y == 0, 10, 20)
+    common_params = {"n_estimators": 3, "max_depth": None}
+
+    cu_model = cuml.RandomForestClassifier(**common_params).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestClassifier(**common_params).fit(
+        X, y
+    )
+    sk_model2 = cu_model.as_sklearn()
+
+    np.testing.assert_array_equal(sk_model2.classes_, sk_model.classes_)
+    for estimator, sk_estimator in zip(
+        sk_model2.estimators_, sk_model.estimators_, strict=True
+    ):
+        np.testing.assert_array_equal(
+            estimator.classes_, sk_estimator.classes_
+        )
+        assert estimator.n_classes_ == sk_estimator.n_classes_
 
 
 @pytest.mark.parametrize("oob_score", [False, True])
@@ -840,6 +905,10 @@ def test_random_forest_regressor(random_state, oob_score):
         assert hasattr(sk_model2, "oob_score_")
         assert cu_model.oob_score_ == sk_model2.oob_score_
         assert cu_model2.oob_score_ == sk_model.oob_score_
+        assert isinstance(sk_model2.oob_prediction_, np.ndarray)
+        with cuml.using_output_type("cupy"):
+            assert isinstance(cu_model.oob_prediction_, cp.ndarray)
+            assert isinstance(cu_model2.oob_prediction_, cp.ndarray)
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
@@ -920,6 +989,81 @@ def test_hdbscan(random_state, prediction_data, gen_min_span_tree):
     # Can refit on converted models
     cu_model2.fit(X, y)
     sk_model2.fit(X, y)
+
+
+def test_sklearn_hdbscan_roundtrip(random_state):
+    X, _ = make_blobs(
+        n_samples=200,
+        n_features=4,
+        centers=4,
+        random_state=random_state,
+    )
+    params = {
+        "min_cluster_size": 8,
+        "min_samples": 5,
+        "cluster_selection_epsilon": 0.05,
+        "max_cluster_size": 50,
+        "alpha": 1.2,
+        "allow_single_cluster": True,
+    }
+    original = _SklearnHDBSCAN(**params).fit(X)
+
+    sklearn_model = original.as_sklearn()
+    assert type(sklearn_model) is SkHDBSCAN
+    check_is_fitted(sklearn_model)
+    assert sklearn_model.min_samples == params["min_samples"] + 1
+
+    roundtrip = _SklearnHDBSCAN.from_sklearn(sklearn_model)
+    check_is_fitted(roundtrip)
+    assert roundtrip._state is not None
+    assert (
+        roundtrip.n_clusters_
+        == np.unique(sklearn_model.labels_[sklearn_model.labels_ >= 0]).size
+    )
+
+    for name, expected in params.items():
+        assert getattr(roundtrip, name) == expected
+
+    with cuml.using_output_type("numpy"):
+        np.testing.assert_array_equal(original.labels_, roundtrip.labels_)
+        assert_allclose(
+            original.probabilities_, roundtrip.probabilities_, rtol=1e-6
+        )
+
+    np.testing.assert_array_equal(
+        original._single_linkage_tree, roundtrip._single_linkage_tree
+    )
+    assert original.n_features_in_ == roundtrip.n_features_in_
+
+    # The sklearn state produced after the full roundtrip remains usable.
+    sklearn_roundtrip = roundtrip.as_sklearn()
+    assert type(sklearn_roundtrip) is SkHDBSCAN
+    check_is_fitted(sklearn_roundtrip)
+    np.testing.assert_array_equal(
+        sklearn_model.labels_, sklearn_roundtrip.labels_
+    )
+    assert_allclose(
+        sklearn_model.probabilities_,
+        sklearn_roundtrip.probabilities_,
+        rtol=1e-6,
+    )
+    np.testing.assert_array_equal(
+        sklearn_model._single_linkage_tree_,
+        sklearn_roundtrip._single_linkage_tree_,
+    )
+    np.testing.assert_array_equal(
+        sklearn_model.dbscan_clustering(1.0),
+        sklearn_roundtrip.dbscan_clustering(1.0),
+    )
+
+
+def test_sklearn_hdbscan_rejects_incomplete_fitted_state(random_state):
+    X, _ = make_blobs(n_samples=100, random_state=random_state)
+    model = SkHDBSCAN(copy=False).fit(X)
+    del model._single_linkage_tree_
+
+    with pytest.raises(UnsupportedOnGPU, match="single-linkage tree"):
+        _SklearnHDBSCAN.from_sklearn(model)
 
 
 def test_linear_svr(random_state):
@@ -1047,3 +1191,66 @@ def test_label_binarizer():
 
     np.testing.assert_array_equal(cu_out, sol)
     np.testing.assert_array_equal(sk_out, sol)
+
+
+@pytest.mark.parametrize("drop", [None, "first"])
+@pytest.mark.parametrize("sparse_output", [True, False])
+@pytest.mark.parametrize("handle_unknown", ["error", "ignore"])
+@pytest.mark.filterwarnings("ignore:Found unknown categories.*:UserWarning")
+def test_one_hot_encoder(drop, sparse_output, handle_unknown):
+    X = np.array(
+        [["x", "a"], ["x", "b"], ["y", "a"], ["x", "c"]], dtype="object"
+    )
+    kws = {
+        "drop": drop,
+        "sparse_output": sparse_output,
+        "handle_unknown": handle_unknown,
+    }
+    cu_model = cuml.preprocessing.OneHotEncoder(**kws).fit(X)
+    sk_model = sklearn.preprocessing.OneHotEncoder(**kws).fit(X)
+
+    cu_model2 = cuml.preprocessing.OneHotEncoder.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+    # XXX: np.array(drop) == drop is true, this assert ensures we don't
+    # accidentally coerce `drop` to an array.
+    assert type(sk_model2.drop) is type(drop)
+
+    roundtrip = cuml.preprocessing.OneHotEncoder.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    for c1, c2 in zip(cu_model.categories_, sk_model2.categories_):
+        np.testing.assert_array_equal(c1, c2)
+
+    cu_out = cu_model2.transform(X)
+    sk_out = sk_model2.transform(X)
+
+    if sparse_output:
+        np.testing.assert_array_equal(cu_out.toarray(), sk_out.toarray())
+    else:
+        np.testing.assert_array_equal(cu_out, sk_out)
+
+    if handle_unknown == "ignore":
+        X = np.array([["x", "d"], ["x", "a"], ["z", "c"]], dtype="object")
+        cu_out = cu_model2.transform(X)
+        sk_out = sk_model2.transform(X)
+        if sparse_output:
+            np.testing.assert_array_equal(cu_out.toarray(), sk_out.toarray())
+        else:
+            np.testing.assert_array_equal(cu_out, sk_out)
+
+
+def test_one_hot_encoder_cuda_array_like_params():
+    cats = [cp.array([1, 2]), cudf.Series([10, 20, 30])]
+    drop = cp.array([1, 20])
+    X = np.array([[1, 10], [1, 20], [2, 30], [2, 10]])
+    cu_model1 = cuml.preprocessing.OneHotEncoder(
+        categories=cats, drop=drop
+    ).fit(X)
+    sk_model = cu_model1.as_sklearn()
+    cu_model2 = cuml.preprocessing.OneHotEncoder.from_sklearn(sk_model)
+
+    cu_out1 = cu_model1.transform(X)
+    sk_out = sk_model.transform(X)
+    cu_out2 = cu_model2.transform(X)
+    np.testing.assert_array_equal(cu_out1.toarray(), sk_out.toarray())
+    np.testing.assert_array_equal(cu_out2.toarray(), sk_out.toarray())

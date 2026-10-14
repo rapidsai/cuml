@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import pickle as pickle
@@ -19,20 +19,13 @@ except ImportError:
     from gpu_check import is_cuml_available  # noqa: E402
 
 # Conditional GPU imports
-cudf = None
-cp = None
-cuda = None
-cuml = None
-input_utils = None
-DeviceType = None
-UMAP = None
-
 if is_cuml_available():
     import cudf
     import cupy as cp
-    from numba import cuda
 
     from cuml.manifold import UMAP
+else:
+    cudf = cp = UMAP = None
 
 
 def call(m, func_name, X, y=None):
@@ -72,6 +65,10 @@ def kneighbors(m, x, y=None):
     call(m, "kneighbors", x)
 
 
+def score_samples(m, x, y=None):
+    call(m, "score_samples", x[: min(x.shape[0], 1024)])
+
+
 def fit_predict(m, x, y=None):
     if hasattr(m, "predict"):
         fit(m, x, y)
@@ -96,6 +93,11 @@ def fit_kneighbors(m, x, y=None):
         call(m, "fit_kneighbors", x, y)
 
 
+def fit_score_samples(m, x, y=None):
+    fit(m, x, y)
+    score_samples(m, x)
+
+
 def _training_data_to_numpy(X, y):
     """Convert input training data into numpy format"""
     if isinstance(X, np.ndarray):
@@ -107,9 +109,6 @@ def _training_data_to_numpy(X, y):
     elif is_cuml_available() and isinstance(X, cudf.DataFrame):
         X_np = X.to_numpy()
         y_np = y.to_numpy() if y is not None else None
-    elif is_cuml_available() and cuda.devicearray.is_cuda_ndarray(X):
-        X_np = X.copy_to_host()
-        y_np = y.copy_to_host() if y is not None else None
     elif isinstance(X, (pd.DataFrame, pd.Series)):
         X_np = datagen._convert_to_numpy(X)
         y_np = datagen._convert_to_numpy(y) if y is not None else None

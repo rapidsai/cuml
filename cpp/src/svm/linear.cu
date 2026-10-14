@@ -1,7 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <common/nvtx.hpp>
+
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/export.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/linear_model/glm.hpp>
@@ -109,7 +112,7 @@ class WorkerHandle {
     : handle_ptr{new raft::handle_t{h.get_next_usable_stream(stream_id)}},
       stream_id(stream_id),
       handle(*handle_ptr),
-      stream(h.get_next_usable_stream(stream_id))
+      stream(h.get_next_usable_stream(stream_id).get())
   {
   }
 
@@ -137,7 +140,7 @@ int fit(const raft::handle_t& handle,
     ASSERT(nClasses > 1 && classes != nullptr, "Must have > 1 class for classification");
   }
 
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = handle.get_stream().get();
 
   const int coefCols         = nClasses <= 2 ? 1 : nClasses;
   const std::size_t coefRows = nCols + int(params.fit_intercept);
@@ -150,10 +153,12 @@ int fit(const raft::handle_t& handle,
   T* X1 = (T*)X;
   rmm::device_uvector<T> X1Buf(0, stream);
   if (params.fit_intercept && params.penalized_intercept) {
-    X1Buf.resize(nCols1 * nRows, stream);
+    std::size_t const x1_count = checked_mul<std::size_t>(nCols1, nRows);
+    std::size_t const x_count  = checked_mul<std::size_t>(nCols, nRows);
+    X1Buf.resize(x1_count, stream);
     X1 = X1Buf.data();
-    raft::copy(X1, X, nCols * nRows, stream);
-    thrust::device_ptr<T> p(X1 + nCols * nRows);
+    raft::copy(X1, X, x_count, stream);
+    thrust::device_ptr<T> p(X1 + x_count);
     thrust::fill(thrust::cuda::par.on(stream), p, p + nRows, 1.0);
   }
 

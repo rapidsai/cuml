@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,13 +7,15 @@
 
 #include "../common/ml_benchmark.hpp"
 #include "dataset.cuh"
-#include "dataset_ts.cuh"
 
 #include <cuml/common/logger.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/cuda_stream_pool.hpp>
+
+#include <cuda/stream>
 #include <cuda_runtime.h>
 
 #include <benchmark/benchmark.h>
@@ -29,13 +31,16 @@ class Fixture : public MLCommon::Bench::Fixture {
 
   void SetUp(const ::benchmark::State& state) override
   {
+    if (stream == 0) { RAFT_CUDA_TRY(cudaStreamCreate(&stream)); }
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(numStreams());
-    handle.reset(new raft::handle_t{rmm::cuda_stream_per_thread, stream_pool});
+    handle.reset(new raft::handle_t{cuda::stream_ref{stream}, stream_pool});
     MLCommon::Bench::Fixture::SetUp(state);
   }
 
   void TearDown(const ::benchmark::State& state) override
   {
+    handle->sync_stream_pool();
+    handle->sync_stream();
     MLCommon::Bench::Fixture::TearDown(state);
     handle.reset();
   }
@@ -145,27 +150,6 @@ class RegressionFixture : public Fixture {
   RegressionParams rParams;
   Dataset<D, D> data;
 };  // end class RegressionFixture
-
-/**
- * Fixture to be used for benchmarking time series algorithms when
- * the input suffices to be generated with a normal distribution.
- */
-template <typename D>
-class TsFixtureRandom : public Fixture {
- public:
-  TsFixtureRandom(const std::string& name, const TimeSeriesParams p) : Fixture(name), params(p) {}
-  TsFixtureRandom() = delete;
-
- protected:
-  void allocateData(const ::benchmark::State& state) override
-  {
-    data.allocate(*handle, params);
-    data.random(*handle, params);
-  }
-
-  TimeSeriesParams params;
-  TimeSeriesDataset<D> data;
-};  // end class TsFixtureRandom
 
 }  // end namespace Bench
 }  // end namespace ML

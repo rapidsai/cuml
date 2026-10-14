@@ -1,8 +1,7 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 from dataclasses import dataclass, field
 
 from sklearn.utils import (
@@ -15,7 +14,7 @@ from sklearn.utils import (
 )
 
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.outputs import run_in_internal_context
+from cuml.internals.outputs import ClassLabels, mlfunc
 
 ###############################################################################
 #                          Tag Functionality Mixin                            #
@@ -71,7 +70,7 @@ class RegressorMixin:
             "description": "R^2 of self.predict(X) wrt. y.",
         }
     )
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for regression estimators
@@ -109,7 +108,7 @@ class ClassifierMixin:
             ),
         }
     )
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
@@ -118,6 +117,8 @@ class ClassifierMixin:
         from cuml.metrics import accuracy_score
 
         preds = self.predict(X, **kwargs)
+        if isinstance(preds, ClassLabels):
+            preds = preds.to_output()
         return accuracy_score(y, preds, sample_weight=sample_weight)
 
     def __sklearn_tags__(self):

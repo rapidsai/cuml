@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -12,6 +12,12 @@ from cuml.dask.common.func import reduce, tree_reduce
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.naive_bayes import MultinomialNB as MNB
+
+
+def _count_accurate_predictions(y_hat, y):
+    y_hat = cp.asarray(y_hat, dtype=y_hat.dtype)
+    y = cp.asarray(y, dtype=y.dtype)
+    return y.shape[0] - cp.count_nonzero(y - y_hat)
 
 
 class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
@@ -170,11 +176,6 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         return arrs.shape[0]
 
     def predict(self, X):
-        # TODO: Once cupy sparse arrays are fully supported underneath Dask
-        # arrays, and Naive Bayes is refactored to use CumlArray, this can
-        # extend DelayedPredictionMixin.
-        # Ref: https://github.com/rapidsai/cuml/issues/1834
-        # Ref: https://github.com/rapidsai/cuml/issues/1387
         """
         Use distributed Naive Bayes model to predict the classes for a
         given set of data samples.
@@ -191,6 +192,9 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         dask.Array containing predicted classes
 
         """
+        # TODO: This could be refactored to use DelayedPredictionMixin
+        # Ref: https://github.com/NVIDIA/cuml/issues/1834
+        # Ref: https://github.com/NVIDIA/cuml/issues/1387
         if not isinstance(X, dask.array.core.Array):
             raise ValueError("Only dask.Array is supported for X")
 
@@ -219,17 +223,11 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
 
         y_hat = self.predict(X)
 
-        @dask.delayed
-        def _count_accurate_predictions(y_hat, y):
-            y_hat = cp.asarray(y_hat, dtype=y_hat.dtype)
-            y = cp.asarray(y, dtype=y.dtype)
-            return y.shape[0] - cp.count_nonzero(y - y_hat)
-
         delayed_parts = zip(y_hat.to_delayed(), y.to_delayed())
 
-        accuracy_parts = [
-            _count_accurate_predictions(*p) for p in delayed_parts
-        ]
+        func = dask.delayed(_count_accurate_predictions)
+
+        accuracy_parts = [func(*p) for p in delayed_parts]
 
         reduced = first(dask.compute(tree_reduce(accuracy_parts)))
 

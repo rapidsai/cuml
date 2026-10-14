@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -44,6 +44,7 @@ else()
 
   if(ensemble_algo)
     set(randomforest_algo ON)
+    set(isolationforest_algo ON)
   endif()
 
   # todo: organize linear model headers better
@@ -67,12 +68,6 @@ else()
     set(cd_algo ON)
     set(sgd_algo ON)
     set(qn_algo ON)
-  endif()
-
-  if(tsa_algo)
-    set(arima_algo ON)
-    set(autoarima_algo ON)
-    set(holtwinters_algo ON)
   endif()
 
   # Set linking options and algorithms that require other algorithms #######
@@ -106,6 +101,11 @@ else()
     set(LINK_NVFOREST ON)
   endif()
 
+  if(isolationforest_algo)
+    set(decisiontree_algo ON)
+    set(LINK_TREELITE ON)
+  endif()
+
   if(hierarchicalclustering_algo OR kmeans_algo)
     set(metrics_algo ON)
   endif()
@@ -115,6 +115,7 @@ else()
      OR kmeans_algo
      OR knn_algo
      OR metrics_algo
+     OR svm_algo
      OR tsne_algo
      OR umap_algo
   )

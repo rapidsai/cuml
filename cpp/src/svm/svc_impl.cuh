@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,6 +13,7 @@
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
@@ -34,6 +35,7 @@
 #include <cublas_v2.h>
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/distance/grammian.hpp>
+#include <matrix/kernel_params.hpp>
 
 #include <iostream>
 
@@ -139,7 +141,7 @@ int svcFitX(const raft::handle_t& handle,
   // ML::detail::streamSyncer _(handle_impl.getImpl());
   const raft::handle_t& handle_impl = handle;
 
-  cudaStream_t stream = handle_impl.get_stream();
+  cudaStream_t stream = handle_impl.get_stream().get();
   {
     rmm::device_uvector<math_t> unique_labels(0, stream);
     model.n_classes = raft::label::getUniquelabels(unique_labels, labels, n_rows, stream);
@@ -159,7 +161,7 @@ int svcFitX(const raft::handle_t& handle,
 
   // For precomputed kernels, we don't need to create a cuvs kernel
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel = nullptr;
-  cuvs::distance::kernels::KernelParams cuvs_params       = kernel_params.to_cuvs();
+  cuvs::distance::kernels::KernelParams cuvs_params       = ML::matrix::to_cuvs(kernel_params);
   if (!is_precomputed) {
     kernel = cuvs::distance::kernels::KernelFactory<math_t>::create(cuvs_params);
   }
@@ -250,12 +252,13 @@ void svcPredictX(const raft::handle_t& handle,
   }
 
   const raft::handle_t& handle_impl = handle;
-  cudaStream_t stream               = handle_impl.get_stream();
+  cudaStream_t stream               = handle_impl.get_stream().get();
 
-  rmm::device_uvector<math_t> K(n_batch * model.n_support, stream);
+  rmm::device_uvector<math_t> K(checked_mul<std::size_t>(n_batch, model.n_support), stream);
   rmm::device_uvector<math_t> y(n_rows, stream);
   if (model.n_support == 0) {
-    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(y.data(), 0, checked_mul<std::size_t>(n_rows, sizeof(math_t)), stream));
   }
 
   // Handle precomputed kernel prediction separately
@@ -315,7 +318,7 @@ void svcPredictX(const raft::handle_t& handle,
   }
 
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
-    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params.to_cuvs());
+    cuvs::distance::kernels::KernelFactory<math_t>::create(ML::matrix::to_cuvs(kernel_params));
 
   /*
     // kernel computation:
@@ -477,7 +480,7 @@ void svcPredictSparse(const raft::handle_t& handle,
 template <typename math_t>
 void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
 {
-  cudaStream_t stream                      = handle.get_stream();
+  cudaStream_t stream                      = handle.get_stream().get();
   rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource_ref();
   if (m.dual_coefs) rmm_alloc.deallocate(stream, m.dual_coefs, m.n_support * sizeof(math_t));
   if (m.support_idx) rmm_alloc.deallocate(stream, m.support_idx, m.n_support * sizeof(int));

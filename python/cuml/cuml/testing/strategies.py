@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
@@ -19,8 +19,6 @@ from hypothesis.strategies import (
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
-from cuml.internals.array import CumlArray
-
 _CUML_ARRAY_INPUT_TYPES = ["numpy", "cupy", "series"]
 
 
@@ -39,20 +37,6 @@ _CUML_ARRAY_DTYPES = [
 ]
 
 _CUML_ARRAY_ORDERS = ["F", "C"]
-
-
-_CUML_ARRAY_OUTPUT_TYPES = [
-    "cudf",
-    "cupy",
-    "dataframe",
-    "numba",
-    "numpy",
-    "series",
-]
-
-# TODO(wphicks): Once all memory types are supported, just directly
-# iterate on the enum values
-_CUML_ARRAY_MEM_TYPES = ("host", "device")
 
 
 UNSUPPORTED_CUDF_DTYPES = [
@@ -88,18 +72,6 @@ def cuml_array_input_types(draw):
 
 
 @composite
-def cuml_array_output_types(draw):
-    """Generates all cuml array supported output types."""
-    return draw(sampled_from(_CUML_ARRAY_OUTPUT_TYPES))
-
-
-@composite
-def cuml_array_output_dtypes(draw):
-    """Generates all cuml array supported output dtypes."""
-    return draw(sampled_from(_CUML_ARRAY_DTYPES))
-
-
-@composite
 def cuml_array_dtypes(draw):
     """Generates all supported cuml array dtypes."""
     return draw(sampled_from(_CUML_ARRAY_DTYPES))
@@ -109,16 +81,6 @@ def cuml_array_dtypes(draw):
 def cuml_array_orders(draw):
     """Generates all supported cuml array orders."""
     return draw(sampled_from(_CUML_ARRAY_ORDERS))
-
-
-@composite
-def cuml_array_mem_types(draw):
-    """Generates all supported cuml array mem_types.
-
-    Note that we do not currently test managed memory because it is not yet
-    officially supported.
-    """
-    return draw(sampled_from(_CUML_ARRAY_MEM_TYPES))
 
 
 @composite
@@ -164,53 +126,6 @@ def cuml_array_shapes(
     )
     just_size = integers(min_side, max_side)
     return draw(one_of(shapes, just_size))
-
-
-def create_cuml_array_input(input_type, dtype, shape, order):
-    """
-    Creates a valid cuml array input.
-
-    Parameters
-    ----------
-    input_type: str | None, default=cupy
-        Valid input types are "numpy", "cupy", "series".
-    dtype: Data type specifier
-        A numpy/cupy compatible data type, e.g., numpy.float64.
-    shape: int | tuple[int]
-        Dimensions of the array to generate.
-    order : str in {'C', 'F'}
-        Order of arrays to generate, either F- or C-major.
-
-    Returns
-    -------
-    A cuml array input array.
-    """
-
-    input_type = "cupy" if input_type is None else input_type
-
-    multidimensional = isinstance(shape, tuple) and len(shape) > 1
-    assume(
-        not (
-            input_type == "series"
-            and (dtype in UNSUPPORTED_CUDF_DTYPES or multidimensional)
-        )
-    )
-
-    array = cp.ones(shape, dtype=dtype, order=order)
-
-    if input_type == "numpy":
-        return np.array(cp.asnumpy(array), dtype=dtype, order=order)
-
-    elif input_type == "series":
-        return cudf.Series(array)
-
-    elif input_type == "cupy":
-        return array
-
-    raise ValueError(
-        "The value for 'input_type' must be "
-        f"one of {', '.join(_CUML_ARRAY_INPUT_TYPES)}."
-    )
 
 
 @composite
@@ -274,43 +189,6 @@ def cuml_array_inputs(
     assume(cai.get("mask") is None)
 
     return ret
-
-
-@composite
-def cuml_arrays(
-    draw,
-    input_types=cuml_array_input_types(),
-    dtypes=cuml_array_dtypes(),
-    shapes=cuml_array_shapes(),
-    orders=cuml_array_orders(),
-    mem_types=cuml_array_mem_types(),
-):
-    """
-    Generates cuml arrays.
-
-    Parameters
-    ----------
-    input_types: SearchStrategy[("numpy", "cupy", "series")], \
-        default=cuml_array_input_tyes()
-        A search strategy for the type of array input.
-    dtypes: SearchStrategy[np.dtype], default=cuml_array_dtypes()
-        A search strategy for a numpy/cupy compatible data type.
-    shapes: SearchStrategy[int | tuple[int]], default=cuml_array_shapes()
-        A search strategy for array shapes.
-    orders : str in {'C', 'F'}, default=cuml_array_orders()
-        A search strategy for array orders.
-
-    Returns
-    -------
-    A strategy for cuml arrays.
-    """
-    array_input = create_cuml_array_input(
-        input_type=draw(input_types),
-        dtype=draw(dtypes),
-        shape=draw(shapes),
-        order=draw(orders),
-    )
-    return CumlArray(data=array_input, mem_type=draw(mem_types))
 
 
 def _get_limits(strategy):

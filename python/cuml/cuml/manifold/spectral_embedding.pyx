@@ -1,21 +1,15 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
+from sklearn.base import ClassNamePrefixFeaturesOutMixin
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_random_seed
 
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
@@ -57,7 +51,12 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         device_matrix_view[float, int, col_major] embedding) except +
 
 
-class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
+class SpectralEmbedding(
+    InteropMixin,
+    CMajorInputTagMixin,
+    ClassNamePrefixFeaturesOutMixin,
+    Base,
+):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and
@@ -85,8 +84,7 @@ class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -116,7 +114,7 @@ class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
     (100, 2)
     """
     _cpu_class_path = "sklearn.manifold.SpectralEmbedding"
-    embedding_ = CumlArrayDescriptor(order="F")
+    embedding_ = ReflectedAttr()
 
     # Private so that `spectral_embedding` can share the same code
     _drop_first = True
@@ -170,19 +168,26 @@ class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
     def _attrs_from_cpu(self, model):
         return {
             "n_neighbors_": model.n_neighbors_,
-            "embedding_": to_gpu(model.embedding_, order="F"),
+            "embedding_": cp.asarray(model.embedding_, order="F"),
             **super()._attrs_from_cpu(model)
         }
 
     def _attrs_to_cpu(self, model):
         return {
             "n_neighbors_": self.n_neighbors_,
-            "embedding_": to_cpu(self.embedding_, order="F"),
+            "embedding_": self.embedding_.get(order="F"),
             **super()._attrs_to_cpu(model),
         }
 
-    @reflect
-    def fit_transform(self, X, y=None) -> CumlArray:
+    @property
+    @mlfunc(convert_output=False)
+    def _n_features_out(self):
+        """Number of transformed output features."""
+        # Exposed to support sklearn's `get_feature_names_out`
+        return self.embedding_.shape[1]
+
+    @mlfunc(preserve_index=True, column_names="feature_names_out")
+    def fit_transform(self, X, y=None):
         """Fit the model from data in X and transform X.
 
         Parameters
@@ -205,7 +210,7 @@ class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
         self.fit(X, y)
         return self.embedding_
 
-    @reflect(reset="type")
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None) -> "SpectralEmbedding":
         """Fit the model from data in X.
 
@@ -331,12 +336,12 @@ class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
                 )
         handle.sync()
 
-        self.embedding_ = CumlArray(data=embedding)
+        self.embedding_ = embedding
 
         return self
 
 
-@reflect
+@mlfunc(preserve_index=True)
 def spectral_embedding(
     A,
     *,

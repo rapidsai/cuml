@@ -4,7 +4,6 @@
 #
 import cupy as cp
 
-from cuml.internals.array import CumlArray
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
 
@@ -119,6 +118,6 @@ class CDMG(MGFitMixin, CD):
                 )
         self.handle.sync()
 
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef
         self.intercept_ = intercept_f32 if use_f32 else intercept_f64
         self.n_iter_ = n_iter

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Andreas Mueller
 # SPDX-FileCopyrightText: Joris Van den Bossche
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -24,7 +24,7 @@ from itertools import chain, compress
 
 import cudf
 import cupy as np
-import numba
+import numpy as cpu_np
 import pandas as pd
 import scipy.sparse as sp_sparse
 from cupyx.scipy import sparse as cu_sparse
@@ -34,9 +34,13 @@ from sklearn.base import clone
 from sklearn.utils import Bunch
 
 import cuml
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
-from cuml.internals.validation import check_is_fitted, check_features, check_array
+from cuml.internals.validation import (
+    check_is_fitted,
+    check_features,
+    check_array,
+    check_input_features,
+)
 
 from ..preprocessing._function_transformer import FunctionTransformer
 from ..utils.skl_dependencies import (
@@ -256,14 +260,20 @@ def _safe_indexing(X, indices, *, axis=0):
 
 def _array_indexing(array, key, key_dtype, axis):
     """Index an array or a sparse array"""
+    array = check_array(
+        array,
+        order=None,
+        mem_type=None,
+        accept_sparse=True,
+        ensure_all_finite=False,
+        ensure_2d=False,
+    )
     if issparse(array):
         # check if we have an boolean array-likes to make the proper indexing
         if key_dtype == 'bool':
             key = np.asarray(key)
     if isinstance(key, tuple):
         key = list(key)
-    if numba.cuda.is_cuda_array(array):
-        array = np.asarray(array)
     return array[key] if axis == 0 else array[:, key]
 
 
@@ -571,6 +581,18 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.transformer_weights = transformer_weights
         self.verbose = verbose
 
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            "n_jobs",
+            "output_type",
+            "remainder",
+            "sparse_threshold",
+            "transformer_weights",
+            "transformers",
+            "verbose",
+        ]
+
     @property
     def _transformers(self):
         """
@@ -579,13 +601,18 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         of get_params via BaseComposition._get_params which expects lists
         of tuples of len 2.
         """
+        if self.transformers is None:
+            return []
         return [(name, trans) for name, trans, _ in self.transformers]
 
     @_transformers.setter
     def _transformers(self, value):
-        self.transformers = [
-            (name, trans, col) for ((name, trans), (_, _, col))
-            in zip(value, self.transformers)]
+        if not self.transformers:
+            self.transformers = [(name, trans, None) for name, trans in value]
+        else:
+            self.transformers = [
+                (name, trans, col) for ((name, trans), (_, _, col))
+                in zip(value, self.transformers, strict=True)]
 
     def get_params(self, deep=True):
         """Get parameters for this estimator.
@@ -731,38 +758,58 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         return Bunch(**{name: trans for name, trans, _
                         in self.transformers_})
 
-    def get_feature_names(self):
-        """Get feature names from all transformers.
+    def get_feature_names_out(self, input_features=None):
+        """Get output feature names for transformation.
+
+        Parameters
+        ----------
+        input_features : array-like of str or None, default=None
+            Input feature names.
 
         Returns
         -------
-        feature_names : list of strings
-            Names of the features produced by transform.
+        feature_names_out : numpy.ndarray of str objects.
+            Transformed feature names.
         """
         check_is_fitted(self)
-        feature_names = []
-        for name, trans, column, _ in self._iter(fitted=True):
-            if trans == 'drop' or (
-                    hasattr(column, '__len__') and not len(column)):
+        input_features = check_input_features(self, input_features)
+        out = []
+        for trans_name, trans, col, _ in self._iter(fitted=True):
+            if trans == "drop":
                 continue
-            if trans == 'passthrough':
-                if hasattr(self, '_df_columns'):
-                    if ((not isinstance(column, slice))
-                            and all(isinstance(col, str) for col in column)):
-                        feature_names.extend(column)
-                    else:
-                        feature_names.extend(self._df_columns[column])
+
+            # Determine column subset to pass to trans
+            if isinstance(col, slice):
+                inputs = input_features[col].tolist()
+            elif isinstance(col, int):
+                inputs = [input_features[col]]
+            elif isinstance(col, str):
+                inputs = [col]
+            else:
+                col = cpu_np.asarray(col, dtype=object)
+                if all(isinstance(c, str) for c in col):
+                    inputs = col.tolist()
+                elif all(isinstance(c, bool) for c in col):
+                    inputs = input_features[col.astype(bool)].tolist()
                 else:
-                    indices = np.arange(self._n_features)
-                    feature_names.extend(['x%d' % i for i in indices[column]])
+                    inputs = [input_features[c] for c in col]
+
+            if not len(inputs):
                 continue
-            if not hasattr(trans, 'get_feature_names'):
-                raise AttributeError("Transformer %s (type %s) does not "
-                                     "provide get_feature_names."
-                                     % (str(name), type(trans).__name__))
-            feature_names.extend([name + "__" + f for f in
-                                  trans.get_feature_names()])
-        return feature_names
+
+            if trans == 'passthrough':
+                names = inputs
+            elif not hasattr(trans, 'get_feature_names_out'):
+                raise AttributeError(
+                    f"Transformer {trans_name!s} (type {type(trans).__name__}) "
+                    "does not provide get_feature_names_out."
+                )
+            else:
+                names = trans.get_feature_names_out(inputs)
+
+            out.extend([f"{trans_name}__{name}" for name in names])
+
+        return cpu_np.array(out, dtype=object)
 
     def _update_fitted_transformers(self, transformers):
         # transformers are fitted; excludes 'drop' cases
@@ -832,7 +879,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             else:
                 raise
 
-    @cuml.internals.reflect
+    @cuml.internals.mlfunc
     def fit(self, X, y=None) -> "ColumnTransformer":
         """Fit all transformers using X.
 
@@ -856,8 +903,12 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.fit_transform(X, y=y)
         return self
 
-    @cuml.internals.reflect(reset="type")
-    def fit_transform(self, X, y=None) -> SparseCumlArray:
+    @cuml.internals.mlfunc(
+        set_input_type=True,
+        preserve_index=True,
+        column_names="feature_names_out",
+    )
+    def fit_transform(self, X, y=None):
         """Fit all transformers, transform the data and concatenate results.
 
         Parameters
@@ -908,8 +959,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
 
         return self._hstack(list(Xs))
 
-    @cuml.internals.reflect
-    def transform(self, X) -> SparseCumlArray:
+    @cuml.internals.mlfunc(preserve_index=True, column_names="feature_names_out")
+    def transform(self, X):
         """Transform X separately by each transformer, concatenate results.
 
         Parameters

@@ -1,12 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import ctypes
 import warnings
 from collections import deque
-
-from cuda.bindings.cyruntime cimport cudaStream_t
 
 import cupy as cp
 import cupyx.scipy.sparse
@@ -14,23 +12,15 @@ import joblib
 import numpy as np
 import scipy.sparse
 import scipy.spatial
+from sklearn.base import ClassNamePrefixFeaturesOutMixin
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
-from cuml.common.sparsefuncs import extract_knn_graph
-from cuml.internals import logger, reflect
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
+from cuml.common.sparse import is_sparse
+from cuml.internals import logger
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import is_array_like
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_consistent_length,
@@ -39,14 +29,16 @@ from cuml.internals.validation import (
     check_random_seed,
     check_y,
 )
+from cuml.manifold.utils import extract_knn_graph
 
+from cuda.bindings.cyruntime cimport cudaStream_t
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_buffer cimport device_buffer
-from rmm.librmm.memory_resource cimport make_any_device_resource
+from rmm.librmm.memory_resource cimport any_resource, device_accessible
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 from rmm.pylibrmm.memory_resource cimport get_current_device_resource
 
@@ -56,6 +48,8 @@ from cuml.metrics.distance_type cimport DistanceType
 
 def _joblib_hash(X):
     """A thin shim around joblib.hash"""
+    if cupyx.scipy.sparse.issparse(X) or isinstance(X, cp.ndarray):
+        X = X.get()
     if scipy.sparse.issparse(X):
         # XXX: joblib.hash doesn't special case sparse inputs, meaning that
         # it's sensitive to what should be irrelevant internal state. For now
@@ -318,9 +312,10 @@ cdef class RaftCOO:
 
         cdef RaftCOO self = RaftCOO.__new__(RaftCOO)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        cdef lib.COO* coo = new lib.COO(handle_.get_stream())
+        cdef cudaStream_t stream = handle_.get_stream().get()
+        cdef lib.COO* coo = new lib.COO(stream)
         self.ptr.reset(coo)
-        coo.allocate(arr.nnz, arr.shape[0], False, handle_.get_stream())
+        coo.allocate(arr.nnz, arr.shape[0], False, stream)
         handle_.sync_stream()
 
         copy_from_cupy(<uintptr_t>coo.vals(), arr.data, np.float32)
@@ -507,7 +502,7 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             # TODO: for now, users should be able to see the same results
             # as previous version (i.e. running brute force knn) when they
             # explicitly pass random_state
-            # https://github.com/rapidsai/cuml/issues/5985
+            # https://github.com/NVIDIA/cuml/issues/5985
             build_algo ="brute_force_knn"
         elif n_rows <= 50_000 or is_sparse:
             # brute force is faster for small datasets
@@ -522,7 +517,7 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         )
 
     if build_algo == "nn_descent" and n_rows < 150:
-        # https://github.com/rapidsai/cuvs/issues/184
+        # https://github.com/NVIDIA/cuvs/issues/184
         warnings.warn(
             "using build_algo='nn_descent' on a small dataset (< 150 samples) "
             "is unstable"
@@ -556,15 +551,15 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
 
-    if is_array_like(self.init):
-        params.init = 2
-    elif self.init in _INITS:
+    if isinstance(self.init, str):
+        if self.init not in _INITS:
+            raise ValueError(
+                f"Expected `init` to be an array or one of {list(_INITS)}, "
+                f"got {self.init!r}"
+            )
         params.init = _INITS[self.init]
     else:
-        raise ValueError(
-            f"Expected `init` to be an array or one of {list(_INITS)}, "
-            f"got {self.init!r}"
-        )
+        params.init = 2
 
     if self.force_serial_epochs is None:
         # Only auto-enable for spectral fit. Also skip when n_components > 512 since
@@ -662,7 +657,13 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         params.build_params.nnd.intermediate_graph_degree = intermediate_graph_degree
 
 
-class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
+class UMAP(
+    InteropMixin,
+    CMajorInputTagMixin,
+    SparseInputTagMixin,
+    ClassNamePrefixFeaturesOutMixin,
+    Base,
+):
     """Uniform Manifold Approximation and Projection
 
     Finds a low dimensional embedding of the data that approximates
@@ -790,16 +791,27 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         feature is made optional in the GPU version due to the
         significant overhead in copying memory to the host for
         computing the hash.
-    precomputed_knn : array / sparse array / tuple, optional (device or host)
-        Either one of a tuple (indices, distances) of
-        arrays of shape (n_samples, n_neighbors), a pairwise distances
-        dense array of shape (n_samples, n_samples) or a KNN graph
-        sparse array (preferably CSR/COO). This feature allows
-        the precomputation of the KNN outside of UMAP
-        and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeddings. For most efficient
-        memory usage, the precomputed knn graph should be CPU-accessible arrays
-        such as numpy arrays.
+    precomputed_knn : tuple[array, array], sparse-matrix, array, optional
+        This feature allows the precomputation of the KNN outside of UMAP.
+        Options are:
+
+        - A tuple (indices, distances) of dense arrays of shape (n_samples,
+          n_neighbors), where n_neighbors is >= the ``n_neighbors`` parameter.
+          Self references should be included (i.e. the first column of
+          `indices` should be [0, 1, ...], denotating that the nearest neighbor
+          to each row is itself). This is the most efficient representation.
+          Note that providing on CPU may result in lower peak GPU memory usage.
+
+        - A sparse matrix KNN graph, as may be output by
+          ``cuml.neighbors.kneighbors_graph`` with ``mode="distance"`` and
+          ``include_self=True``. The ``n_neighbors`` used to calculate the
+          graph must be >= the ``n_neighbors`` parameter.
+
+        - A pairwise distances dense array of shape (n_samples, n_samples).
+
+        In all cases the KNN should be computed using the same ``metric`` as
+        provided to ``UMAP``.
+
     random_state : int, RandomState instance or None, optional (default=None)
         Seed used by the random number generator for embedding initialization
         and optimizer sampling. Setting a random_state enables reproducible
@@ -829,19 +841,18 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
             class CustomCallback(GraphBasedDimRedCallback):
                 def on_preprocess_end(self, embeddings):
-                    print(embeddings.copy_to_host())
+                    print(embeddings)
 
                 def on_epoch_end(self, embeddings):
-                    print(embeddings.copy_to_host())
+                    print(embeddings)
 
                 def on_train_end(self, embeddings):
-                    print(embeddings.copy_to_host())
+                    print(embeddings)
 
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -923,9 +934,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
        Bringing UMAP Closer to the Speed of Light with GPU Acceleration
        <https://arxiv.org/abs/2008.00325>`_
     """
-    embedding_ = CumlArrayDescriptor(order="C")
-    _sigmas = CumlArrayDescriptor(order="C")
-    _rhos = CumlArrayDescriptor(order="C")
+    embedding_ = ReflectedAttr()
 
     _cpu_class_path = "umap.UMAP"
 
@@ -964,8 +973,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not ((isinstance(model.init, str) and model.init in _INITS) or
-                is_array_like(model.init)):
+        if isinstance(model.init, str) and model.init not in _INITS:
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
         try:
@@ -1017,7 +1025,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             precomputed_knn = (None, None, None)
 
         init = self.init
-        if is_array_like(init):
+        if not isinstance(init, str):
             init = cp.asnumpy(init)
 
         return {
@@ -1046,14 +1054,15 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
     def _attrs_from_cpu(self, model):
         if scipy.sparse.issparse(model._raw_data):
-            raw_data = SparseCumlArray(
-                check_array(model._raw_data, dtype="float32", accept_sparse="csr")
-            )
+            raw_data = cupyx.scipy.sparse.csr_matrix(model._raw_data, dtype="float32")
         else:
-            raw_data = to_gpu(model._raw_data)
+            raw_data = cp.asarray(model._raw_data)
 
         attrs = {
-            "embedding_": to_gpu(model.embedding_, order="C"),
+            "embedding_": ArrayIndexPair(
+                cp.asarray(model.embedding_, order="C"),
+                None,
+            ),
             "graph_": model.graph_.tocoo(),
             "_raw_data": raw_data,
             "_input_hash": model._input_hash,
@@ -1067,9 +1076,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
         # Transfer _sigmas and _rhos if available (needed for inverse_transform)
         if hasattr(model, "_sigmas") and model._sigmas is not None:
-            attrs["_sigmas"] = to_gpu(model._sigmas)
+            attrs["_sigmas"] = cp.asarray(model._sigmas)
         if hasattr(model, "_rhos") and model._rhos is not None:
-            attrs["_rhos"] = to_gpu(model._rhos)
+            attrs["_rhos"] = cp.asarray(model._rhos)
 
         return attrs
 
@@ -1078,19 +1087,21 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
         disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
 
-        raw_data = self._raw_data.to_output("numpy")
+        raw_data = self._raw_data
+        if cupyx.scipy.sparse.issparse(raw_data) or isinstance(raw_data, cp.ndarray):
+            raw_data = raw_data.get()
 
         if (input_hash := getattr(self, "_input_hash", None)) is None:
             input_hash = _joblib_hash(raw_data)
 
         if (knn_dists := getattr(self, "_knn_dists", None)) is not None:
-            knn_dists = to_cpu(knn_dists)
+            knn_dists = cp.asnumpy(knn_dists)
 
         if (knn_indices := getattr(self, "_knn_indices", None)) is not None:
-            knn_indices = to_cpu(knn_indices)
+            knn_indices = cp.asnumpy(knn_indices)
 
         attrs = {
-            "embedding_": to_cpu(self.embedding_),
+            "embedding_": self.embedding_.array.get(order="A"),
             "graph_": self.graph_.tocsr(),
             "graph_dists_": None,
             "_raw_data": raw_data,
@@ -1101,6 +1112,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             "_disconnection_distance": disconnection_distance,
             "_initial_alpha": self.learning_rate,
             "_n_neighbors": self._n_neighbors,
+            "_n_features_out": self._n_features_out,
             "_supervised": self._supervised,
             "_small_data": False,
             "_knn_dists": knn_dists,
@@ -1119,9 +1131,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
         # Transfer _sigmas and _rhos if available (needed for inverse_transform)
         if hasattr(self, "_sigmas") and self._sigmas is not None:
-            attrs["_sigmas"] = to_cpu(self._sigmas)
+            attrs["_sigmas"] = self._sigmas.get()
         if hasattr(self, "_rhos") and self._rhos is not None:
-            attrs["_rhos"] = to_cpu(self._rhos)
+            attrs["_rhos"] = self._rhos.get()
 
         return attrs
 
@@ -1193,29 +1205,29 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         self.build_kwds = build_kwds
         self.device_ids = device_ids
 
+    @property
+    @mlfunc(convert_output=False)
+    def _n_features_out(self):
+        return self.embedding_.array.shape[1]
+
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         X="dense_sparse",
         skip_parameters_heading=True,
     )
-    @reflect(reset="type")
-    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "UMAP":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y=None, *, knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
 
         Parameters
         ----------
-        knn_graph : array / sparse array / tuple, optional (device or host)
-            Either one of a tuple (indices, distances) of
-            arrays of shape (n_samples, n_neighbors), a pairwise distances
-            dense array of shape (n_samples, n_samples) or a KNN graph
-            sparse array (preferably CSR/COO). This feature allows
-            the precomputation of the KNN outside of UMAP
-            and also allows the use of a custom distance function. This function
-            should match the metric used to train the UMAP embeddings.
-            Takes precedence over the precomputed_knn parameter. For most efficient
-            memory usage, the precomputed knn graph should be CPU-accessible arrays
-            such as numpy arrays.
+        knn_graph: tuple[array, array], sparse-matrix, array, optional
+            This feature allows the precomputation of the KNN outside of UMAP.
+
+            This may take any of the valid forms accepted by the
+            ``precomputed_knn`` parameter to ``UMAP``, and takes precedence
+            over it. See the ``UMAP`` docstring on ``precomputed_knn`` for more
+            information.
         """
         # Normalize X as cheaply as possible to minimize copies and work
         X, index = check_inputs(
@@ -1229,12 +1241,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             reset=True,
         )
         if y is not None:
-            y = check_y(
-                y,
-                dtype="float32",
-                convert_dtype=convert_dtype,
-                order="C",
-            )
+            y = check_y(y, dtype="float32", order="C")
             check_consistent_length(X, y)
 
         cdef int n_rows = X.shape[0]
@@ -1267,7 +1274,6 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             X,
             mem_type=mem_type,
             dtype="float32",
-            convert_dtype=convert_dtype,
             order="C",
             accept_sparse="csr",
             ensure_min_samples=2,
@@ -1278,14 +1284,14 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         cdef size_t X_nnz = 0
 
         if X_is_sparse:
-            X_m = SparseCumlArray(X)
-            X_ptr = X_m.data.ptr
-            X_indices_ptr = X_m.indices.ptr
-            X_indptr_ptr = X_m.indptr.ptr
-            X_nnz = X_m.nnz
+            X_ptr = X.data.data.ptr
+            X_indices_ptr = X.indices.data.ptr
+            X_indptr_ptr = X.indptr.data.ptr
+            X_nnz = X.nnz
+        elif isinstance(X, np.ndarray):
+            X_ptr = X.ctypes.data
         else:
-            X_m = CumlArray(data=X, index=index)
-            X_ptr = X_m.ptr
+            X_ptr = X.data.ptr
 
         cdef uintptr_t y_ptr = 0
         if y is not None:
@@ -1301,20 +1307,17 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
             knn_indices, knn_dists = extract_knn_graph(
                 (knn_graph if knn_graph is not None else self.precomputed_knn),
+                X.shape[0],
                 self._n_neighbors,
-                mem_type=False,     # mirrors the input graph mem type
+                mem_type=None,     # mirrors the input graph mem type
+                indices_dtype=("int32" if X_is_sparse else "int64"),
             )
-            knn_dists_cp = knn_dists.to_output("cupy")
-            if X_is_sparse:
-                knn_indices_cp = cp.asarray(
-                    knn_indices.to_output("cupy"), dtype=np.int32
-                )
-                # Drop the int64 original and keep only the int32 copy used by the kernel.
-                knn_indices = CumlArray(data=knn_indices_cp)
+            if isinstance(knn_indices, cp.ndarray):
+                knn_indices_ptr = <uintptr_t>knn_indices.data.ptr
+                knn_dists_ptr = <uintptr_t>knn_dists.data.ptr
             else:
-                knn_indices_cp = knn_indices.to_output("cupy")
-            knn_indices_ptr = <uintptr_t>knn_indices_cp.data.ptr
-            knn_dists_ptr = <uintptr_t>knn_dists_cp.data.ptr
+                knn_indices_ptr = <uintptr_t>knn_indices.ctypes.data
+                knn_dists_ptr = <uintptr_t>knn_dists.ctypes.data
         else:
             knn_indices = knn_dists = None
 
@@ -1324,7 +1327,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         cdef lib.HostCOO fss_graph = lib.HostCOO()
         handle_ = <handle_t*> <size_t> handle.getHandle()
 
-        if is_array_like(self.init):
+        if not isinstance(self.init, str):
             init = check_array(
                 self.init,
                 dtype="float32",
@@ -1343,8 +1346,10 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
                         init.data.ptr if isinstance(init, cp.ndarray) else init.ctypes.data
                     ),
                     <size_t> init.nbytes,
-                    <cudaStream_t> handle_.get_stream(),
-                    make_any_device_resource(get_current_device_resource().get_mr())
+                    handle_.get_stream(),
+                    any_resource[device_accessible](
+                        get_current_device_resource().get_mr()
+                    )
                 )
             )
 
@@ -1353,13 +1358,13 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         cdef uintptr_t sigmas_ptr = 0
         cdef uintptr_t rhos_ptr = 0
         if not X_is_sparse:
-            sigmas_cp = cp.zeros(n_rows, dtype=np.float32)
-            rhos_cp = cp.zeros(n_rows, dtype=np.float32)
-            sigmas_ptr = <uintptr_t>sigmas_cp.data.ptr
-            rhos_ptr = <uintptr_t>rhos_cp.data.ptr
+            sigmas = cp.zeros(n_rows, dtype=np.float32)
+            rhos = cp.zeros(n_rows, dtype=np.float32)
+            sigmas_ptr = <uintptr_t>sigmas.data.ptr
+            rhos_ptr = <uintptr_t>rhos.data.ptr
         else:
-            sigmas_cp = None
-            rhos_cp = None
+            sigmas = None
+            rhos = None
 
         with nogil:
             if X_is_sparse:
@@ -1404,29 +1409,24 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             ),
             order="C"
         )
-        self.embedding_ = CumlArray(data=embedding, index=index)
+        self.embedding_ = ArrayIndexPair(embedding, index)
         self.graph_ = copy_raft_host_coo_to_scipy_coo(fss_graph)
-        self._raw_data = X_m
+        self._raw_data = X
         self._sparse_data = X_is_sparse
         self._supervised = y is not None
         self._knn_indices = knn_indices
         self._knn_dists = knn_dists
-        self._sigmas = (
-            CumlArray(data=sigmas_cp) if sigmas_cp is not None else None
-        )
-        self._rhos = (
-            CumlArray(data=rhos_cp) if rhos_cp is not None else None
-        )
+        self._sigmas = sigmas
+        self._rhos = rhos
 
         if self.hash_input:
-            self._input_hash = _joblib_hash(X_m.to_output("numpy"))
+            self._input_hash = _joblib_hash(X)
         else:
             self._input_hash = None
 
         return self
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         skip_parameters_heading=True,
         return_values={
             "name": "X_new",
@@ -1435,10 +1435,8 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             "shape": "(n_samples, n_components)"
         }
     )
-    @reflect
-    def fit_transform(
-        self, X, y=None, *, convert_dtype=True, knn_graph=None
-    ) -> CumlArray:
+    @mlfunc(preserve_index=True, column_names="feature_names_out")
+    def fit_transform(self, X, y=None, *, knn_graph=None):
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -1451,23 +1449,18 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
         Parameters
         ----------
-        knn_graph : array / sparse array / tuple, optional (device or host)
-            Either one of a tuple (indices, distances) of
-            arrays of shape (n_samples, n_neighbors), a pairwise distances
-            dense array of shape (n_samples, n_samples) or a KNN graph
-            sparse array (preferably CSR/COO). This feature allows
-            the precomputation of the KNN outside of UMAP
-            and also allows the use of a custom distance function. This function
-            should match the metric used to train the UMAP embeddings.
-            Takes precedence over the precomputed_knn parameter. For most efficient
-            memory usage, the precomputed knn graph should be CPU-accessible arrays
-            such as numpy arrays.
+        knn_graph : tuple[array, array], sparse-matrix, array, optional
+            This feature allows the precomputation of the KNN outside of UMAP.
+
+            This may take any of the valid forms accepted by the
+            ``precomputed_knn`` parameter to ``UMAP``, and takes precedence
+            over it. See the ``UMAP`` docstring on ``precomputed_knn`` for more
+            information.
         """
-        self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
+        self.fit(X, y, knn_graph=knn_graph)
         return self.embedding_
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         return_values={
             "name": "X_new",
             "type": "dense",
@@ -1475,8 +1468,8 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             "shape": "(n_samples, n_components)"
         }
     )
-    @reflect
-    def transform(self, X, *, convert_dtype=True) -> CumlArray:
+    @mlfunc(preserve_index=True, column_names="feature_names_out")
+    def transform(self, X):
         """
         Transform X into the existing embedded space and return that
         transformed output.
@@ -1490,25 +1483,17 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         """
         check_is_fitted(self)
 
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype="float32",
-            convert_dtype=convert_dtype,
             order="C",
             accept_sparse="csr",
-            return_index=True,
         )
-
         X_input_sparse = is_sparse(X)
 
-        if self.hash_input:
-            if X_input_sparse:
-                X_for_hash = X.get()
-            else:
-                X_for_hash = cp.asnumpy(X)
-            if _joblib_hash(X_for_hash) == self._input_hash:
-                return self.embedding_
+        if self.hash_input and _joblib_hash(X) == self._input_hash:
+            return self.embedding_
 
         if self._sparse_data and not X_input_sparse:
             logger.warn(
@@ -1545,16 +1530,20 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             X_indices_ptr = <uintptr_t>X.indices.data.ptr
             X_ptr = <uintptr_t>X.data.data.ptr
             X_nnz = X.nnz
-            orig_indptr_ptr = self._raw_data.indptr.ptr
-            orig_indices_ptr = self._raw_data.indices.ptr
-            orig_ptr = self._raw_data.data.ptr
+            orig_indptr_ptr = self._raw_data.indptr.data.ptr
+            orig_indices_ptr = self._raw_data.indices.data.ptr
+            orig_ptr = self._raw_data.data.data.ptr
             orig_nnz = self._raw_data.nnz
         else:
             X_ptr = <uintptr_t>X.data.ptr
-            orig_ptr = self._raw_data.ptr
+            orig_ptr = (
+                self._raw_data.data.ptr
+                if isinstance(self._raw_data, cp.ndarray)
+                else self._raw_data.ctypes.data
+            )
 
         cdef uintptr_t out_ptr = <uintptr_t>out.data.ptr
-        cdef uintptr_t embedding_ptr = self.embedding_.ptr
+        cdef uintptr_t embedding_ptr = self.embedding_.array.data.ptr
         handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
@@ -1593,10 +1582,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
                 )
         handle.sync()
 
-        return CumlArray(data=out, index=index)
+        return out
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         X_shape="(n_samples, n_components)",
         return_values={
             "name": "X_new",
@@ -1605,8 +1593,8 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             "shape": "(n_samples, n_features)"
         }
     )
-    @reflect
-    def inverse_transform(self, X, *, convert_dtype=True) -> CumlArray:
+    @mlfunc(preserve_index=True, column_names="feature_names_in")
+    def inverse_transform(self, X):
         """Transform X in the existing embedded space back into the input
         data space and return that transformed output.
         """
@@ -1624,13 +1612,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             )
 
         # skip n_features_in_ validation
-        X, index = check_array(
-            X,
-            dtype="float32",
-            convert_dtype=convert_dtype,
-            order="C",
-            return_index=True,
-        )
+        X = check_array(X, dtype="float32", order="C")
 
         n_samples = X.shape[0]
         if X.shape[1] != self.n_components:
@@ -1640,9 +1622,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             )
 
         # Get numpy arrays for preprocessing
-        embedding_np = self.embedding_.to_output("numpy")
-        X_np = cp.asnumpy(X)
-        raw_data_np = self._raw_data.to_output("numpy")
+        embedding_np = cp.asnumpy(self.embedding_.array, order="A")
+        X_np = cp.asnumpy(X, order="A")
+        raw_data_np = cp.asnumpy(self._raw_data, order="A")
 
         # Phase 1: Compute neighborhoods via Delaunay triangulation + BFS (CPU)
         # Cap neighborhood size to prevent explosion for high-dimensional data.
@@ -1686,8 +1668,8 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
                 "These may be missing if the model was loaded from a CPU UMAP "
                 "model that did not have them, or if the model was not fitted."
             )
-        cdef uintptr_t sigmas_ptr = self._sigmas.ptr
-        cdef uintptr_t rhos_ptr = self._rhos.ptr
+        cdef uintptr_t sigmas_ptr = self._sigmas.data.ptr
+        cdef uintptr_t rhos_ptr = self._rhos.data.ptr
 
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_samples, is_sparse=False, is_fit=False)
@@ -1705,7 +1687,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         )
         handle.sync()
 
-        return CumlArray(data=inv_transformed_gpu, index=index)
+        return inv_transformed_gpu
 
 
 def fuzzy_simplicial_set(
@@ -1835,7 +1817,7 @@ def fuzzy_simplicial_set(
     return fss_graph.view_cupy_coo()
 
 
-@reflect
+@mlfunc(preserve_index=True)
 def simplicial_set_embedding(
     data,
     graph,
@@ -1853,7 +1835,6 @@ def simplicial_set_embedding(
     metric_kwds=None,
     output_metric="euclidean",
     output_metric_kwds=None,
-    convert_dtype=True,
     verbose=False,
 ):
     """Perform a fuzzy simplicial set embedding, using a specified
@@ -1943,13 +1924,11 @@ def simplicial_set_embedding(
         The optimized of ``graph`` into an ``n_components`` dimensional
         euclidean space.
     """
-    X, index = check_array(
+    X = check_array(
         data,
         dtype="float32",
-        convert_dtype=convert_dtype,
         order="C",
         input_name="X",
-        return_index=True,
     )
 
     cdef int n_rows = X.shape[0]
@@ -2000,12 +1979,11 @@ def simplicial_set_embedding(
             f"got {output_metric!r}"
         )
 
-    cdef bool initialized = is_array_like(init)
+    cdef bool initialized = not isinstance(init, str)
     if initialized:
         embedding = check_array(
             init,
             dtype="float32",
-            convert_dtype=convert_dtype,
             order="C",
             input_name="init",
         )
@@ -2054,4 +2032,4 @@ def simplicial_set_embedding(
             &params,
             <float*> embedding_ptr
         )
-    return CumlArray(data=embedding, index=index)
+    return embedding

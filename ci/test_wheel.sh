@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -15,6 +15,17 @@ mkdir -p "${RAPIDS_TESTS_DIR}"
 # generate constraints, the constraints will limit the version of the
 # dependencies that can be installed later on when installing the wheel
 rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
+
+python -m venv libcuml-env
+. libcuml-env/bin/activate
+
+rapids-pip-retry install \
+    -v \
+    --prefer-binary \
+    --constraint "${PIP_CONSTRAINT}" \
+    "${LIBCUML_WHEELHOUSE}"/libcuml*.whl
+python -c "import libcuml; assert (libraries := libcuml.load_library()) and all(libraries)"
+deactivate
 
 # notes:
 #
@@ -58,6 +69,14 @@ timeout -v --signal=SIGINT --kill-after=60s 1h ./ci/run_cuml_singlegpu_pytests.s
   --dist=worksteal \
   -k 'not test_sparse_pca_inputs' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"
+
+if [[ "${RAPIDS_DEPENDENCIES:-}" == "nightly" ]]; then
+  rapids-logger "pytest cuml accelerator"
+  timeout -v --signal=SIGINT --kill-after=60s 15m ./ci/run_cuml_singlegpu_accel_pytests.sh \
+    --numprocesses=8 \
+    --dist=worksteal \
+    --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml"
+fi
 
 # Run test_sparse_pca_inputs separately
 timeout -v --signal=SIGINT --kill-after=60s 10m ./ci/run_cuml_singlegpu_pytests.sh \

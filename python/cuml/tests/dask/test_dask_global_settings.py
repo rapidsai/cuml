@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # pylint: disable=no-member
@@ -17,7 +17,7 @@ from cuml.internals.global_settings import (
     _GlobalSettingsData,
 )
 
-test_output_types_str = ("numpy", "numba", "cupy", "cudf")
+test_output_types_str = ("numpy", "cupy", "cudf")
 test_global_settings_data_obj = _GlobalSettingsData()
 
 

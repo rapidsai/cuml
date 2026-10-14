@@ -1,8 +1,6 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-import sys
 
 import cupy as cp
 import numpy as np
@@ -11,7 +9,7 @@ import sklearn
 from sklearn.datasets import make_regression
 from sklearn.linear_model import Lars as skLars
 
-from cuml.experimental.linear_model import Lars as cuLars
+from cuml.linear_model import Lars as cuLars
 from cuml.testing.datasets import make_regression_dataset
 from cuml.testing.utils import (
     array_equal,
@@ -19,9 +17,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-# As tests directory is not a module, we need to add it to the path
-sys.path.insert(0, ".")
 
 
 def normalize_data(X, y):

@@ -16,8 +16,10 @@ Modes:
 """
 
 import json
+import math
 import os
 import sys
+import tempfile
 import warnings
 
 import numpy as np
@@ -26,7 +28,7 @@ import pandas as pd
 # Import benchmark modules - supports both package and standalone execution
 # without polluting sys.path on normal package import
 try:
-    from cuml.benchmark import algorithms, datagen, runners
+    from cuml.benchmark import _metadata, algorithms, datagen, runners
     from cuml.benchmark.cli import build_parser
     from cuml.benchmark.config import load_and_resolve_config
     from cuml.benchmark.gpu_check import (
@@ -42,6 +44,7 @@ except ImportError:
         sys.path.insert(0, _benchmark_dir)
     assert any("cuml/benchmark" in p for p in sys.path)
 
+    import _metadata  # noqa: E402
     import algorithms  # noqa: E402
     import datagen  # noqa: E402
     import runners  # noqa: E402
@@ -85,10 +88,19 @@ def extract_param_overrides(params_to_sweep):
     # Expand each arg into a list of (key,value) tuples
     single_param_lists = []
     for p in params_to_sweep:
-        key, val_string = p.split("=")
-        vals = val_string.split(",")
-        # use json loads to convert to correct data type
+        key, val_string = p.split("=", 1)
+        try:
+            vals = json.loads(val_string)
+        except ValueError:
+            vals = val_string.split(",")
+
+        if not isinstance(vals, list):
+            vals = [vals]
+
+        # use json loads to convert comma-separated values to correct data type
         for idx, val in enumerate(vals):
+            if not isinstance(val, str):
+                continue
             try:
                 vals[idx] = json.loads(val)
             except ValueError:
@@ -210,6 +222,7 @@ def _validate_args(args, run_gpu, selected_backends):
 def _handle_print_commands(args):
     """Handle --print-status, --print-algorithms, --print-datasets; exits if used."""
     if args.print_status:
+        print(get_status_string())
         sys.exit()
     if args.print_algorithms:
         for algo in algorithms.all_algorithms():
@@ -278,6 +291,489 @@ def _save_results(results_df, csv_path):
     if csv_path:
         results_df.to_csv(csv_path)
         print("Saved results to %s" % csv_path)
+
+
+def _json_compatible(value):
+    if value is None:
+        return None
+    if isinstance(value, (str, bool, int, float)):
+        if isinstance(value, float) and not math.isfinite(value):
+            return None
+        return value
+    if isinstance(value, np.generic):
+        return _json_compatible(value.item())
+    if isinstance(value, np.ndarray):
+        return [_json_compatible(item) for item in value.tolist()]
+    if isinstance(value, dict):
+        return {str(k): _json_compatible(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_compatible(v) for v in value]
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return str(value)
+
+
+class BenchmarkJSONEncoder(json.JSONEncoder):
+    """JSON encoder for benchmark results containing NumPy/pandas values."""
+
+    def encode(self, value):
+        return super().encode(_json_compatible(value))
+
+    def iterencode(self, value, _one_shot=False):
+        return super().iterencode(_json_compatible(value), _one_shot=_one_shot)
+
+
+def _collect_run_metadata(args):
+    return _metadata.collect_run_metadata(
+        args,
+        status_string=get_status_string(),
+        gpu_available=is_gpu_available(),
+        cuml_version=getattr(sys.modules.get("cuml"), "__version__", None),
+    )
+
+
+def _collect_package_snapshot():
+    return _metadata.collect_package_snapshot()
+
+
+def _is_missing_value(value):
+    try:
+        missing = pd.isna(value)
+    except (TypeError, ValueError):
+        return False
+    if isinstance(missing, (bool, np.bool_)):
+        return bool(missing)
+    return False
+
+
+def _backend_result(row, backend):
+    time_column = {
+        "gpu": "cuml_time",
+        "cpu": "cpu_time",
+    }[backend]
+    acc_column = {
+        "gpu": "cuml_acc",
+        "cpu": "cpu_acc",
+    }[backend]
+
+    time_sec = _positive_value(row, time_column)
+    if time_sec is None:
+        requested_backends = row.get("requested_backends")
+        if isinstance(requested_backends, str):
+            requested_backends = [
+                item for item in requested_backends.split(",") if item
+            ]
+        if (
+            isinstance(requested_backends, (list, tuple))
+            and backend in requested_backends
+        ):
+            reason = "no successful timing recorded"
+            if backend == "gpu" and not row.get("gpu_available", True):
+                reason = "GPU unavailable"
+            return {"status": "skipped", "reason": reason}
+        return None
+    result = {"status": "success", "time_sec": time_sec}
+    accuracy = _numeric_value(row, acc_column)
+    if accuracy is not None:
+        result["accuracy"] = accuracy
+    return result
+
+
+def _declared_params(row):
+    metadata_columns = {
+        "algo",
+        "input",
+        "cuml_time",
+        "cpu_time",
+        "cuml_acc",
+        "cpu_acc",
+        "cuml_params",
+        "cpu_params",
+        "speedup",
+        "n_samples",
+        "n_features",
+        "benchmark_id",
+        "config_path",
+        "suite_name",
+        "suite_tier",
+        "profile",
+        "dataset",
+        "operation",
+        "dtype",
+        "n_reps",
+        "backend",
+        "requested_backends",
+        "gpu_available",
+    }
+    params = {}
+    for column, value in row.items():
+        if column in metadata_columns or _is_missing_value(value):
+            continue
+        params[column] = _json_compatible(value)
+    return params
+
+
+def _result_record(row, dtype):
+    rows = _json_compatible(row.get("n_samples"))
+    features = _json_compatible(row.get("n_features"))
+    size_gb = _estimated_input_size_gb(rows, features, dtype)
+    backends = {}
+    for backend in ("gpu", "cpu"):
+        backend_result = _backend_result(row, backend)
+        if backend_result is not None:
+            backends[backend] = backend_result
+
+    record = {
+        "benchmark_id": _json_compatible(row.get("benchmark_id")),
+        "algorithm": _json_compatible(row.get("algo")),
+        "dataset": _json_compatible(row.get("dataset")),
+        "operation": _json_compatible(row.get("operation")),
+        "shape": {
+            "rows": rows,
+            "features": features,
+            "estimated_input_size_bytes": (
+                None if math.isnan(size_gb) else int(size_gb * 1e9)
+            ),
+            "estimated_input_size_gb": None
+            if math.isnan(size_gb)
+            else size_gb,
+        },
+        "data": {
+            "input_type": _json_compatible(row.get("input")),
+            "dtype": _json_compatible(
+                row.get("dtype", _dtype_to_config_value(dtype))
+            ),
+            "n_reps": _json_compatible(row.get("n_reps")),
+        },
+        "params": {
+            "declared": _declared_params(row),
+            "effective": {
+                "gpu": _json_compatible(row.get("cuml_params")),
+                "cpu": _json_compatible(row.get("cpu_params")),
+            },
+        },
+        "backends": backends,
+    }
+    return record
+
+
+def _results_to_json_records(results_df, dtype):
+    grouped = _coalesce_progress_rows(results_df)
+    return [_result_record(row, dtype) for _, row in grouped.iterrows()]
+
+
+def _write_json_atomic(path, payload):
+    directory = os.path.dirname(os.path.abspath(path)) or "."
+    os.makedirs(directory, exist_ok=True)
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=directory,
+            prefix=".benchmark-",
+            suffix=".json",
+            delete=False,
+        ) as fh:
+            temp_path = fh.name
+            json.dump(
+                payload,
+                fh,
+                indent=2,
+                cls=BenchmarkJSONEncoder,
+                allow_nan=False,
+            )
+            fh.write("\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(temp_path, path)
+    except Exception:
+        if temp_path is not None:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+        raise
+
+
+def _save_json_results(results_df, output_path, args, dtype):
+    payload = {
+        "results": _results_to_json_records(results_df, dtype),
+        "metadata": _collect_run_metadata(args),
+    }
+    _write_json_atomic(output_path, payload)
+    print("Saved JSON results to %s" % output_path)
+
+
+def _format_count(value):
+    """Format counts compactly for progress output."""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if math.isnan(value):
+        return "nan"
+    abs_value = abs(value)
+    if abs_value >= 1_000_000_000:
+        return f"{value / 1_000_000_000:.1f}B"
+    if abs_value >= 1_000_000:
+        return f"{value / 1_000_000:.1f}M"
+    if abs_value >= 1_000:
+        return f"{value / 1_000:.1f}K"
+    return str(int(value))
+
+
+def _format_seconds(value):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0 or math.isnan(value):
+        return None
+    if value >= 10:
+        return f"{value:.1f}s"
+    if value >= 1:
+        return f"{value:.2f}s"
+    if value >= 0.001:
+        return f"{value:.3f}s"
+    return f"{value * 1000:.2f}ms"
+
+
+def _format_seconds_cell(value):
+    return _format_seconds(value) or "-"
+
+
+def _dtype_itemsize(dtype):
+    try:
+        return np.dtype(dtype).itemsize
+    except TypeError:
+        return np.dtype(_resolve_dtype(dtype)).itemsize
+
+
+def _estimated_input_size_gb(rows, features, dtype):
+    try:
+        return float(rows) * float(features) * _dtype_itemsize(dtype) / 1e9
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def _ratio(numerator, denominator):
+    try:
+        numerator = float(numerator)
+        denominator = float(denominator)
+    except (TypeError, ValueError):
+        return None
+    if (
+        numerator <= 0
+        or denominator <= 0
+        or math.isnan(numerator)
+        or math.isnan(denominator)
+    ):
+        return None
+    return denominator / numerator
+
+
+def _positive_value(row, key):
+    if key not in row:
+        return None
+    try:
+        value = float(row[key])
+    except (TypeError, ValueError):
+        return None
+    if value <= 0 or math.isnan(value):
+        return None
+    return value
+
+
+def _numeric_value(row, key):
+    if key not in row:
+        return None
+    try:
+        value = float(row[key])
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(value):
+        return None
+    return value
+
+
+def _progress_group_key(row):
+    key_columns = [
+        "benchmark_id",
+        "algo",
+        "n_samples",
+        "n_features",
+    ]
+    ignored_columns = {
+        "input",
+        "cuml_time",
+        "cpu_time",
+        "cuml_acc",
+        "cpu_acc",
+        "cuml_params",
+        "cpu_params",
+        "speedup",
+        "backend",
+    }
+    key = [row.get(column, None) for column in key_columns]
+    for column in sorted(set(row.index) - set(key_columns) - ignored_columns):
+        value = row.get(column)
+        if pd.notna(value):
+            key.append((column, value))
+    return tuple(key)
+
+
+def _coalesce_progress_rows(results_df):
+    rows = []
+    for _, group in results_df.groupby(
+        results_df.apply(_progress_group_key, axis=1),
+        sort=False,
+        dropna=False,
+    ):
+        base = group.iloc[0].copy()
+        for column in ("cuml_time", "cpu_time"):
+            if column not in group:
+                continue
+            values = [
+                value
+                for value in group[column]
+                if _positive_value({column: value}, column) is not None
+            ]
+            if values:
+                base[column] = values[0]
+        for column in ("cuml_acc", "cpu_acc"):
+            if column not in group:
+                continue
+            values = [
+                value
+                for value in group[column]
+                if _numeric_value({column: value}, column) is not None
+            ]
+            if values:
+                base[column] = values[0]
+        if "input" in group:
+            inputs = [str(value) for value in group["input"].dropna().unique()]
+            base["input"] = ",".join(inputs)
+        rows.append(base)
+    return pd.DataFrame(rows)
+
+
+def _progress_line(row, index, total, dtype):
+    algo = row.get("algo", "")
+    rows = row.get("n_samples", "")
+    features = row.get("n_features", "")
+    size_gb = _estimated_input_size_gb(rows, features, dtype)
+
+    cpu_time = _positive_value(row, "cpu_time")
+    gpu_time = _positive_value(row, "cuml_time")
+
+    ratio_parts = []
+    for label, numerator, denominator in (
+        ("gpu_speedup", gpu_time, cpu_time),
+    ):
+        value = _ratio(numerator, denominator)
+        if value is not None:
+            ratio_parts.append(f"{label}={value:.2f}x")
+
+    metric_detail = ""
+    for metric_column in ("cuml_acc", "cpu_acc"):
+        value = _numeric_value(row, metric_column)
+        if value is not None:
+            metric_detail = f"acc={value:.4f}"
+            break
+
+    ratios = " ".join(ratio_parts)
+    details = " ".join(part for part in (ratios, metric_detail) if part)
+
+    return (
+        f"{f'[{index}/{total}]':>9}  "
+        f"{str(algo):<26.26}  "
+        f"{(_format_count(rows) + ' x ' + _format_count(features)):>14}  "
+        f"{('~' + format(size_gb, '.2f') + ' GB') if not math.isnan(size_gb) else '':>10}  "
+        f"{_format_seconds_cell(gpu_time):>9}  "
+        f"{_format_seconds_cell(cpu_time):>9}  "
+        f"{details}"
+    ).rstrip()
+
+
+def _progress_header():
+    return (
+        f"{'progress':>9}  "
+        f"{'algorithm':<26}  "
+        f"{'shape':>14}  "
+        f"{'data':>10}  "
+        f"{'gpu_time':>9}  "
+        f"{'cpu_time':>9}  "
+        f"{'details'}"
+    )
+
+
+def _print_progress_rows(results_df, start_index, total, dtype, verbose=True):
+    if not verbose or results_df.empty:
+        return start_index
+    if start_index == 1:
+        header = _progress_header()
+        print(header)
+        print("-" * len(header))
+    for _, row in _coalesce_progress_rows(results_df).iterrows():
+        print(_progress_line(row, start_index, total, dtype))
+        start_index += 1
+    return start_index
+
+
+def _median_ratio_by_algorithm(
+    results_df, numerator_column, denominator_column
+):
+    if (
+        numerator_column not in results_df
+        or denominator_column not in results_df
+    ):
+        return []
+    rows = []
+    for algo, group in results_df.groupby("algo", dropna=False):
+        ratios = []
+        for _, row in group.iterrows():
+            value = _ratio(
+                row.get(numerator_column), row.get(denominator_column)
+            )
+            if value is not None:
+                ratios.append(value)
+        if ratios:
+            rows.append((str(algo), float(np.median(ratios))))
+    return rows
+
+
+def _print_summary(results_df, csv_path=None, verbose=True):
+    if not verbose:
+        return
+    completed = len(results_df)
+    print("")
+    print("Summary:")
+    print(f"  completed: {completed}")
+    if csv_path:
+        print(f"  results: {csv_path}")
+
+    largest_gpu = sorted(
+        _median_ratio_by_algorithm(results_df, "cuml_time", "cpu_time"),
+        key=lambda item: item[1],
+        reverse=True,
+    )[:5]
+    smallest_gpu = sorted(
+        _median_ratio_by_algorithm(results_df, "cuml_time", "cpu_time"),
+        key=lambda item: item[1],
+    )[:5]
+
+    if largest_gpu:
+        print("  largest gpu acceleration vs cpu:")
+        for algo, value in largest_gpu:
+            print(f"    {algo}: {value:.2f}x")
+    if smallest_gpu:
+        print("  smallest gpu acceleration vs cpu:")
+        for algo, value in smallest_gpu:
+            print(f"    {algo}: {value:.2f}x")
 
 
 def _extract_explicit_options(argv):
@@ -387,6 +883,14 @@ def _config_param_lists(entry, args, explicit_options):
     }
 
 
+def _dtype_to_config_value(dtype):
+    if dtype is np.float32:
+        return "fp32"
+    if dtype is np.float64:
+        return "fp64"
+    return dtype
+
+
 def _resolved_entry_dimensions(entry, args, explicit_options):
     """Resolve benchmark dimensions for a config-backed benchmark entry."""
     if entry["shape_pairs"] is not None:
@@ -429,6 +933,47 @@ def _resolved_entry_dimensions(entry, args, explicit_options):
     return None, base_rows, base_dims
 
 
+def _variation_shapes(shape_pairs, bench_rows, bench_dims):
+    return shape_pairs or [
+        {"rows": rows, "features": dims}
+        for rows in bench_rows
+        for dims in bench_dims
+    ]
+
+
+def _param_combination_count(param_lists):
+    count = 1
+    for values in param_lists.values():
+        count *= len(values)
+    return count
+
+
+def _planned_legacy_result_count(
+    algos_to_run, bench_rows, bench_dims, param_lists
+):
+    return (
+        len(algos_to_run)
+        * len(bench_rows)
+        * len(bench_dims)
+        * _param_combination_count(param_lists)
+    )
+
+
+def _planned_config_result_count(
+    benchmark_entries, entry_backends, args, explicit_options
+):
+    total = 0
+    for entry, _ in zip(benchmark_entries, entry_backends):
+        shape_pairs, bench_rows, bench_dims = _resolved_entry_dimensions(
+            entry, args, explicit_options
+        )
+        param_lists = _config_param_lists(entry, args, explicit_options)
+        total += len(
+            _variation_shapes(shape_pairs, bench_rows, bench_dims)
+        ) * _param_combination_count(param_lists)
+    return total
+
+
 def _run_config_benchmarks(args, explicit_options):
     """Execute benchmarks resolved from a YAML config file."""
     resolved = load_and_resolve_config(
@@ -456,6 +1001,10 @@ def _run_config_benchmarks(args, explicit_options):
     ):
         setup_rmm_allocator(args.rmm_allocator)
 
+    progress_total = _planned_config_result_count(
+        benchmark_entries, entry_backends, args, explicit_options
+    )
+    progress_index = 1
     all_results = []
     for entry, selected_backends in zip(benchmark_entries, entry_backends):
         algo = algorithms.algorithm_by_name(entry["algorithm"])
@@ -504,13 +1053,12 @@ def _run_config_benchmarks(args, explicit_options):
         dtype = _resolve_dtype(dtype)
         param_lists = _config_param_lists(entry, args, explicit_options)
 
-        variation_shapes = shape_pairs or [
-            {"rows": rows, "features": dims}
-            for rows in bench_rows
-            for dims in bench_dims
-        ]
+        variation_shapes = _variation_shapes(
+            shape_pairs, bench_rows, bench_dims
+        )
 
         for shape in variation_shapes:
+            shape_results = []
             run_groups = []
             if run_cpu and run_cuml and cpu_input_type != input_type:
                 run_groups.extend(
@@ -523,6 +1071,8 @@ def _run_config_benchmarks(args, explicit_options):
                 run_groups.append((run_cpu, run_cuml, input_type))
 
             for group_run_cpu, group_run_cuml, group_input_type in run_groups:
+                if not group_run_cpu and not group_run_cuml:
+                    continue
                 results_df = runners.run_variations(
                     [algo],
                     dataset_name=dataset_name,
@@ -542,9 +1092,29 @@ def _run_config_benchmarks(args, explicit_options):
                 results_df["suite_name"] = resolved["suite_name"]
                 results_df["suite_tier"] = resolved["suite_tier"]
                 results_df["profile"] = resolved["profile"]
+                results_df["dataset"] = dataset_name
+                results_df["operation"] = entry["operation"]
+                results_df["dtype"] = _dtype_to_config_value(dtype)
+                results_df["n_reps"] = n_reps
+                results_df["requested_backends"] = ",".join(selected_backends)
+                results_df["gpu_available"] = allow_gpu_runs
                 all_results.append(results_df)
+                shape_results.append(results_df)
 
-    return pd.concat(all_results, ignore_index=True)
+            if shape_results:
+                progress_index = _print_progress_rows(
+                    pd.concat(shape_results, ignore_index=True),
+                    progress_index,
+                    progress_total,
+                    dtype,
+                    verbose=args.verbose,
+                )
+
+    if not all_results:
+        raise ValueError("No benchmark results were produced.")
+    results_df = pd.concat(all_results, ignore_index=True)
+    _print_summary(results_df, args.csv, verbose=args.verbose)
+    return results_df
 
 
 def run_benchmark(args, explicit_options=None):
@@ -555,6 +1125,8 @@ def run_benchmark(args, explicit_options=None):
 
     if args.config:
         results_df = _run_config_benchmarks(args, explicit_options)
+        if args.output:
+            _save_json_results(results_df, args.output, args, args.dtype)
         _save_results(results_df, args.csv)
         return
 
@@ -569,21 +1141,65 @@ def run_benchmark(args, explicit_options=None):
     bench_rows, bench_dims = _resolve_bench_dimensions(args)
     param_lists = _build_param_override_lists(args)
     algos_to_run = _resolve_algorithms(args)
-
-    results_df = runners.run_variations(
-        algos_to_run,
-        dataset_name=args.dataset,
-        bench_rows=bench_rows,
-        bench_dims=bench_dims,
-        input_type=args.input_type,
-        test_fraction=args.test_split,
-        dtype=args.dtype,
-        run_cpu=("cpu" in selected_backends),
-        run_cuml=run_gpu,
-        raise_on_error=args.raise_on_error,
-        n_reps=args.n_reps,
-        **param_lists,
+    progress_total = _planned_legacy_result_count(
+        algos_to_run, bench_rows, bench_dims, param_lists
     )
+    progress_index = 1
+
+    def progress_callback(record):
+        nonlocal progress_index
+        progress_df = pd.DataFrame(
+            [
+                {
+                    **record,
+                    "dataset": args.dataset,
+                    "operation": None,
+                    "dtype": _dtype_to_config_value(args.dtype),
+                    "n_reps": args.n_reps,
+                    "requested_backends": ",".join(selected_backends),
+                    "gpu_available": run_gpu,
+                }
+            ]
+        )
+        progress_index = _print_progress_rows(
+            progress_df,
+            progress_index,
+            progress_total,
+            args.dtype,
+            verbose=args.verbose,
+        )
+
+    all_results = []
+    if "cpu" in selected_backends or run_gpu:
+        results_df = runners.run_variations(
+            algos_to_run,
+            dataset_name=args.dataset,
+            bench_rows=bench_rows,
+            bench_dims=bench_dims,
+            input_type=args.input_type,
+            test_fraction=args.test_split,
+            dtype=args.dtype,
+            run_cpu=("cpu" in selected_backends),
+            run_cuml=run_gpu,
+            raise_on_error=args.raise_on_error,
+            n_reps=args.n_reps,
+            progress_callback=progress_callback,
+            **param_lists,
+        )
+        results_df["dataset"] = args.dataset
+        results_df["operation"] = None
+        results_df["dtype"] = _dtype_to_config_value(args.dtype)
+        results_df["n_reps"] = args.n_reps
+        results_df["requested_backends"] = ",".join(selected_backends)
+        results_df["gpu_available"] = run_gpu
+        all_results.append(results_df)
+
+    if not all_results:
+        raise ValueError("No benchmark results were produced.")
+    results_df = pd.concat(all_results, ignore_index=True)
+    _print_summary(results_df, args.csv, verbose=args.verbose)
+    if args.output:
+        _save_json_results(results_df, args.output, args, args.dtype)
     _save_results(results_df, args.csv)
 
 
@@ -591,6 +1207,7 @@ def main(argv=None):
     """Parse arguments and run the benchmark. Returns exit code."""
     argv = argv if argv is not None else sys.argv[1:]
     args = build_parser().parse_args(argv)
+    args._argv = list(argv)
     run_benchmark(args, explicit_options=_extract_explicit_options(argv))
     return 0
 

@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -15,11 +15,19 @@ include(rapids-cuda)
 rapids_cuda_init_architectures(cuml-python)
 list(APPEND language_list "CUDA")
 
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 project(
   cuml-python
   VERSION "${RAPIDS_VERSION}"
   LANGUAGES ${language_list}
 )
+
+# Find C++ libraries from RAPIDS wheels in site-packages.
+set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ##################################################################################################
 # * User Options  --------------------------------------------------------------
@@ -27,8 +35,7 @@ option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_LIBCUML_WHEEL "Use libcuml wheel to provide some dependencies" OFF)
 
-# todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
-# https://github.com/rapidsai/cuml/issues/4843
+# todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging. https://github.com/NVIDIA/cuml/issues/4843
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
 set(CUML_ALGORITHMS
@@ -102,9 +109,6 @@ add_subdirectory(cuml/metrics/cluster)
 add_subdirectory(cuml/neighbors)
 add_subdirectory(cuml/solvers)
 add_subdirectory(cuml/svm)
-add_subdirectory(cuml/tsa)
-
-add_subdirectory(cuml/experimental/linear_model)
 
 # Include the pth file in the built wheel
 install(FILES "_zz_cuml_accel.pth" DESTINATION ".")

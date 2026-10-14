@@ -2,15 +2,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
-import cupyx
 import dask.array as da
 import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client
-from cuml.prims.label import make_monotonic
+from cuml.metrics.confusion_matrix import confusion_matrix as _confusion_matrix
 
 
 def _local_cm(inputs, labels, use_sample_weight):
@@ -20,22 +18,9 @@ def _local_cm(inputs, labels, use_sample_weight):
         y_true, y_pred = inputs
         sample_weight = cp.ones(y_true.shape[0], dtype=y_true.dtype)
 
-    y_true, _ = make_monotonic(y_true, labels, copy=True)
-    y_pred, _ = make_monotonic(y_pred, labels, copy=True)
-
-    n_labels = labels.size
-
-    # intersect y_pred, y_true with labels, eliminate items not in labels
-    ind = cp.logical_and(y_pred < n_labels, y_true < n_labels)
-    y_pred = y_pred[ind]
-    y_true = y_true[ind]
-    sample_weight = sample_weight[ind]
-    cm = cupyx.scipy.sparse.coo_matrix(
-        (sample_weight, (y_true, y_pred)),
-        shape=(n_labels, n_labels),
-        dtype=cp.float64,
-    ).toarray()
-    return cp.nan_to_num(cm)
+    return _confusion_matrix(
+        y_true, y_pred, labels=labels, sample_weight=sample_weight
+    )
 
 
 def confusion_matrix(
