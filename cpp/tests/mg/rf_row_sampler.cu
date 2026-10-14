@@ -168,7 +168,7 @@ TEST_P(RfMgRowSamplerTest, SamplesGlobalWeightDistribution)
     }
     double standard_error =
       std::sqrt(expected_probability * (1.0 - expected_probability) / sample_count);
-    double tolerance = std::max(0.002, 6.0 * standard_error);
+    double tolerance = std::max(1.0 / sample_count, 6.0 * standard_error);
     EXPECT_NEAR(observed_probability, expected_probability, tolerance) << "global row " << row;
   }
 }
