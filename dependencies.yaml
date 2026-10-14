@@ -862,11 +862,11 @@ dependencies:
           - rapids-dask-dependency==26.12.*,>=0.0.0a0
   depends_on_dask_cuda:
     common:
-      - output_types: conda
+      - output_types: [conda, constraints]
         packages:
           - &dask_cuda_unsuffixed dask-cuda==26.12.*,>=0.0.0a0
     specific:
-      - output_types: [requirements, constraints, pyproject]
+      - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
