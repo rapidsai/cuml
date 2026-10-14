@@ -59,7 +59,7 @@ jobs:
       packages: read
       pull-requests: read
     needs: [build-details]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@497a9313661e724a316a38a05c9c805f4f12f430
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@f127659d02df896f7ded35eafa08530c362bc694
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -128,7 +128,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@497a9313661e724a316a38a05c9c805f4f12f430
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@f127659d02df896f7ded35eafa08530c362bc694
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -162,7 +162,7 @@ jobs:
       packages: read
       pull-requests: read
     needs: [build-details]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@497a9313661e724a316a38a05c9c805f4f12f430
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@f127659d02df896f7ded35eafa08530c362bc694
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -202,7 +202,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@497a9313661e724a316a38a05c9c805f4f12f430
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@f127659d02df896f7ded35eafa08530c362bc694
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
