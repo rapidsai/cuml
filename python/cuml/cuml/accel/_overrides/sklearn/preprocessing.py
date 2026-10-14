@@ -19,6 +19,7 @@ __all__ = (
     "MaxAbsScaler",
     "PolynomialFeatures",
     "OneHotEncoder",
+    "OrdinalEncoder",
     "TargetEncoder",
     "LabelEncoder",
     "LabelBinarizer",
@@ -57,8 +58,8 @@ class PolynomialFeatures(ArrayAPIProxyBase):
         return model.get_params(deep=False)
 
 
-def _check_onehotencoder_X(X):
-    """Check if inputs are supported on GPU"""
+def _fallback_on_bytes_dtype(X):
+    """Fallback if bytes dtype in input"""
     try:
         return check_cudf(X, input_name="X")
     except TypeError as exc:
@@ -73,11 +74,23 @@ class OneHotEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.OneHotEncoder
 
     def _gpu_fit(self, X, y=None):
-        X = _check_onehotencoder_X(X)
+        X = _fallback_on_bytes_dtype(X)
         return self._gpu.fit(X, y=y)
 
     def _gpu_fit_transform(self, X, y=None, **fit_params):
-        X = _check_onehotencoder_X(X)
+        X = _fallback_on_bytes_dtype(X)
+        return self._gpu.fit_transform(X, y=y, **fit_params)
+
+
+class OrdinalEncoder(ProxyBase):
+    _gpu_class = cuml.preprocessing.OrdinalEncoder
+
+    def _gpu_fit(self, X, y=None):
+        X = _fallback_on_bytes_dtype(X)
+        return self._gpu.fit(X, y=y)
+
+    def _gpu_fit_transform(self, X, y=None, **fit_params):
+        X = _fallback_on_bytes_dtype(X)
         return self._gpu.fit_transform(X, y=y, **fit_params)
 
 
