@@ -103,15 +103,18 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
            and ``max(2, ceil(min_samples_split * n_rows))`` is the minimum
            number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
-        The minimum decrease in impurity required for a node to be split.
+        A node will be split if this split induces a decrease of the weighted impurity
+        greater than this value.
 
         .. versionchanged:: 26.12
+
             MSE split gains are doubled to match scikit-learn's full-variance
             normalization. Double an existing positive threshold to preserve
             previous split decisions, apart from numerical effects; otherwise,
             retraining may produce larger trees and different predictions.
             The default ``0.0`` needs no adjustment. Other split criteria
             are unchanged.
+
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
