@@ -55,9 +55,9 @@ def _manifest_schema() -> ModuleType:
         if exc.name != "msgspec":
             raise
         raise SuiteError(
-            "Benchmark suite validation requires msgspec. Install it with "
-            "`conda install -c conda-forge msgspec` or "
-            "`python -m pip install msgspec`."
+            "Benchmark suite validation requires msgspec with YAML support. "
+            "Install it with `conda install -c conda-forge msgspec-yaml` or "
+            "`python -m pip install 'msgspec[yaml]'`."
         ) from exc
     return _schema
 
@@ -75,20 +75,21 @@ def _mapping(value: Any, where: str) -> dict[str, Any]:
 
 
 def _load_suite_document(suite_path: Path) -> Any:
-    """Read a YAML suite document with actionable loading errors."""
+    """Decode a typed YAML suite with actionable loading errors."""
+    schema = _manifest_schema()
     try:
-        import yaml
-    except ModuleNotFoundError as exc:
-        if exc.name != "yaml":
-            raise
+        return schema.msgspec.yaml.decode(
+            suite_path.read_text(encoding="utf-8"), type=schema.SuiteManifest
+        )
+    except ImportError as exc:
         raise SuiteError(
-            "YAML benchmark suites require PyYAML. Install it with "
-            "`conda install -c conda-forge pyyaml` or "
-            "`python -m pip install pyyaml`."
+            "YAML benchmark suites require msgspec with YAML support. "
+            "Install it with `conda install -c conda-forge msgspec-yaml` or "
+            "`python -m pip install 'msgspec[yaml]'`."
         ) from exc
-    try:
-        return yaml.safe_load(suite_path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as exc:
+    except schema.msgspec.ValidationError as exc:
+        raise SuiteError(f"invalid suite {suite_path}: {exc}") from exc
+    except (OSError, UnicodeError, schema.msgspec.DecodeError) as exc:
         raise SuiteError(f"unable to load suite {suite_path}: {exc}") from exc
 
 
@@ -365,11 +366,7 @@ def load_suite(
         Subset of declared providers; defaults to all in manifest order.
     """
     suite_path = Path(path).resolve()
-    schema = _manifest_schema()
-    try:
-        manifest = schema.convert_manifest(_load_suite_document(suite_path))
-    except schema.msgspec.ValidationError as exc:
-        raise SuiteError(f"invalid suite {suite_path}: {exc}") from exc
+    manifest = _load_suite_document(suite_path)
     _providers(manifest.providers, "suite")
     declared = manifest.providers
     selected = declared if providers is None else providers
@@ -467,14 +464,8 @@ def suite_profile_names(reference: str | Path) -> tuple[str, ...]:
         Built-in suite name or YAML manifest path.
     """
     with _suite_reference_path(reference) as (suite_path, _):
-        raw = _load_suite_document(suite_path)
-    raw = _mapping(raw, "suite")
-    schema = _manifest_schema()
-    try:
-        profiles = schema.convert_profiles(raw.get("profiles"))
-    except schema.msgspec.ValidationError as exc:
-        raise SuiteError(f"invalid profiles: {exc}") from exc
-    return tuple(sorted(profiles))
+        manifest = _load_suite_document(suite_path)
+    return tuple(sorted(manifest.profiles))
 
 
 def load_suite_reference(

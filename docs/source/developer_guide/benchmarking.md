@@ -7,8 +7,9 @@ supported providers, and execution profiles.
 ## Run a suite
 
 Run in an environment with cuML installed, the selected providers' dependencies,
-and enough host/device memory. Suite loading requires PyYAML and msgspec
-(`python -m pip install pyyaml msgspec` if they are missing).
+and enough host/device memory. Suite loading requires msgspec with YAML support
+(`python -m pip install 'msgspec[yaml]'` or
+`conda install -c conda-forge msgspec-yaml` if it is missing).
 
 ```bash
 # Compare the cuML and scikit-learn providers at reduced workload sizes.
@@ -249,7 +250,7 @@ continue a run. The CLI defaults to a timestamped directory.
 From a source checkout, run without cuML installed:
 
 ```bash
-python -m pip install scikit-learn pandas scipy pyyaml msgspec
+python -m pip install scikit-learn pandas scipy 'msgspec[yaml]'
 python python/cuml/cuml/benchmark/run_benchmarks.py \
   --profile smoke --provider scikit-learn --output cpu-results
 ```

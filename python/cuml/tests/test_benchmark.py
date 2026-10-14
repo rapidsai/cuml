@@ -464,6 +464,19 @@ def test_invalid_suite_requests_are_rejected(
             resolve_case(case, profile)
 
 
+@pytest.mark.parametrize("contents", ["cases: [", "[]", "version: 2\ntyop: 1"])
+def test_suite_yaml_decode_errors(tmp_path, contents):
+    path = tmp_path / "invalid.yaml"
+    path.write_text(contents, encoding="utf-8")
+    with pytest.raises(SuiteError, match="unable to load suite|invalid suite"):
+        load_suite(path)
+
+
+def test_suite_yaml_missing_file(tmp_path):
+    with pytest.raises(SuiteError, match="unable to load suite"):
+        load_suite(tmp_path / "missing.yaml")
+
+
 def test_suite_provider_selection(document, tmp_path):
     document["providers"] = ["cuml", "scikit-learn", "cuml.accel"]
     restricted = _request(estimator="AgglomerativeClustering", parameters={})
