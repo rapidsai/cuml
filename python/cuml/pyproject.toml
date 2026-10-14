@@ -86,7 +86,7 @@ authors = [
 license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
-    "cuda-bindings>=13.0.2,<14.0",
+    "cuda-bindings>=13.3.0,<14",
     "cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*",
     "cudf==26.12.*,>=0.0.0a0",
     "cupy-cuda13x[ctk]>=14.0.1,!=14.1.0",
@@ -114,7 +114,7 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "certifi",
-    "cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*,!=13.2.*,<14",
+    "cuda-bindings>=13.3.0,<14",
     "cuda-core>=1.0.0",
     "cython>=3.2.2,!=3.2.7",
     "hdbscan>=0.8.39",
@@ -193,7 +193,7 @@ dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=4.0",
-    "cuda-bindings>=13.0.2,<14.0",
+    "cuda-bindings>=13.3.0,<14",
     "cython>=3.2.2,!=3.2.7",
     "libcuml==26.12.*,>=0.0.0a0",
     "libnvforest==26.12.*,>=0.0.0a0",
