@@ -175,6 +175,15 @@ class RandomForestClassifier(
             sampling probabilities. Otherwise, weights are used in the
             impurity calculation.
         """
+        if sample_weight is not None and (
+            sample_weight.npartitions != X.npartitions
+            or sample_weight.npartitions != y.npartitions
+        ):
+            raise ValueError(
+                "X, y, and sample_weight must have the same number of "
+                "partitions"
+            )
+
         if isinstance(y, dask.array.Array):
             # Dask implements ``unique(return_counts=True)`` using structured
             # arrays, which CuPy does not support. Compute the unique labels

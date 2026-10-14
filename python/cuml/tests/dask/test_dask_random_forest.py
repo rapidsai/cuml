@@ -588,6 +588,27 @@ def test_rf_weights(
     assert all(data == worker_model_bytes[0] for data in worker_model_bytes)
 
 
+@pytest.mark.parametrize("model_cls", [cuRFC_mg, cuRFR_mg])
+def test_rf_sample_weight_partition_count_mismatch(client, model_cls):
+    X = dask_cudf.from_cudf(
+        cudf.DataFrame(np.zeros((20, 1), dtype=np.float32)), npartitions=2
+    )
+    y_dtype = np.int32 if model_cls is cuRFC_mg else np.float32
+    y = dask_cudf.from_cudf(
+        cudf.Series(np.arange(20, dtype=y_dtype) % 2), npartitions=2
+    )
+    sample_weight = dask_cudf.from_cudf(
+        cudf.Series(np.ones(10, dtype=np.float32)), npartitions=1
+    )
+
+    model = model_cls(n_estimators=1)
+    with pytest.raises(
+        ValueError,
+        match="X, y, and sample_weight must have the same number of partitions",
+    ):
+        model.fit(X, y, sample_weight=sample_weight)
+
+
 @pytest.mark.parametrize("weight_type", ["sample", "class"])
 def test_rf_weighted_bootstrap_all_zero_weights(client, weight_type):
     n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
