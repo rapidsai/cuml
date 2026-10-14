@@ -240,9 +240,14 @@ class RowSampler {
       rs      = DT::fnv1a32(rs, std::uint32_t{0x414c4c4f});
       std::mt19937_64 generator(rs);
 
+      int last_positive_rank = comm_size_ - 1;
+      while (rank_sample_weight_sums_[last_positive_rank] == 0.0) {
+        --last_positive_rank;
+      }
+
       auto remaining_count  = n_sampled_rows_;
       auto remaining_weight = sample_weight_sum_;
-      for (int current_rank = 0; current_rank < comm_size_ - 1; ++current_rank) {
+      for (int current_rank = 0; current_rank < last_positive_rank; ++current_rank) {
         auto rank_weight      = rank_sample_weight_sums_[current_rank];
         auto following_weight = std::max(0.0, remaining_weight - rank_weight);
         if (remaining_count > 0 && rank_weight > 0.0) {
@@ -257,7 +262,7 @@ class RowSampler {
         remaining_count -= host_counts[current_rank];
         remaining_weight = following_weight;
       }
-      host_counts.back() = remaining_count;
+      host_counts[last_positive_rank] = remaining_count;
       raft::update_device(device_counts.data(), host_counts.data(), host_counts.size(), stream);
     }
 
