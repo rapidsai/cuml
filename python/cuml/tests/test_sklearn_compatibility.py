@@ -105,7 +105,6 @@ ESTIMATORS = [
     UMAP(n_neighbors=5),
     TSNE(),
     SpectralEmbedding(),
-    SpectralEmbedding(),
     TruncatedSVD(),
     IncrementalPCA(),
     PCA(),
