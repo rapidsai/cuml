@@ -295,11 +295,7 @@ def test_estimator_benchmark_coverage():
 
     overrides = SUITES.parents[1] / "accel" / "_overrides"
     exported = set()
-    for path in [
-        *sorted((overrides / "sklearn").glob("*.py")),
-        overrides / "umap.py",
-        overrides / "hdbscan.py",
-    ]:
+    for path in sorted(overrides.rglob("*.py")):
         for node in ast.parse(path.read_text(encoding="utf-8")).body:
             if isinstance(node, (ast.Assign, ast.AnnAssign)):
                 targets = (
