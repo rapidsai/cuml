@@ -148,14 +148,13 @@ class RowSampler {
     raft::resource::set_cuda_stream(stream_resources, stream);
 
     // Hash these together so per-tree row samples are uncorrelated.
-    auto rs = DT::fnv1a32_basis;
-    rs      = DT::fnv1a32(rs, seed_);
-    rs      = DT::fnv1a32(rs, tree_id);
+    std::uint32_t rs;
     if (distributed_ && use_weighted_bootstrap()) {
       // Rank-local draws must use independent random streams. The multinomial allocation already
       // determines how many draws each rank owns.
-      rs = DT::fnv1a32(rs, ML::narrow_cast<std::uint32_t>(rank_));
-      rs = DT::fnv1a32(rs, std::uint32_t{0x4c4f4341});
+      rs = DT::fnv1a32_hash(seed_, tree_id, rank_, std::uint32_t{0x4c4f4341});
+    } else {
+      rs = DT::fnv1a32_hash(seed_, tree_id);
     }
     raft::random::RngState rng_state(rs, raft::random::GenPhilox);
 
@@ -234,10 +233,7 @@ class RowSampler {
     auto& device_counts = rank_sample_count_scratch_[stream_id];
     if (rank_ == 0) {
       std::vector<std::int64_t> host_counts(comm_size_, 0);
-      auto rs = DT::fnv1a32_basis;
-      rs      = DT::fnv1a32(rs, seed_);
-      rs      = DT::fnv1a32(rs, tree_id);
-      rs      = DT::fnv1a32(rs, std::uint32_t{0x414c4c4f});
+      auto rs = DT::fnv1a32_hash(seed_, tree_id, std::uint32_t{0x414c4c4f});
       std::mt19937_64 generator(rs);
 
       int last_positive_rank = comm_size_ - 1;
