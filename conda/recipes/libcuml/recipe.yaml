@@ -120,6 +120,7 @@ outputs:
         - libcusolver
         - libcusparse
       run:
+        - libgomp >=${{ c_compiler_version }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libcublas
         - libcufft
