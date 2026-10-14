@@ -861,23 +861,28 @@
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
 - reason: cuml's encoder doesn't require sorted categories
-  marker: onehotencoder_design_differences
+  marker: encoder_design_differences
   tests:
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_unsorted_categories"
+- reason: cuml's encoder doesn't support integral object dtypes
+  marker: encoder_design_differences
+  tests:
+  - "sklearn.preprocessing.tests.test_encoders::test_ordinal_encoder_python_integer"
 - reason: cuml's encoder may use alternate dtypes to store categories
-  marker: onehotencoder_design_differences
+  marker: encoder_design_differences
   tests:
   - "sklearn.preprocessing.tests.test_encoders::test_encoder_dtypes"
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_categories[mixed]"
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_categories[string]"
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_specified_categories_mixed_columns"
 - reason: cuml's encoder raises a different but still useful error message
-  marker: onehotencoder_design_differences
+  marker: encoder_design_differences
   tests:
   - "sklearn.preprocessing.tests.test_encoders::test_ohe_more_informative_error_message"
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_set_output"
+  - "sklearn.preprocessing.tests.test_encoders::test_ordinal_encoder_passthrough_missing_values_float_errors_dtype"
 - reason: cuml's encoder treats NaN and None the same
-  marker: onehotencoder_design_differences
+  marker: encoder_design_differences
   tests:
   - "sklearn.preprocessing.tests.test_encoders::test_ohe_missing_values_get_feature_names[None]"
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_categories[missing-float-nan-object]"
@@ -889,6 +894,9 @@
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_specified_categories[object-string-none-ignore]"
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_specified_categories[object-string-none-infrequent_if_exist]"
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_specified_categories[object-string-none-warn]"
+  - "sklearn.preprocessing.tests.test_encoders::test_ordinal_encoder_specified_categories_missing_passthrough[object-None-missing-value]"
+  - "sklearn.preprocessing.tests.test_encoders::test_ordinal_encoder_specified_categories_missing_passthrough[object-nan-missing_value]"
+  - "sklearn.preprocessing.tests.test_encoders::test_ordinal_encoder_unknown_missing_interaction_both_nan[X_train0-X_test_trans_expected0-X_roundtrip_expected0]"
 - reason: Calibration temperature scaling differs with cuml.accel in sklearn 1.8
   condition: scikit-learn>=1.8
   tests:
