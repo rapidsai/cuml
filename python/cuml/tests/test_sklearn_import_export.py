@@ -1254,3 +1254,54 @@ def test_one_hot_encoder_cuda_array_like_params():
     cu_out2 = cu_model2.transform(X)
     np.testing.assert_array_equal(cu_out1.toarray(), sk_out.toarray())
     np.testing.assert_array_equal(cu_out2.toarray(), sk_out.toarray())
+
+
+@pytest.mark.parametrize("handle_unknown", ["error", "ignore"])
+@pytest.mark.filterwarnings("ignore:Found unknown categories.*:UserWarning")
+def test_ordinal_encoder(handle_unknown):
+    X = np.array(
+        [["x", "a"], ["x", "b"], ["y", "a"], ["x", "c"]], dtype="object"
+    )
+    kws = {"handle_unknown": handle_unknown}
+    if handle_unknown == "error":
+        sk_kws = kws
+    else:
+        sk_kws = {
+            "handle_unknown": "use_encoded_value",
+            "unknown_value": np.nan,
+        }
+    cu_model = cuml.preprocessing.OrdinalEncoder(**kws).fit(X)
+    sk_model = sklearn.preprocessing.OrdinalEncoder(**sk_kws).fit(X)
+
+    cu_model2 = cuml.preprocessing.OrdinalEncoder.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    roundtrip = cuml.preprocessing.OrdinalEncoder.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    for c1, c2 in zip(cu_model.categories_, sk_model2.categories_):
+        np.testing.assert_array_equal(c1, c2)
+
+    cu_out = cu_model2.transform(X)
+    sk_out = sk_model2.transform(X)
+    np.testing.assert_array_equal(cu_out, sk_out)
+
+    if handle_unknown == "ignore":
+        X = np.array([["x", "d"], ["x", "a"], ["z", "c"]], dtype="object")
+        cu_out = cu_model2.transform(X)
+        sk_out = sk_model2.transform(X)
+        np.testing.assert_array_equal(cu_out, sk_out)
+
+
+def test_ordinal_encoder_cuda_array_like_params():
+    cats = [cp.array([1, 2]), cudf.Series([10, 20, 30])]
+    X = np.array([[1, 10], [1, 20], [2, 30], [2, 10]])
+    cu_model1 = cuml.preprocessing.OrdinalEncoder(categories=cats).fit(X)
+    sk_model = cu_model1.as_sklearn()
+    cu_model2 = cuml.preprocessing.OrdinalEncoder.from_sklearn(sk_model)
+
+    cu_out1 = cu_model1.transform(X)
+    sk_out = sk_model.transform(X)
+    cu_out2 = cu_model2.transform(X)
+    np.testing.assert_array_equal(cu_out1, sk_out)
+    np.testing.assert_array_equal(cu_out2, sk_out)
