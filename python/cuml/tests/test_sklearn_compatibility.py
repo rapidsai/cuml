@@ -105,6 +105,7 @@ ESTIMATORS = [
     UMAP(n_neighbors=5),
     TSNE(),
     SpectralEmbedding(),
+    SpectralEmbedding(),
     TruncatedSVD(),
     IncrementalPCA(),
     PCA(),
@@ -123,6 +124,8 @@ ESTIMATORS = [
     ElasticNet(),
     Lasso(),
     LinearRegression(),
+    MBSGDClassifier(),
+    MBSGDRegressor(),
     IsolationForest(),
     RandomForestClassifier(),
     RandomForestRegressor(),
@@ -165,9 +168,6 @@ def _all_cuml_estimators():
 
 
 EXCLUDED = {
-    # Linear model
-    MBSGDClassifier: "Not yet tested for sklearn compat",
-    MBSGDRegressor: "Not yet tested for sklearn compat",
     # Meta-estimators
     OneVsRestClassifier: "Meta-estimator, requires an inner estimator",
     OneVsOneClassifier: "Meta-estimator, requires an inner estimator",
