@@ -808,12 +808,13 @@ class OrdinalEncoder(OneToOneFeatureMixin, InteropMixin, Base):
             if not _safe_is_nan(model.unknown_value):
                 raise UnsupportedOnGPU(
                     "`handle_unknown='use_encoded_value'` with "
-                    "`unknown_value={model.unknown_value!r}` is not supported"
+                    f"`unknown_value={model.unknown_value!r}` is not supported"
                 )
             handle_unknown = "ignore"
         if not _safe_is_nan(model.encoded_missing_value):
             raise UnsupportedOnGPU(
-                "`encoded_missing_value={model.unknown_value!r}` is not supported"
+                f"`encoded_missing_value={model.encoded_missing_value!r}` "
+                "is not supported"
             )
         if model.min_frequency is not None:
             raise UnsupportedOnGPU("`min_frequency` is not supported")

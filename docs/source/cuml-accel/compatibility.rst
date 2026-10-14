@@ -533,8 +533,9 @@ sklearn.preprocessing
    ``OrdinalEncoder`` will fall back to CPU in the following cases:
 
    - If any columns in ``X`` have ``bytes`` values (``str`` values work fine).
-   - If ``handle_unknown`` is ``"use_encoded_value"`` and ``"unknown_value"`` is not ``nan``.
-   - If ``encoded_missing_value`` is not ``nan``.
+   - If ``handle_unknown`` is ``"use_encoded_value"`` and ``unknown_value`` is
+     not ``float("nan")``.
+   - If ``encoded_missing_value`` is not ``float("nan")``.
    - If ``min_frequency`` is not ``None``.
    - If ``max_categories`` is not ``None``.
 
