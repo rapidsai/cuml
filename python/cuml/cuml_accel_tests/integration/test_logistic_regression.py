@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import pytest
@@ -11,6 +11,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+SKLEARN_110 = Version(sklearn.__version__) >= Version("1.10.0.dev0")
 
 
 @pytest.fixture(scope="module")
@@ -215,3 +216,11 @@ def test_logistic_regression_l1_ratio(classification_data, l1_ratio):
     ).fit(X, y)
     y_pred = clf.predict(X)
     accuracy_score(y, y_pred)
+
+
+@pytest.mark.skipif(not SKLEARN_110, reason="alpha added in sklearn 1.10")
+def test_logistic_regression_C_and_alpha(classification_data):
+    # Falls back to CPU so that sklearn raises its error
+    X, y = classification_data
+    with pytest.raises(ValueError, match="not both"):
+        LogisticRegression(C=2.0, alpha=0.5).fit(X, y)
