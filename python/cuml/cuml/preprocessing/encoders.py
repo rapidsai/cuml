@@ -172,6 +172,31 @@ def _compute_categories(
     return out
 
 
+def _fallback_on_bytes_dtype_categories(categories):
+    """Shared utility to fallback to CPU if categories contains a bytes dtype"""
+    if not (isinstance(categories, str) and categories == "auto"):
+        for i, c in enumerate(categories):
+            if getattr(getattr(c, "dtype", None), "kind", "O") not in "OS":
+                continue
+            try:
+                check_cudf(c, ensure_ndim=1)
+            except TypeError as exc:
+                exc_str = str(exc)
+                if exc_str.startswith("An object dtype input"):
+                    invalid = "mixed"
+                elif exc_str.startswith("Input with bytes dtype"):
+                    invalid = "bytes"
+                else:
+                    # probably invalid categories, ignore, will re-raise later
+                    continue
+                raise UnsupportedOnGPU(
+                    f"Category {i} with {invalid} dtype is not supported"
+                ) from None
+            except Exception:
+                # probably invalid categories, ignore, will re-raise later
+                continue
+
+
 class OneHotEncoder(InteropMixin, Base):
     """
     Encode categorical features as a one-hot numeric array.
@@ -334,24 +359,7 @@ class OneHotEncoder(InteropMixin, Base):
             raise UnsupportedOnGPU("`feature_name_combiner` is not supported")
 
         categories = model.categories
-        # Fallback if input categories contain bytes dtypes
-        if not (isinstance(categories, str) and categories == "auto"):
-            for i, c in enumerate(model.categories):
-                if getattr(getattr(c, "dtype", None), "kind", "O") not in "OS":
-                    continue
-                try:
-                    check_cudf(c, ensure_ndim=1)
-                except TypeError as exc:
-                    exc_str = str(exc)
-                    if exc_str.startswith("An object dtype input"):
-                        invalid = "mixed"
-                    elif exc_str.startswith("Input with bytes dtype"):
-                        invalid = "bytes"
-                    else:
-                        raise
-                    raise UnsupportedOnGPU(
-                        f"Category {i} with {invalid} dtype is not supported"
-                    ) from None
+        _fallback_on_bytes_dtype_categories(categories)
 
         return {
             "categories": categories,
@@ -694,7 +702,7 @@ class OneHotEncoder(InteropMixin, Base):
         return np.array(out, dtype=object)
 
 
-class OrdinalEncoder(OneToOneFeatureMixin, Base):
+class OrdinalEncoder(OneToOneFeatureMixin, InteropMixin, Base):
     """Encode categorical features as an integer array.
 
     The input to this transformer should be an array-like of integers or
@@ -763,6 +771,8 @@ class OrdinalEncoder(OneToOneFeatureMixin, Base):
            ['apple', 2]], dtype=object)
     """
 
+    _cpu_class_path = "sklearn.preprocessing.OrdinalEncoder"
+
     def __init__(
         self,
         *,
@@ -791,6 +801,66 @@ class OrdinalEncoder(OneToOneFeatureMixin, Base):
         tags.input_tags.categorical = True
         tags.input_tags.allow_nan = True
         return tags
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if (handle_unknown := model.handle_unknown) == "use_encoded_value":
+            if not _safe_is_nan(model.unknown_value):
+                raise UnsupportedOnGPU(
+                    "`handle_unknown='use_encoded_value'` with "
+                    "`unknown_value={model.unknown_value!r}` is not supported"
+                )
+            handle_unknown = "ignore"
+        if not _safe_is_nan(model.encoded_missing_value):
+            raise UnsupportedOnGPU(
+                "`encoded_missing_value={model.unknown_value!r}` is not supported"
+            )
+        if model.min_frequency is not None:
+            raise UnsupportedOnGPU("`min_frequency` is not supported")
+        if model.max_categories is not None:
+            raise UnsupportedOnGPU("`max_categories` is not supported")
+
+        categories = model.categories
+        _fallback_on_bytes_dtype_categories(categories)
+
+        return {
+            "categories": categories,
+            "dtype": model.dtype,
+            "handle_unknown": handle_unknown,
+        }
+
+    def _params_to_cpu(self):
+        categories = self.categories
+        if not (isinstance(categories, str) and categories == "auto"):
+            categories = [_as_numpy(c) for c in categories]
+
+        handle_unknown = self.handle_unknown
+        unknown_value = None
+        if self.handle_unknown == "ignore":
+            handle_unknown = "use_encoded_value"
+            unknown_value = np.nan
+
+        return {
+            "categories": categories,
+            "dtype": self.dtype,
+            "handle_unknown": handle_unknown,
+            "unknown_value": unknown_value,
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "categories_": model.categories_,
+            "_missing_indices": model._missing_indices,
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "categories_": self.categories_,
+            "_missing_indices": self._missing_indices,
+            "_infrequent_enabled": False,
+            **super()._attrs_to_cpu(model),
+        }
 
     @mlfunc(set_input_type=True)
     @generate_docstring(y=None)
