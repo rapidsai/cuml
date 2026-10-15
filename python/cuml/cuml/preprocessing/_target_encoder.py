@@ -7,6 +7,7 @@ import warnings
 import cudf
 import cupy as cp
 import numpy as np
+from sklearn.utils import ClassifierTags
 
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -205,6 +206,14 @@ class TargetEncoder(InteropMixin, Base):
         self.stat = stat
         self.multi_feature_mode = multi_feature_mode
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.classifier_tags = ClassifierTags(multi_class=False)
+        tags.input_tags.categorical = True
+        tags.input_tags.allow_nan = True
+        tags.target_tags.required = True
+        return tags
+
     @mlfunc(set_input_type=True)
     def fit(self, X, y, *, fold_ids=None):
         """
@@ -313,8 +322,8 @@ class TargetEncoder(InteropMixin, Base):
         if isinstance(self.encode_all, list):
             return self._transform_independent(df, x_cols)
 
-        df = df.merge(self.encode_all, on=x_cols, how="left")
-        return self._impute_and_sort(df)
+        df = df.merge(self.encode_all, on=x_cols, how="left").sort_values("id")
+        return self._impute_to_cupy(df["out"])
 
     def _transform_independent(self, test, x_cols):
         """Transform using independent per-feature encodings."""
@@ -332,7 +341,7 @@ class TargetEncoder(InteropMixin, Base):
             test[out_col_i] = test[out_col_i].fillna(self.y_stat_val)
             result_cols.append(out_col_i)
 
-        test = test.sort_values("id")
+        test = test.sort_values("id").reset_index(drop=True)
         res = test[result_cols].to_cupy()
         return res
 
@@ -412,7 +421,8 @@ class TargetEncoder(InteropMixin, Base):
         )
 
         df = df.merge(encode_each_fold, on=cols, how="left")
-        return self._impute_and_sort(df), df
+        df = df.sort_values("id").reset_index(drop=True)
+        return self._impute_to_cupy(df["out"]), df
 
     def _fit_transform_median(self, df, x_cols, fold_ids):
         """
@@ -438,12 +448,12 @@ class TargetEncoder(InteropMixin, Base):
             )
             dg = _rename_col(dg, "out")
             res.append(df.loc[mask].merge(dg, on=x_cols, how="left"))
-        res = cudf.concat(res, axis=0)
+        res = cudf.concat(res, axis=0).sort_values("id")
         self.encode_all = df.groupby(x_cols, dropna=False).agg(
             {"y": self.stat}
         )
         self.encode_all = _rename_col(self.encode_all, "out")
-        return self._impute_and_sort(res), df
+        return self._impute_to_cupy(res["out"]), df
 
     def _fit_transform_independent(self, df, x_cols, fold_ids):
         """
@@ -488,7 +498,7 @@ class TargetEncoder(InteropMixin, Base):
             result_cols.append(out_col_i)
 
         # Sort by original index and return results
-        df = df.sort_values("id")
+        df = df.sort_values("id").reset_index(drop=True)
         res = df[result_cols].to_cupy()
         return res, df
 
@@ -629,21 +639,14 @@ class TargetEncoder(InteropMixin, Base):
             return False
         if len(df) != len(self.train):
             return False
-        self.train = self.train.sort_values("id").reset_index(drop=True)
         for col in df.columns:
             if not (df[col] == self.train[col]).all():
                 return False
         return True
 
-    def _impute_and_sort(self, df):
-        """
-        Impute and sort the result encoding in the same row order as input.
-        """
-
-        df["out"] = df["out"].nans_to_nulls().fillna(self.y_stat_val)
-        df = df.sort_values("id")
-        res = df["out"].to_cupy().reshape(-1, 1)
-        return res
+    def _impute_to_cupy(self, col):
+        """Fill missing values in `col` and return as a 2D cupy array."""
+        return col.nans_to_nulls().fillna(self.y_stat_val).to_cupy()[:, None]
 
     def _check_X(self, X, reset=False):
         # Check features
