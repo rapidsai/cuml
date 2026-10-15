@@ -274,9 +274,9 @@
       "name": "rf-fil",
       "track": "end-user",
       "prompt": "Two related things:\n1. I trained a RandomForestClassifier in sklearn (500 trees, depth 20) and want fast GPU inference in production with cuML's FIL. How do I load the sklearn model into FIL and predict?\n2. Separately, I'd like to train a forest with cuML's RandomForestClassifier on the GPU and then serve it on a CPU-only machine that doesn't have cuML installed. What's the right way to export it?\nShow code for both.",
-      "expected_output": "Part 1: load the sklearn forest with nvForest, `nvforest.load_from_sklearn(skl_model)` (or convert via Treelite and `nvforest.load_model`), then predict on GPU. `cuml.fil` is deprecated in 26.08 and removed in 26.10, so it should not be the recommended path. Part 2: train cuml.ensemble.RandomForestClassifier, export with `as_sklearn()` and pickle/joblib the sklearn object (or `as_treelite()` for Treelite-based serving); the CPU box then needs only sklearn.",
+      "expected_output": "Part 1: load the sklearn forest with nvForest, `nvforest.load_from_sklearn(skl_model)` (or convert via Treelite and `nvforest.load_model`), then predict on GPU. `cuml.fil` is deprecated in 26.06 and removed in 26.10, so it should not be the recommended path. Part 2: train cuml.ensemble.RandomForestClassifier, export with `as_sklearn()` and pickle/joblib the sklearn object (or `as_treelite()` for Treelite-based serving); the CPU box then needs only sklearn.",
       "assertions": [
-        "Does not recommend `cuml.fil` / `ForestInference` as the current way to load the model (deprecated 26.08, removed 26.10), or clearly flags it as deprecated in favour of nvForest",
+        "Does not recommend `cuml.fil` / `ForestInference` as the current way to load the model (deprecated 26.06, removed 26.10), or clearly flags it as deprecated in favour of nvForest",
         "Uses nvForest (e.g. nvforest.load_from_sklearn or nvforest.load_model) for GPU inference of the sklearn model",
         "Exports the cuML forest with `as_sklearn()` (or `as_treelite()`) for the CPU-only machine",
         "Does not use `convert_to_treelite_model` or a nonexistent `to_sklearn` method"
