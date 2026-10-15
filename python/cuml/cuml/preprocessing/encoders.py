@@ -172,7 +172,7 @@ def _compute_categories(
     return out
 
 
-def _fallback_on_bytes_dtype_categories(categories):
+def _fallback_on_unsupported_category_values(categories):
     """Shared utility to fallback to CPU if categories contains a bytes dtype"""
     if not (isinstance(categories, str) and categories == "auto"):
         for i, c in enumerate(categories):
@@ -359,7 +359,7 @@ class OneHotEncoder(InteropMixin, Base):
             raise UnsupportedOnGPU("`feature_name_combiner` is not supported")
 
         categories = model.categories
-        _fallback_on_bytes_dtype_categories(categories)
+        _fallback_on_unsupported_category_values(categories)
 
         return {
             "categories": categories,
@@ -822,7 +822,7 @@ class OrdinalEncoder(OneToOneFeatureMixin, InteropMixin, Base):
             raise UnsupportedOnGPU("`max_categories` is not supported")
 
         categories = model.categories
-        _fallback_on_bytes_dtype_categories(categories)
+        _fallback_on_unsupported_category_values(categories)
 
         return {
             "categories": categories,

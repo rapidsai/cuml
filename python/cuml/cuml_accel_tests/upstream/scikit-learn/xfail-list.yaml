@@ -864,10 +864,6 @@
   marker: encoder_design_differences
   tests:
   - "sklearn.preprocessing.tests.test_encoders::test_one_hot_encoder_unsorted_categories"
-- reason: cuml's encoder doesn't support integral object dtypes
-  marker: encoder_design_differences
-  tests:
-  - "sklearn.preprocessing.tests.test_encoders::test_ordinal_encoder_python_integer"
 - reason: cuml's encoder may use alternate dtypes to store categories
   marker: encoder_design_differences
   tests:

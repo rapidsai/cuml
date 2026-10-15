@@ -58,14 +58,20 @@ class PolynomialFeatures(ArrayAPIProxyBase):
         return model.get_params(deep=False)
 
 
-def _fallback_on_bytes_dtype(X):
-    """Fallback if bytes dtype in input"""
+def _encoders_check_X(X):
+    """Fallback if input values are unsupported"""
     try:
         return check_cudf(X, input_name="X")
     except TypeError as exc:
-        if str(exc).startswith("X with bytes dtype"):
+        exc_str = str(exc)
+        if exc_str.startswith("X with bytes dtype"):
             raise UnsupportedOnGPU(
                 "X with bytes dtype is not supported"
+            ) from None
+        elif exc_str.startswith("An object dtype X argument must be composed"):
+            raise UnsupportedOnGPU(
+                "X has object dtype and contains values that can't "
+                "be coerced to the GPU"
             ) from None
         raise
 
@@ -74,11 +80,11 @@ class OneHotEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.OneHotEncoder
 
     def _gpu_fit(self, X, y=None):
-        X = _fallback_on_bytes_dtype(X)
+        X = _encoders_check_X(X)
         return self._gpu.fit(X, y=y)
 
     def _gpu_fit_transform(self, X, y=None, **fit_params):
-        X = _fallback_on_bytes_dtype(X)
+        X = _encoders_check_X(X)
         return self._gpu.fit_transform(X, y=y, **fit_params)
 
 
@@ -86,11 +92,11 @@ class OrdinalEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.OrdinalEncoder
 
     def _gpu_fit(self, X, y=None):
-        X = _fallback_on_bytes_dtype(X)
+        X = _encoders_check_X(X)
         return self._gpu.fit(X, y=y)
 
     def _gpu_fit_transform(self, X, y=None, **fit_params):
-        X = _fallback_on_bytes_dtype(X)
+        X = _encoders_check_X(X)
         return self._gpu.fit_transform(X, y=y, **fit_params)
 
 

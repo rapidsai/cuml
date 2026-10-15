@@ -231,6 +231,45 @@ def test_encoder_bytes_inputs(kind, dtype, auto, cls):
         np.testing.assert_array_equal(Xt, sol)
 
 
+@pytest.mark.parametrize("kind", ["list", "numpy", "pandas"])
+@pytest.mark.parametrize("cls", [OneHotEncoder, OrdinalEncoder])
+@pytest.mark.parametrize("auto", [True, False])
+def test_encoder_large_ints(cls, kind, auto):
+    """Scikit-Learn supports large ints in object dtype arrays
+    as inputs to OneHotEncoder/OrdinalEncoder, while cuml doesn't.
+    Here we check that we properly fallback."""
+    a = 44253463435747313673
+    b = 44253462342215747313673
+    c = 9867966753463435747313673
+    X = np.array([a, c, b, a], dtype="O").reshape(-1, 1)
+
+    if kind == "list":
+        X = X.tolist()
+    elif kind == "pandas":
+        X = pd.DataFrame(X)
+
+    if auto:
+        cats = "auto"
+    else:
+        cats = [[a, b, c]]
+        if kind == "numpy":
+            cats = [np.array(c, dtype="O") for c in cats]
+        elif kind == "pandas":
+            cats = [pd.Series(c, dtype="O") for c in cats]
+
+    if cls == OneHotEncoder:
+        enc = cls(categories=cats, sparse_output=False)
+        sol = np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
+    else:
+        enc = cls(categories=cats)
+        sol = np.array([[0], [2], [1], [0]])
+
+    enc.fit(X)
+    np.testing.assert_array_equal(enc.categories_[0], [a, b, c])
+    Xt = enc.transform(X)
+    np.testing.assert_array_equal(Xt, sol)
+
+
 def test_label_encoder():
     y = np.array(["a", "b", "a", "b"])
     enc = LabelEncoder()
