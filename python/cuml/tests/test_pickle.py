@@ -459,7 +459,8 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 
 @pytest.mark.parametrize("algorithm", ["brute", "rbc", "ivfpq", "ivfflat"])
 def test_nearest_neighbors_pickle(algorithm):
-    X, _ = make_blobs(n_features=3, n_samples=500, random_state=42)
+    # Default IVF-PQ needs 256 training samples and uses half the data.
+    X, _ = make_blobs(n_features=3, n_samples=512, random_state=42)
     model = cuml.NearestNeighbors(algorithm=algorithm)
     model.fit(X)
     model2 = pickle.loads(pickle.dumps(model))
@@ -639,11 +640,6 @@ def test_spectral_clustering_pickle(tmpdir, datatype, keys, data_size):
     "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
 )
 @pytest.mark.parametrize("prediction_data", [True, False])
-@pytest.mark.xfail(
-    reason="Intermittent HDBSCAN pickle array mismatch (see #8752)",
-    raises=AssertionError,
-    strict=False,
-)
 def test_hdbscan_pickle(tmpdir, datatype, keys, data_size, prediction_data):
     result = {}
     from cuml.cluster.hdbscan import (

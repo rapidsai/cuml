@@ -2699,13 +2699,13 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
                     std::int64_t{0},  // sample_offset
                     params.n_features,
                     params.k,
-                    stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+                    stream.get());
+    stream.sync();
 
     // Copy colids back to host for duplicate checking and bias counting
     std::vector<std::int64_t> h_colids(sampled_col_count);
     raft::update_host(h_colids.data(), d_colids.data(), sampled_col_count, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    stream.sync();
 
     std::vector<unsigned long long> h_counts(feature_count, 0);
 
