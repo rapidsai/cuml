@@ -131,6 +131,8 @@ test = [
     "pytest-cov",
     "pytest-xdist",
     "pyyaml",
+    "rfc3339-validator",
+    "rfc3986-validator",
     "scikit-learn>=1.6",
     "seaborn",
     "shap",
