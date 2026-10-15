@@ -680,19 +680,46 @@ def test_complement_array_alpha_matches_sklearn(is_sparse, alpha_type):
     )
 
 
-def test_complement_array_alpha_issue_8642():
-    """Exact reproducer from the linked issue."""
-    X = cp.array([[1, 2], [3, 4], [5, 6]], dtype=cp.float64)
-    y = cp.array([0, 1, 0])
-    alpha = np.array([1.0, 2.0])
-    X_test = cp.array([[1, 2]], dtype=cp.float64)
+@pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
+def test_complement_array_alpha_preserves_fraction_with_integer_dtype(x_dtype):
+    """Array alpha must stay fractional even when X (and therefore
+    feature_count_) has an integer dtype: coercing alpha to that same
+    integer dtype would silently truncate it, corrupting smoothing."""
+    X, y = make_classification(
+        200,
+        5,
+        n_classes=3,
+        n_informative=4,
+        n_redundant=0,
+        random_state=2,
+        dtype=cp.float64,
+    )
+    X -= X.min(0)  # Make all inputs positive
+    X = X.astype(x_dtype)
+    alpha = np.array([0.5, 1.5, 2.5, 0.1, 3.5])
+    classes = cp.unique(y)
+    half = len(y) // 2
 
-    pred = ComplementNB(alpha=alpha).fit(X, y).predict(X_test)
-    sk_pred = (
-        skComplementNB(alpha=alpha).fit(X.get(), y.get()).predict(X_test.get())
+    model = ComplementNB(alpha=alpha)
+    model.partial_fit(X[:half], y[:half], classes=classes)
+    model.partial_fit(X[half:], y[half:])
+
+    sk_model = skComplementNB(alpha=alpha)
+    sk_model.partial_fit(X[:half].get(), y[:half].get(), classes=classes.get())
+    sk_model.partial_fit(X[half:].get(), y[half:].get())
+
+    assert_array_equal(model.predict(X).get(), sk_model.predict(X.get()))
+    assert_allclose(
+        model.predict_log_proba(X).get(),
+        sk_model.predict_log_proba(X.get()),
+        rtol=1e-4,
+        atol=1e-8,
     )
 
-    assert cp.asnumpy(pred)[0] == sk_pred[0] == 1
+    # update_log_probs() recomputes from feature_count_ (integer-dtype
+    # here) directly; must not truncate alpha either.
+    model.update_log_probs()
+    assert_array_equal(model.predict(X).get(), sk_model.predict(X.get()))
 
 
 def test_complement_array_alpha_partial_fit():

@@ -48,6 +48,14 @@ def _count_classes(y, n_classes, dtype):
     return cp.bincount(y, minlength=n_classes).astype(dtype, copy=False)
 
 
+def _alpha_dtype(dtype):
+    """dtype to coerce an array-valued alpha to: `dtype` itself, unless
+    it's integral, in which case `float64` — alpha is a fractional
+    smoothing value and must not be silently truncated.
+    """
+    return np.float64 if np.issubdtype(dtype, np.integer) else dtype
+
+
 class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
     """A base class for all naive-bayes estimators"""
 
@@ -585,14 +593,14 @@ class _BaseDiscreteNB(_BaseNB):
         tags.classifier_tags.poor_score = True
         return tags
 
-    def _check_alpha(self, n_features):
-        """Validate `self.alpha`. Overridden by `ComplementNB` to also
-        accept a per-feature array; every other subclass gets this
-        scalar-only check unchanged.
+    def _check_alpha(self, alpha, n_features):
+        """Validate a nonnegative scalar `alpha` and return it
+        unchanged. `ComplementNB` overrides this to also accept a
+        per-feature array.
         """
-        if self.alpha < 0:
-            raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
-        return self.alpha
+        if alpha < 0:
+            raise ValueError(f"Expected alpha >= 0, got {alpha}")
+        return alpha
 
     def _update_class_log_prior(self, class_prior=None):
         if class_prior is not None:
@@ -671,11 +679,11 @@ class _BaseDiscreteNB(_BaseNB):
             reset=reset,
         )
 
-        alpha = self._check_alpha(X.shape[1])
+        alpha = self._check_alpha(self.alpha, X.shape[1])
         self._alpha_ = (
             alpha
             if isinstance(alpha, Real)
-            else cp.asarray(alpha, dtype=X.dtype)
+            else cp.asarray(alpha, dtype=_alpha_dtype(X.dtype))
         )
 
         if reset:
@@ -724,11 +732,12 @@ class _BaseDiscreteNB(_BaseNB):
         can be updated incrementally without incurring this cost each
         time.
         """
-        alpha = self._check_alpha(self.n_features_)
+        alpha = self._check_alpha(self.alpha, self.n_features_)
         if isinstance(alpha, Real):
             self._alpha_ = alpha
         else:
-            self._alpha_ = cp.asarray(alpha, dtype=self.feature_count_.dtype)
+            dtype = _alpha_dtype(self.feature_count_.dtype)
+            self._alpha_ = cp.asarray(alpha, dtype=dtype)
         self._update_feature_log_prob(self._alpha_)
         self._update_class_log_prior(class_prior=self.class_prior)
 
@@ -1133,21 +1142,13 @@ class ComplementNB(_BaseDiscreteNB):
         tags.input_tags.positive_only = True
         return tags
 
-    def _check_alpha(self, n_features):
-        """Validate `self.alpha`: a scalar, or an array-like of shape
-        `(n_features,)`, finite and >= 0. Returns the original scalar,
-        or a plain host-side array — coercing it to a GPU array with
-        the right dtype is left to the caller.
+    def _check_alpha(self, alpha, n_features):
+        """Validate `alpha`: a scalar, or an array-like of shape
+        `(n_features,)`, finite and >= 0. Returns the validated value.
         """
-        if isinstance(self.alpha, Real):
-            alpha = self.alpha
-        else:
+        if not isinstance(alpha, Real):
             # cp.ndarray can't be passed to np.asarray directly; unwrap.
-            alpha = (
-                self.alpha.get()
-                if isinstance(self.alpha, cp.ndarray)
-                else self.alpha
-            )
+            alpha = alpha.get() if isinstance(alpha, cp.ndarray) else alpha
             alpha = np.asarray(alpha)
             if alpha.ndim == 0:
                 alpha = alpha.item()  # e.g. np.array(1.5) is just a scalar
