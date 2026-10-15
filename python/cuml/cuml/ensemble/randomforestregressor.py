@@ -192,7 +192,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         )
 
     @nvtx.annotate(
-        message="fit RF-Regressor @randomforestregressor.pyx",
+        message="fit RF-Regressor @randomforestregressor.py",
         domain="cuml_python",
     )
     @generate_docstring()
@@ -218,7 +218,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         )
 
     @nvtx.annotate(
-        message="predict RF-Regressor @randomforestclassifier.pyx",
+        message="predict RF-Regressor @randomforestregressor.py",
         domain="cuml_python",
     )
     @insert_into_docstring(
@@ -278,7 +278,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         return preds
 
     @nvtx.annotate(
-        message="score RF-Regressor @randomforestclassifier.pyx",
+        message="score RF-Regressor @randomforestregressor.py",
         domain="cuml_python",
     )
     @insert_into_docstring(

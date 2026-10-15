@@ -153,8 +153,8 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
     Notes
     -----
 
-    For additional docs, see `scikitlearn's KNeighborsClassifier
-    <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
+    For additional docs, see `scikitlearn's KNeighborsRegressor
+    <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsRegressor.html>`_.
     """
     _cpu_class_path = "sklearn.neighbors.KNeighborsRegressor"
 

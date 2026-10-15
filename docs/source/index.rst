@@ -10,9 +10,9 @@ automatically accelerate existing code with zero code changes.
 cuML delivers on average **10-50x faster performance** than CPU-based
 alternatives for realistic workloads and supports **50+ algorithms** across all
 major machine learning categories, including clustering, regression,
-classification, dimensionality reduction, and time series analysis. With
-comprehensive **multi-GPU and multi-node support** via Dask, cuML scales from
-single workstations to large clusters.
+classification, and dimensionality reduction. With comprehensive **multi-GPU
+and multi-node support** via Dask, cuML scales from single workstations to
+large clusters.
 
 Especially if your scikit-learn, umap-learn, or hdbscan workflows take many
 minutes to complete, you will likely benefit from using cuML. The equivalent
@@ -49,18 +49,18 @@ Installation
 ============
 
 cuML is available through conda and pip. For detailed installation instructions,
-visit the `RAPIDS Release Selector <https://docs.nvidia.com/datascience/install#selector>`_.
+visit the `install guide <https://docs.nvidia.com/datascience/install#selector>`_.
 
 .. note::
    cuML is only supported on Linux operating systems and WSL 2. See
-   `the RAPIDS install page <https://docs.nvidia.com/datascience/install/#system-req>`_
+   `the install page <https://docs.nvidia.com/datascience/install/#system-req>`_
    for details on system and hardware requirements.
 
 CUDA-X Data Science
 ===================
 
-NVIDIA cuML is an open-source CUDA-X Data Science library for GPU-accelerated
-machine learning. It integrates with libraries in the broader RAPIDS ecosystem,
+NVIDIA cuML is an open-source library for GPU-accelerated machine learning. It
+integrates with libraries in the broader CUDA-X Data Science ecosystem,
 including cuDF for data manipulation and cuGraph for graph analytics.
 
 Community & Support
@@ -80,4 +80,3 @@ Community & Support
    Zero Code Change Acceleration <cuml-accel/index.rst>
    api/index
    developer_guide/index
-   cuml_blogs.rst

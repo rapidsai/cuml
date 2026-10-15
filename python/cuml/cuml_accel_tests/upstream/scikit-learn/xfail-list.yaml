@@ -38,6 +38,13 @@
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_matrix-False-0.01-True-ElasticNet]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_random_descent[csr_array]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_random_descent[csr_matrix]"
+- reason: HDBSCAN label-equality mismatch (see https://github.com/NVIDIA/cuml/issues/8752)
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.cluster.tests.test_hdbscan::test_hdbscan_sparse[csr_array]"
+  - "sklearn.cluster.tests.test_hdbscan::test_hdbscan_sparse[csr_matrix]"
+  - "sklearn.cluster.tests.test_hdbscan::test_outlier_data[infinite]"
+  - "sklearn.cluster.tests.test_hdbscan::test_outlier_data[missing]"
 - reason: IsolationForest GPU inference is expected to bypass scikit-learn CPU chunking internals
   marker: cuml_accel_bugs
   tests:
@@ -1036,6 +1043,14 @@
 - reason: Ridge doesn't implement n_iter yet
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_n_iter"
+- reason: Ridge solver consistency has small numerical deviations on H100 (#8716)
+  condition: scikit-learn>=1.6,<1.8
+  strict: false
+  tests:
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[seed0-20-float32-0.1-cholesky-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[seed0-20-float32-0.1-sag-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[seed0-20-float32-0.1-saga-None]"
+  - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[seed0-20-float32-0.1-sparse_cg-None]"
 - reason: Ridge tests too strict of tolerances due to solver differences
   condition: scikit-learn>=1.8
   strict: false
@@ -1064,6 +1079,11 @@
   strict: false
   tests:
   - "sklearn.neighbors.tests.test_neighbors_pipeline::test_spectral_embedding"
+- reason: Temperature scaling has a small numerical deviation on H100 (#8717)
+  condition: scikit-learn>=1.8,<1.9
+  strict: false
+  tests:
+  - "sklearn.tests.test_calibration::test_temperature_scaling[False-5]"
 - reason: Test fails due to slightly too strict tolerances
   strict: false
   tests:

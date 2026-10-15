@@ -136,7 +136,7 @@ def test_multi_reps():
 
 
 def test_accuracy_runner():
-    # Set up data that should deliver accuracy of 0.20 if all goes right
+    # Set up data that should deliver accuracy of 0.80 if all goes right
     class MockAlgo:
         def fit(self, X, y):
             return

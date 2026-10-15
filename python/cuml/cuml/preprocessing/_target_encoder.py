@@ -234,7 +234,7 @@ class TargetEncoder(InteropMixin, Base):
         Simultaneously fit and transform an input
 
         This is functionally equivalent to (but faster than)
-        `TargetEncoder().fit(y).transform(y)`
+        `TargetEncoder().fit(X, y).transform(X)`
 
         Parameters
         ----------
