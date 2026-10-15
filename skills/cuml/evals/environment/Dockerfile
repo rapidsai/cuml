@@ -10,9 +10,10 @@
 FROM python:3.12-slim
 
 # GPU access: only takes effect when Docker's default runtime is nvidia (see the developer
-# guide). Set the device to a GPU on the evaluation machine (`nvidia-smi -L`); without the
-# nvidia default runtime this line is ignored and trials run without a GPU.
-ENV NVIDIA_VISIBLE_DEVICES=<pin to UUID of your GPU> \
+# guide). Adjust NVIDIA_VISIBLE_DEVICES as needed to select a GPU index or UUID on the
+# evaluation machine (`nvidia-smi -L`). Without the nvidia default runtime this line is
+# ignored and trials run without a GPU.
+ENV NVIDIA_VISIBLE_DEVICES=0 \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 RUN pip install --no-cache-dir \
