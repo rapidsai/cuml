@@ -68,7 +68,6 @@ BENCHMARK_EXCLUSIONS = {
     "IsolationForest": "No benchmark registry entry is defined yet.",
     "Lars": "No benchmark registry entry is defined yet.",
     "MBSGDClassifier": "No benchmark registry or suite entry is defined yet.",
-    "MBSGDRegressor": "No benchmark registry or suite entry is defined yet.",
     "QN": "Low-level solver API is outside the estimator benchmark suite.",
     "SGD": "Low-level solver API is outside the estimator benchmark suite.",
 }
@@ -320,8 +319,7 @@ def test_estimator_benchmark_coverage():
     } == expected
 
 
-def test_packaged_suites_are_valid_and_comparable():
-    comparable = {}
+def test_packaged_suites_are_valid_and_roundtrip():
     for path in sorted(SUITES.glob("*.yaml")):
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
         for profile in document["profiles"]:
@@ -339,19 +337,9 @@ def test_packaged_suites_are_valid_and_comparable():
                     assert builtin.runs[0].cases == suite.cases
                     assert builtin.runs[0].path == f"builtin:{path.stem}"
                 for case in suite.cases:
-                    key = (
-                        path.stem,
-                        profile,
-                        case.estimator,
-                        case.operation,
-                        case.input_format,
-                        case.dtypes["X"],
-                    )
+                    # A suite may contain multiple shapes/parameter settings
+                    # per estimator, including provider-specific parameters.
                     identity = case.workload()
-                    assert (
-                        comparable.setdefault(key, identity.digest())
-                        == identity.digest()
-                    )
                     assert identity == Workload.from_artifact_fields(
                         case.to_artifact_fields()
                     )

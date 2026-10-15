@@ -7,6 +7,9 @@ from ..backends import get_backend
 from .base import EstimatorSpec, Provider
 
 CATALOG = {
+    "MBSGDRegressor": EstimatorSpec(
+        "cuml.linear_model", "MBSGDRegressor", "cuml"
+    ),
     "KMeans": EstimatorSpec("cuml.cluster", "KMeans", "cuml"),
     "DBSCAN": EstimatorSpec("cuml.cluster", "DBSCAN", "cuml"),
     "SpectralClustering": EstimatorSpec(
