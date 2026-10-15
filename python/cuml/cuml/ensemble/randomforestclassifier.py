@@ -250,7 +250,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         self.class_weight = class_weight
 
     @nvtx.annotate(
-        message="fit RF-Classifier @randomforestclassifier.pyx",
+        message="fit RF-Classifier @randomforestclassifier.py",
         domain="cuml_python",
     )
     @generate_docstring(y="dense_intdtype")
@@ -296,7 +296,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         return X, y, sample_weight
 
     @nvtx.annotate(
-        message="predict RF-Classifier @randomforestclassifier.pyx",
+        message="predict RF-Classifier @randomforestclassifier.py",
         domain="cuml_python",
     )
     @insert_into_docstring(
@@ -446,7 +446,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         return out
 
     @nvtx.annotate(
-        message="score RF-Classifier @randomforestclassifier.pyx",
+        message="score RF-Classifier @randomforestclassifier.py",
         domain="cuml_python",
     )
     @insert_into_docstring(
