@@ -1,9 +1,11 @@
 # Comparing cuML with scikit-learn
 
-cuML aims for comparable model quality, not identical numbers. A fixed `random_state` makes
-cuML reproducible with itself, but does not make it match scikit-learn
-([#8631](https://github.com/NVIDIA/cuml/issues/8631)). Before calling a difference a bug,
-compare the right metric (below) and check the expected differences listed here.
+cuML aims for comparable model quality, not identical numbers. Reproducibility with a fixed
+`random_state` is estimator-dependent; TSNE, for example, can vary even with the same seed.
+For estimators that guarantee reproducibility, a fixed seed still does not make their results
+match scikit-learn ([#8631](https://github.com/NVIDIA/cuml/issues/8631)). Before calling a
+difference a bug, compare the right metric (below) and check the expected differences listed
+here.
 
 ## Compare quality, not fitted values
 
