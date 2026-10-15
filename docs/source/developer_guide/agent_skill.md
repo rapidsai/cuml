@@ -66,9 +66,8 @@ context without improving answers.
 ```
 
 `expected_output` describes a correct answer; each assertion is one checkable statement an LLM
-judge evaluates against the agent's transcript. Extra fields are kept as metadata: `source`
-(`brian` for the original cases, `probe` for cases from a no-skill probe of Claude models),
-`track`, and for probe cases `probe_verdicts`, the grades models received without the skill
+judge evaluates against the agent's transcript. Extra fields are kept as metadata: `track`
+and, for probe cases, `probe_verdicts`, the grades models received without the skill
 (C correct, P partly wrong, W wrong).
 
 Good cases are ones where agents without the skill fail: removed APIs, silent fallbacks, new
