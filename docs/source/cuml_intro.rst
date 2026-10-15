@@ -104,8 +104,8 @@ Performance gains vary by algorithm and dataset size:
    enough data to keep the GPU busy. Expect larger performance gains as dataset
    size grows.
 
-The :doc:`cuml.benchmark <api/cuml.benchmark>` module provides an easy interface
-to benchmark your own hardware.
+The :doc:`benchmarking guide <developer_guide/benchmarking>` explains how to
+benchmark your own hardware.
 
 
 What's Next
