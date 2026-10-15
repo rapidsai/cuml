@@ -12,12 +12,30 @@ jobs:
   pr-builder:
     needs:
       - build-details
+      - check-nightly-ci
       - changed-files
       - checks
+      - clang-tidy
+      - conda-cpp-build
+      - conda-cpp-tests
+      - conda-cpp-checks
+      - conda-python-build
+      - conda-python-tests-singlegpu
+      - conda-python-tests-dask
+      - conda-python-tests-cudf-pandas-integration
+      - conda-python-scikit-learn-accel-tests
+      - conda-python-cuml-accel-upstream-tests
+      - conda-notebook-tests
+      - docs-build
+      - docs-build-matrix
+      - publish-api-docs
       - telemetry-setup
       - wheel-build-libcuml
       - wheel-build-cuml
+      - wheel-tests-cuml
       - wheel-tests-cuml-nightly-dependencies-versions
+      - wheel-tests-cuml-dask
+      - devcontainer
     permissions:
       actions: read
       contents: read
