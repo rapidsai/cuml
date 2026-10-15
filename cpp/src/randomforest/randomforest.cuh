@@ -85,7 +85,6 @@ class RowSampler {
       distributed_(raft::resource::comms_initialized(handle) && handle.get_comms().get_size() > 1),
       rank_(distributed_ ? handle.get_comms().get_rank() : 0),
       comm_size_(distributed_ ? handle.get_comms().get_size() : 1),
-      local_sample_weight_sum_(0.0),
       sample_weight_sum_(0.0),
       sample_weight_cdf_(0, handle.get_stream())
   {
@@ -165,7 +164,7 @@ class RowSampler {
                                     weighted_draw_scratch.data(),
                                     weighted_draw_scratch.size(),
                                     0.0,
-                                    local_sample_weight_sum_);
+                                    rank_sample_weight_sums_[rank_]);
       thrust::upper_bound(rmm::exec_policy(stream),
                           sample_weight_cdf_.data(),
                           sample_weight_cdf_.data() + n_rows_,
@@ -276,32 +275,31 @@ class RowSampler {
   // ranks.
   void compute_global_sample_weights(const raft::handle_t& handle)
   {
+    double local_sample_weight_sum{0.0};
+    auto stream = handle.get_stream().get();
     if (n_rows_ > 0) {
       if (use_weighted_bootstrap()) {
-        raft::update_host(&local_sample_weight_sum_,
-                          sample_weight_cdf_.data() + n_rows_ - 1,
-                          1,
-                          handle.get_stream());
-        handle.sync_stream();
+        raft::update_host(
+          &local_sample_weight_sum, sample_weight_cdf_.data() + n_rows_ - 1, 1, stream);
+        handle.sync_stream(stream);
       } else {
-        local_sample_weight_sum_ = thrust::reduce(
-          rmm::exec_policy(handle.get_stream()), sample_weight_, sample_weight_ + n_rows_, 0.0);
+        local_sample_weight_sum =
+          thrust::reduce(rmm::exec_policy(stream), sample_weight_, sample_weight_ + n_rows_, 0.0);
       }
     }
 
     if (!distributed_) {
-      sample_weight_sum_       = local_sample_weight_sum_;
-      rank_sample_weight_sums_ = {local_sample_weight_sum_};
+      sample_weight_sum_       = local_sample_weight_sum;
+      rank_sample_weight_sums_ = {local_sample_weight_sum};
       return;
     }
 
-    auto stream = handle.get_stream().get();
     rmm::device_uvector<double> local_weight_sum(1, stream);
     rmm::device_uvector<double> rank_weight_sums(comm_size_, stream);
-    raft::update_device(local_weight_sum.data(), &local_sample_weight_sum_, 1, stream);
+    raft::update_device(local_weight_sum.data(), &local_sample_weight_sum, 1, stream);
     handle.get_comms().allgather(local_weight_sum.data(), rank_weight_sums.data(), 1, stream);
     ASSERT(handle.get_comms().sync_stream(stream) == raft::comms::status_t::SUCCESS,
-           "An error occurred in the distributed RF weight-sum all-gather.");
+           "An error occurred in the distributed RF weight-sum allgather.");
 
     rank_sample_weight_sums_.resize(comm_size_);
     raft::update_host(
@@ -384,7 +382,6 @@ class RowSampler {
   bool distributed_;
   int rank_;
   int comm_size_;
-  double local_sample_weight_sum_;
   double sample_weight_sum_;
   std::vector<double> rank_sample_weight_sums_;
   rmm::device_uvector<double> sample_weight_cdf_;
