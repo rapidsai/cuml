@@ -32,6 +32,7 @@ _SKLEARN_ESTIMATORS = (
     "MinMaxScaler",
     "NearestNeighbors",
     "OneHotEncoder",
+    "OrdinalEncoder",
     "PCA",
     "PolynomialFeatures",
     "RandomForestClassifier",

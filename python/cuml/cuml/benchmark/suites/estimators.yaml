@@ -599,7 +599,7 @@ cases:
     parameters: {}
 
   - estimator: OrdinalEncoder
-    providers: [cuml, scikit-learn, cuml.dask]
+    providers: [cuml, scikit-learn, cuml.accel, cuml.dask]
     dataset:
       generator: categorical
       shape:
