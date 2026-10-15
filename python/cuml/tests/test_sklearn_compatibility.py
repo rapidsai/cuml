@@ -257,7 +257,6 @@ XFAILS = {
     },
     TargetEncoder: {
         "check_dont_overwrite_parameters": "Fitted attributes without a leading/trailing `_` used",
-        "check_dict_unchanged": "Fitted attributes without a leading/trailing `_` used",
     },
 }
 

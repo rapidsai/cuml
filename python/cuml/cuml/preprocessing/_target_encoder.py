@@ -341,7 +341,7 @@ class TargetEncoder(InteropMixin, Base):
             test[out_col_i] = test[out_col_i].fillna(self.y_stat_val)
             result_cols.append(out_col_i)
 
-        test = test.sort_values("id")
+        test = test.sort_values("id").reset_index(drop=True)
         res = test[result_cols].to_cupy()
         return res
 
@@ -497,7 +497,7 @@ class TargetEncoder(InteropMixin, Base):
             result_cols.append(out_col_i)
 
         # Sort by original index and return results
-        df = df.sort_values("id")
+        df = df.sort_values("id").reset_index(drop=True)
         res = df[result_cols].to_cupy()
         return res, df
 
@@ -638,7 +638,6 @@ class TargetEncoder(InteropMixin, Base):
             return False
         if len(df) != len(self.train):
             return False
-        self.train = self.train.sort_values("id").reset_index(drop=True)
         for col in df.columns:
             if not (df[col] == self.train[col]).all():
                 return False
