@@ -113,9 +113,6 @@ class RowSampler {
       selected_rows_.emplace_back(initial_sample_count, stream);
       if (use_weighted_bootstrap()) {
         weighted_draw_scratch_.emplace_back(initial_sample_count, stream);
-        if (distributed_) {
-          rank_sample_count_scratch_.emplace_back(ML::narrow_cast<std::size_t>(comm_size_), stream);
-        }
       }
     }
   }
@@ -130,7 +127,7 @@ class RowSampler {
     auto& selected_rows            = selected_rows_[stream_id];
     std::int64_t tree_sample_count = n_sampled_rows_;
     if (distributed_ && use_weighted_bootstrap()) {
-      tree_sample_count           = distributed_sample_count(tree_id, stream_id, stream);
+      tree_sample_count           = compute_rank_sample_counts(tree_id, stream);
       auto tree_sample_count_size = ML::narrow_cast<std::size_t>(tree_sample_count);
       selected_rows.resize(tree_sample_count_size, stream);
       weighted_draw_scratch_[stream_id].resize(tree_sample_count_size, stream);
@@ -226,9 +223,10 @@ class RowSampler {
   // Rank 0 will draw from the multinomial distribution (comm_size_) times, and then
   // broadcast the sample count to all ranks. The function will then return the rank-local
   // sample count.
-  std::int64_t distributed_sample_count(int tree_id, int stream_id, cudaStream_t stream)
+  std::int64_t compute_rank_sample_counts(int tree_id, cudaStream_t stream)
   {
-    auto& device_counts = rank_sample_count_scratch_[stream_id];
+    rmm::device_uvector<std::int64_t> device_counts(ML::narrow_cast<std::size_t>(comm_size_),
+                                                    stream);
     if (rank_ == 0) {
       std::vector<std::int64_t> host_counts(comm_size_, 0);
       auto rs = DT::fnv1a32_hash(seed_, tree_id, std::uint32_t{0x414c4c4f});
@@ -387,7 +385,6 @@ class RowSampler {
   rmm::device_uvector<double> sample_weight_cdf_;
   std::deque<rmm::device_uvector<std::int64_t>> selected_rows_;
   std::deque<rmm::device_uvector<double>> weighted_draw_scratch_;
-  std::deque<rmm::device_uvector<std::int64_t>> rank_sample_count_scratch_;
 };
 }  // namespace detail
 
