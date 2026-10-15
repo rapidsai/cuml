@@ -49,10 +49,7 @@ def _count_classes(y, n_classes, dtype):
 
 
 def _alpha_dtype(dtype):
-    """dtype to coerce an array-valued alpha to: `dtype` itself, unless
-    it's integral, in which case `float64` — alpha is a fractional
-    smoothing value and must not be silently truncated.
-    """
+    """Preserve fractional alpha values when the target dtype is integral."""
     return np.float64 if np.issubdtype(dtype, np.integer) else dtype
 
 
@@ -594,10 +591,7 @@ class _BaseDiscreteNB(_BaseNB):
         return tags
 
     def _check_alpha(self, alpha, n_features):
-        """Validate a nonnegative scalar `alpha` and return it
-        unchanged. `ComplementNB` overrides this to also accept a
-        per-feature array.
-        """
+        """Validate and return a nonnegative scalar alpha."""
         if alpha < 0:
             raise ValueError(f"Expected alpha >= 0, got {alpha}")
         return alpha
@@ -1143,9 +1137,7 @@ class ComplementNB(_BaseDiscreteNB):
         return tags
 
     def _check_alpha(self, alpha, n_features):
-        """Validate `alpha`: a scalar, or an array-like of shape
-        `(n_features,)`, finite and >= 0. Returns the validated value.
-        """
+        """Validate and return finite, nonnegative scalar or per-feature alpha."""
         if not isinstance(alpha, Real):
             # cp.ndarray can't be passed to np.asarray directly; unwrap.
             alpha = alpha.get() if isinstance(alpha, cp.ndarray) else alpha
