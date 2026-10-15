@@ -290,14 +290,25 @@ if missing := set(XFAILS).difference((type(est) for est in ESTIMATORS)):
 @pytest.mark.filterwarnings("ignore:The number of bins.*:UserWarning")
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_sklearn_compatible_estimator(estimator, check):
+    check_name = estimator_checks._get_check_estimator_ids(check)
+
     if isinstance(estimator, RandomForestRegressor) and (
-        estimator_checks._get_check_estimator_ids(check)
-        == "check_regressor_data_not_an_array"
+        check_name == "check_regressor_data_not_an_array"
     ):
         pytest.skip(
             "Predictions from repeated fits are nondeterministic; see "
             "https://github.com/NVIDIA/cuml/issues/8457"
         )
+
+    if (
+        isinstance(estimator, SpectralEmbedding)
+        and check_name == "check_f_contiguous_array_estimator"
+    ):
+        pytest.skip(
+            "SpectralEmbedding may fail on the input used in this test; "
+            "see https://github.com/NVIDIA/cuml/issues/8782"
+        )
+
     check(estimator)
 
 
