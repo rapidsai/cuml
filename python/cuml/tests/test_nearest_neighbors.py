@@ -143,7 +143,8 @@ def test_self_neighboring(datatype, metric_p, nrows):
 @pytest.mark.parametrize(
     "nrows,ncols,n_neighbors,n_clusters",
     [
-        (500, 128, 10, 2),
+        # Default IVF-PQ needs 256 training samples and uses half the data.
+        (512, 128, 10, 2),
         (4301, 128, 10, 2),
         (1000, 128, 50, 2),
         (2233, 1024, 2, 10),
@@ -265,7 +266,8 @@ def test_ivfpq_pred(
     ],
 )
 def test_ann_distances_metrics(algo, metric, request):
-    X, y = make_blobs(n_samples=500, centers=2, n_features=128, random_state=0)
+    # Default IVF-PQ needs 256 training samples and uses half the data.
+    X, y = make_blobs(n_samples=512, centers=2, n_features=128, random_state=0)
 
     cu_knn = cuKNN(algorithm=algo, metric=metric)
     cu_knn.fit(X)
@@ -509,7 +511,8 @@ def test_knn_graph_duplicate_point():
 @pytest.mark.parametrize("algorithm", ["brute", "rbc", "ivfpq", "ivfflat"])
 def test_knn_graph_algorithm(algorithm):
     n_features = 3 if algorithm == "rbc" else 5
-    X, _ = make_blobs(n_samples=100, n_features=n_features, random_state=42)
+    # Default IVF-PQ needs 256 training samples and uses half the data.
+    X, _ = make_blobs(n_samples=512, n_features=n_features, random_state=42)
 
     sk_knn = skKNN(n_neighbors=5).fit(X.get())
     cu_knn = cuKNN(n_neighbors=5, algorithm=algorithm).fit(X)
