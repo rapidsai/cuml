@@ -19,7 +19,9 @@ recalling them.
 
 - Install from pypi.org: `pip install cuml-cu13` (CUDA 13 driver, >= 580) or `cuml-cu12`.
   No extra index URL is needed. `pip install cuml` installs an unrelated placeholder.
-- Linux only; on Windows use WSL2.
+- Check the [RAPIDS installation guide](https://docs.rapids.ai/install/) for supported
+  GPUs, operating systems, Python versions, CUDA/driver requirements, and install commands.
+  Linux only; on Windows use WSL2.
 - Google Colab GPU runtimes ship cuML preinstalled: check `pip list` before installing anything there.
 - `cuml.accel` runs unmodified scikit-learn / umap-learn / hdbscan code on the GPU and falls
   back to the CPU for anything unsupported. It accelerates RandomForest, LogisticRegression,
