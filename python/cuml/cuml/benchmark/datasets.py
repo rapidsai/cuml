@@ -117,7 +117,9 @@ def resolve_dataset(
         raise ValueError("dataset_parameters keys must be strings")
 
     parameters: dict[str, Any] = {}
-    if dataset == "blobs":
+    if dataset == "categorical":
+        parameters = {"n_categories": 8}
+    elif dataset == "blobs":
         parameters = {"centers": 5, "cluster_std": 1.0}
     elif dataset == "classification":
         parameters = {
@@ -135,7 +137,9 @@ def resolve_dataset(
             f"{', '.join(sorted(unknown))}"
         )
     parameters.update(dataset_parameters)
-    if dataset == "blobs":
+    if dataset == "categorical":
+        _integer(parameters["n_categories"], "n_categories", minimum=2)
+    elif dataset == "blobs":
         _integer(parameters["centers"], "centers")
         _positive_finite(parameters["cluster_std"], "cluster_std")
     elif dataset == "classification":
@@ -194,7 +198,9 @@ def generate_data(case: ResolvedCase) -> tuple[Any, Any]:
         if case.dataset == "positive":
             X = np.abs(X)
         elif case.dataset == "categorical":
-            X = rng.integers(0, 8, size=(rows, case.features))
+            X = rng.integers(
+                0, parameters["n_categories"], size=(rows, case.features)
+            )
             y = rng.integers(0, 2, size=rows)
     dtypes = case.dtypes
     X = np.asarray(X, dtype=dtypes["X"])
