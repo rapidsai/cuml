@@ -63,7 +63,7 @@ $ cmake --build . -j --target  cuml         # Build libcuml
 To build the MultiGPU tests (CMake option `BUILD_CUML_MG_TESTS`), the following dependencies are required:
 
 - MPI (OpenMPI recommended)
-- RAFT distributed dependencies, including NCCL (2.19+) and UCX. See RAFT's build documentation for the current requirements.
+- RAFT distributed dependencies, including NCCL (2.19+) and UCXX/UCX. See RAFT's build documentation for the current requirements.
 
 ### Third Party Modules
 
