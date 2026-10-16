@@ -61,7 +61,9 @@ set +e
 
 # Run linkage test for libcuml
 rapids-logger "Testing libcuml linkage"
-python -m pytest --cache-clear python/libcuml/tests/test_libcuml_linkage.py -v
+python -m pytest --cache-clear python/libcuml/tests/test_libcuml_linkage.py -v \
+  --durations=100 --durations-min=1 \
+  --junitxml="${RAPIDS_TESTS_DIR}/junit-libcuml-linkage.xml"
 
 rapids-logger "pytest cuml single GPU"
 timeout -v --signal=SIGINT --kill-after=60s 1h ./ci/run_cuml_singlegpu_pytests.sh \

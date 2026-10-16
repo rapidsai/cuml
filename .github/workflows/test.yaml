@@ -53,6 +53,7 @@ jobs:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
+      test-report-name: conda-cpp-tests
       script: ci/test_cpp.sh
       sha: ${{ inputs.sha }}
   conda-python-tests-singlegpu:
@@ -69,6 +70,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      test-report-name: conda-python-tests-singlegpu
       script: "ci/test_python_singlegpu.sh"
   conda-python-tests-dask:
     permissions:
@@ -84,6 +86,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      test-report-name: conda-python-tests-dask
       script: "ci/test_python_dask.sh"
   conda-python-scikit-learn-accel-tests:
     permissions:
@@ -99,6 +102,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      test-report-name: conda-python-scikit-learn-accel-tests
       script: "ci/test_python_scikit_learn_tests.sh"
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
       # Add an "intermediate" entry based on the "oldest" entry
@@ -128,6 +132,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      test-report-name: conda-python-cuml-accel-upstream-tests
       script: "ci/test_python_cuml_accel_upstream.sh"
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
       matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
@@ -145,6 +150,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      test-report-name: conda-python-sklearn-examples-tests
       script: "ci/test_python_sklearn_examples.sh"
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
       matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
@@ -179,6 +185,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      test-report-name: wheel-tests-cuml
       script: ci/test_wheel.sh
   wheel-tests-cuml-nightly-dependencies-versions:
     permissions:
@@ -194,6 +201,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      test-report-name: wheel-tests-cuml-nightly-dependencies-versions
       script: ci/test_wheel.sh
       continue-on-error: true
       # Select one amd64 entry with highest CUDA/Python versions and set DEPENDENCIES to "nightly"
@@ -217,6 +225,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      test-report-name: wheel-tests-cuml-dask
       script: ci/test_wheel_dask.sh
   wheel-tests-integrations:
     permissions:
@@ -232,6 +241,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      test-report-name: wheel-tests-integrations
       script: ci/test_wheel_integrations.sh
       # Test all CUDA major versions with latest dependencies and respective latest Python version
       matrix_filter: 'map(select(.DEPENDENCIES == "latest")) | group_by(.CUDA_VER|split(".")|.[0]) | map(max_by(.PY_VER|split(".")|map(tonumber)))'
