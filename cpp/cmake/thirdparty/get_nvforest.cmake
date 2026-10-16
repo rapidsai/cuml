@@ -44,7 +44,7 @@ endfunction()
 # CPM_nvforest_SOURCE=/path/to/local/nvforest
 find_and_configure_nvforest(VERSION          ${CUML_MIN_VERSION_nvforest}
         FORK             chyunsu3
-        PINNED_TAG       20b8dd9ec6487b1d53ed65e2e7232154f3dd4be9
+        PINNED_TAG       3e7aafb9fa04efc80c272dee75238f60fc910324
         EXCLUDE_FROM_ALL ${CUML_EXCLUDE_NVFOREST_FROM_ALL}
         # When PINNED_TAG above doesn't match cuml,
         # force local nvforest clone in build directory
