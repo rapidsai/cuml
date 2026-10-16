@@ -9,8 +9,7 @@ from cuml.internals.validation import check_inputs
 
 
 class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
-    """
-    Implements a Random Forest regressor model which fits multiple decision
+    """Implements a Random Forest regressor model which fits multiple decision
     trees in an ensemble.
 
     .. note:: Note that the underlying algorithm for tree node splits differs
@@ -108,12 +107,10 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
 
         .. versionchanged:: 26.12
 
-            MSE split gains are doubled to match scikit-learn's full-variance
-            normalization. Double an existing positive threshold to preserve
-            previous split decisions, apart from numerical effects; otherwise,
-            retraining may produce larger trees and different predictions.
-            The default ``0.0`` needs no adjustment. Other split criteria
-            are unchanged.
+            MSE split gains now use full variance instead of half variance to match
+            scikit-learn. For all criteria, impurity decrease is now weighted by the
+            node's fraction of the tree's total training weight. Existing positive
+            thresholds may need retuning. The default ``0.0`` needs no adjustment.
 
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
@@ -155,6 +152,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
     When converting to sklearn using `as_sklearn()`, the `feature_importances_` attribute will return
     NaN values. If you need feature importances, save them before conversion:
     `importances = cuml_model.feature_importances_`
+
     """
 
     _cpu_class_path = "sklearn.ensemble.RandomForestRegressor"

@@ -109,6 +109,14 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
     min_impurity_decrease : float (default = 0.0)
         A node will be split if this split induces a decrease of the weighted impurity
         greater than this value.
+
+        .. versionchanged:: 26.12
+
+            Impurity decrease is now weighted by the node's fraction of the
+            tree's total training weight. Positive thresholds may produce
+            smaller trees and different predictions. The default ``0.0``
+            needs no adjustment.
+
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
