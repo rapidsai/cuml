@@ -531,20 +531,12 @@ class TargetEncoder(InteropMixin, Base):
         encode_all.columns = [col, "out"]
         return encode_all
 
-    def _category_encodings(
-        self, encode_all, col, categories, fill_value=None
-    ):
+    def _category_encodings(self, encode_all, col, categories):
         """Encodings of `categories` in order, falling back to the mean.
 
         Uses a merge rather than comparing values so that a missing
         category matches the missing key in `encode_all`.
-
-        `fill_value` overrides the fallback for categories without an
-        encoding; `as_sklearn()` passes `y_stat_val`, which is what cuML
-        itself falls back to.
         """
-        if fill_value is None:
-            fill_value = float(self.mean)
         # A missing category has to be null to match the null key in
         # `encode_all`. `_cats_to_series` hardcodes `nan_as_null=True`
         # (cudf's default) so the behavior doesn't switch when cudf.pandas
@@ -556,7 +548,7 @@ class TargetEncoder(InteropMixin, Base):
             }
         )
         cats = cats.merge(encode_all[[col, "out"]], on=col, how="left")
-        out = cats.sort_values("pos")["out"].fillna(fill_value)
+        out = cats.sort_values("pos")["out"].fillna(float(self.mean))
         return out.to_numpy()
 
     def _make_fold_column(self, n_samples, fold_ids):
@@ -813,45 +805,33 @@ class TargetEncoder(InteropMixin, Base):
     def _attrs_to_cpu(self, model):
         """Convert cuML TargetEncoder attributes to sklearn format.
 
-        sklearn expects independent per-feature encodings. If cuML was fitted
-        in independent mode, we have exact encodings. Multi-feature combination
-        mode cannot be converted to sklearn.
+        sklearn only supports mean-based, independent per-feature encodings.
+        Median/variance statistics and multi-feature combination mode cannot
+        be converted to sklearn.
         """
+        if self.stat != "mean":
+            raise UnsupportedOnCPU(
+                f"`stat={self.stat!r}` is not supported by sklearn TargetEncoder; "
+                "only `stat='mean'` can be converted"
+            )
+
         # Handle categories that may be numpy arrays or cupy arrays
         categories_cpu = []
         for cat in self.categories_:
             categories_cpu.append(cp.asnumpy(cat))
         n_features = len(self.categories_)
 
-        # Use per-feature encodings if available (from independent mode or
-        # sklearn). Combination and median fits set the attribute to an empty
-        # list, so the check has to test its value rather than its presence:
-        # otherwise the single-feature branch and the UnsupportedOnCPU branch
-        # below are both unreachable.
-        fallback = float(self.y_stat_val)
-
-        def _replace_nan(values):
-            # cuML imputes NaN encodings with y_stat_val before using them (see
-            # _impute_to_cupy; the variance of a singleton category is 0/0), so the
-            # exported model has to use the same value: otherwise its transform returns
-            # NaN where cuML returns the imputed statistic.
-            return np.where(np.isnan(values), fallback, values)
-
+        # Combination fits initialize an empty list; only independent fits
+        # and sklearn imports populate per-feature encodings.
         if self._encodings_per_feature:
             encodings_list = [
-                _replace_nan(cp.asnumpy(enc))
-                for enc in self._encodings_per_feature
+                cp.asnumpy(enc) for enc in self._encodings_per_feature
             ]
         elif n_features == 1:
             # Single feature: extract encodings directly (exact conversion)
             encodings_list = [
-                _replace_nan(
-                    self._category_encodings(
-                        self.encode_all,
-                        "X_0",
-                        self.categories_[0],
-                        fill_value=fallback,
-                    )
+                self._category_encodings(
+                    self.encode_all, "X_0", self.categories_[0]
                 )
             ]
         else:
@@ -876,11 +856,7 @@ class TargetEncoder(InteropMixin, Base):
             "encodings_": encodings_list,
             "categories_": categories_cpu,
             "classes_": self.classes_,
-            # sklearn falls back to `target_mean_` for unseen categories while
-            # cuML falls back to `y_stat_val`, so export the statistic cuML
-            # actually uses. Otherwise a model fitted with `stat="median"` or
-            # `stat="var"` silently disagrees with cuML on unseen categories.
-            "target_mean_": fallback,
+            "target_mean_": float(self.mean),
             # sklearn internal attributes needed for transform
             "_infrequent_enabled": False,
             "target_type_": self.target_type_,

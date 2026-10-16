@@ -340,6 +340,111 @@ def test_get_feature_names_out():
     np.testing.assert_array_equal(res, sol)
 
 
+def test_as_sklearn_combination_mode_single_feature():
+    # gh-8745: with a single feature, combination encoding matches sklearn's
+    # per-feature encoding, so the exported model must carry the encodings.
+    X = np.array([["a"], ["b"], ["a"], ["b"]], dtype=object)
+    y = np.array([1.5, 2.0, 3.0, 4.0])
+    X_new = np.array([["a"], ["b"]], dtype=object)
+
+    encoder = TargetEncoder(output_type="numpy")
+    encoder.fit(X, y)
+    cuml_encoded = encoder.transform(X_new)
+
+    sklearn_model = encoder.as_sklearn()
+    assert len(sklearn_model.encodings_) == 1
+    np.testing.assert_allclose(
+        sklearn_model.encodings_[0], [2.25, 3.0], rtol=1e-6
+    )
+    assert array_equal(sklearn_model.transform(X_new), cuml_encoded)
+
+
+@pytest.mark.parametrize("stat", ["median", "var"])
+@pytest.mark.parametrize("multi_feature_mode", ["combination", "independent"])
+@pytest.mark.parametrize("n_features", [1, 2])
+def test_as_sklearn_non_mean_stat_raises(stat, multi_feature_mode, n_features):
+    X = np.array([["a", "x"], ["b", "y"], ["b", "x"]], dtype=object)[
+        :, :n_features
+    ]
+    y = np.array([0.1, 1.2, 2.3])
+    encoder = TargetEncoder(
+        stat=stat, multi_feature_mode=multi_feature_mode, smooth=0
+    ).fit(X, y)
+
+    with pytest.raises(UnsupportedOnCPU, match="only `stat='mean'`"):
+        encoder.as_sklearn()
+
+
+def test_as_sklearn_combination_mode_multiple_features_raises():
+    # gh-8745: combination encoding of several features has no sklearn
+    # equivalent, so the conversion must refuse instead of exporting an
+    # empty model.
+    X = np.array(
+        [["a", "x"], ["b", "y"], ["a", "y"], ["b", "x"]], dtype=object
+    )
+    y = np.array([1.5, 2.0, 3.0, 4.0])
+
+    encoder = TargetEncoder().fit(X, y)
+    with pytest.raises(UnsupportedOnCPU):
+        encoder.as_sklearn()
+
+
+def test_as_sklearn_independent_mode():
+    # independent mode already exported correctly and must keep working
+    X = np.array(
+        [["a", "x"], ["b", "y"], ["a", "y"], ["b", "x"]], dtype=object
+    )
+    y = np.array([1.5, 2.0, 3.0, 4.0])
+    X_new = np.array([["a", "y"], ["b", "x"]], dtype=object)
+
+    encoder = TargetEncoder(
+        multi_feature_mode="independent", output_type="numpy"
+    )
+    encoder.fit(X, y)
+    cuml_encoded = encoder.transform(X_new)
+
+    sklearn_model = encoder.as_sklearn()
+    assert len(sklearn_model.encodings_) == 2
+    np.testing.assert_allclose(
+        sklearn_model.transform(X_new), cuml_encoded, rtol=1e-5
+    )
+
+
+@pytest.mark.parametrize("multi_feature_mode", ["combination", "independent"])
+def test_as_sklearn_unseen_category_matches_cuml_fallback(multi_feature_mode):
+    # Mean-mode export preserves both the target mean and unseen fallback.
+    X = np.array([["a"], ["b"], ["a"], ["b"]], dtype=object)
+    y = np.array([0.0, 0.1, 0.2, 10.0])
+    X_unseen = np.array([["unseen"]], dtype=object)
+
+    encoder = TargetEncoder(
+        multi_feature_mode=multi_feature_mode, output_type="numpy"
+    )
+    encoder.fit(X, y)
+    cuml_encoded = encoder.transform(X_unseen)
+
+    sklearn_model = encoder.as_sklearn()
+    assert sklearn_model.target_mean_ == pytest.approx(y.mean())
+    np.testing.assert_allclose(
+        sklearn_model.transform(X_unseen), cuml_encoded, rtol=1e-5
+    )
+
+
+def test_as_sklearn_singleton_variance_raises():
+    # Reject the singleton-variance reproducer rather than export a variance
+    # fallback under sklearn's target_mean_ attribute.
+    X = np.array([["a"], ["b"], ["b"]], dtype=object)
+    y = np.array([0.1, 1.2, 2.3])
+    X_new = np.array([["a"], ["unseen"]], dtype=object)
+
+    encoder = TargetEncoder(stat="var", smooth=0, output_type="numpy")
+    encoder.fit(X, y)
+    np.testing.assert_allclose(encoder.transform(X_new), [[1.21], [1.21]])
+
+    with pytest.raises(UnsupportedOnCPU, match="only `stat='mean'`"):
+        encoder.as_sklearn()
+
+
 def _make_missing_X(values, kind):
     """Build a single-column input with missing values (``None``) in the
     representation given by ``kind``."""
@@ -432,113 +537,22 @@ def test_targetencoder_missing_string_category_is_nan(kind):
     assert isinstance(categories[-1], float) and np.isnan(categories[-1])
 
 
-def test_as_sklearn_combination_mode_single_feature():
-    # gh-8745: with a single feature, combination encoding matches sklearn's
-    # per-feature encoding, so the exported model must carry the encodings.
-    X = np.array([["a"], ["b"], ["a"], ["b"]], dtype=object)
-    y = np.array([1.5, 2.0, 3.0, 4.0])
-    X_new = np.array([["a"], ["b"]], dtype=object)
-
-    encoder = TargetEncoder(output_type="numpy")
-    encoder.fit(X, y)
-    cuml_encoded = encoder.transform(X_new)
-
-    sklearn_model = encoder.as_sklearn()
-    assert len(sklearn_model.encodings_) == 1
-    np.testing.assert_allclose(
-        sklearn_model.encodings_[0], [2.25, 3.0], rtol=1e-6
+@pytest.mark.parametrize("multi_feature_mode", ["combination", "independent"])
+def test_as_sklearn_missing_category_matches_cuml(multi_feature_mode):
+    # Preserve missing-category matching from gh-8698 in supported mean mode.
+    X = np.array([["a"], ["b"], [None], [None]], dtype=object)
+    y = np.array([0.1, 1.2, 2.3, 10.0])
+    X_new = np.array(
+        [["a"], ["b"], [None], [np.nan], ["unseen"]], dtype=object
     )
-    assert array_equal(sklearn_model.transform(X_new), cuml_encoded)
-
-
-def test_as_sklearn_median_stat_single_feature():
-    X = np.array([["a"], ["b"], ["a"], ["b"]], dtype=object)
-    y = np.array([1.5, 2.0, 3.0, 4.0])
-    X_new = np.array([["a"], ["b"]], dtype=object)
-
-    encoder = TargetEncoder(stat="median", output_type="numpy")
-    encoder.fit(X, y)
-    cuml_encoded = encoder.transform(X_new)
-
-    sklearn_model = encoder.as_sklearn()
-    assert len(sklearn_model.encodings_) == 1
-    np.testing.assert_allclose(
-        sklearn_model.encodings_[0], [2.25, 3.0], rtol=1e-6
-    )
-    assert array_equal(sklearn_model.transform(X_new), cuml_encoded)
-
-
-def test_as_sklearn_combination_mode_multiple_features_raises():
-    # gh-8745: combination encoding of several features has no sklearn
-    # equivalent, so the conversion must refuse instead of exporting an
-    # empty model.
-    X = np.array(
-        [["a", "x"], ["b", "y"], ["a", "y"], ["b", "x"]], dtype=object
-    )
-    y = np.array([1.5, 2.0, 3.0, 4.0])
-
-    encoder = TargetEncoder().fit(X, y)
-    with pytest.raises(UnsupportedOnCPU):
-        encoder.as_sklearn()
-
-
-def test_as_sklearn_independent_mode():
-    # independent mode already exported correctly and must keep working
-    X = np.array(
-        [["a", "x"], ["b", "y"], ["a", "y"], ["b", "x"]], dtype=object
-    )
-    y = np.array([1.5, 2.0, 3.0, 4.0])
-    X_new = np.array([["a", "y"], ["b", "x"]], dtype=object)
-
     encoder = TargetEncoder(
-        multi_feature_mode="independent", output_type="numpy"
-    )
-    encoder.fit(X, y)
-    cuml_encoded = encoder.transform(X_new)
+        multi_feature_mode=multi_feature_mode,
+        smooth=0,
+        output_type="numpy",
+    ).fit(X, y)
 
     sklearn_model = encoder.as_sklearn()
-    assert len(sklearn_model.encodings_) == 2
+    assert not np.isnan(sklearn_model.encodings_[0]).any()
     np.testing.assert_allclose(
-        sklearn_model.transform(X_new), cuml_encoded, rtol=1e-5
-    )
-
-
-@pytest.mark.parametrize("stat", ["mean", "median", "var"])
-def test_as_sklearn_unseen_category_matches_cuml_fallback(stat):
-    # gh-8745: cuML falls back to `y_stat_val` for an unseen category, while
-    # sklearn's TargetEncoder falls back to `target_mean_`. The export has to
-    # use the same statistic cuML uses, otherwise a median or variance model
-    # silently disagrees with cuML on unseen categories.
-    X = np.array([["a"], ["b"], ["a"], ["b"]], dtype=object)
-    y = np.array([0.0, 0.1, 0.2, 10.0])
-    X_unseen = np.array([["unseen"]], dtype=object)
-
-    encoder = TargetEncoder(stat=stat, output_type="numpy")
-    encoder.fit(X, y)
-    cuml_encoded = encoder.transform(X_unseen)
-
-    sklearn_model = encoder.as_sklearn()
-    np.testing.assert_allclose(
-        sklearn_model.transform(X_unseen), cuml_encoded, rtol=1e-5
-    )
-
-
-def test_as_sklearn_singleton_category_no_nan_encodings():
-    # gh-8745 (review follow-up): with stat="var" and smooth=0 the variance of a
-    # singleton category is 0/0, i.e. NaN. cuML imputes that with y_stat_val before
-    # using it, so the export has to use the same value instead of copying the NaN:
-    # otherwise the exported model returns NaN where cuML returns the imputed statistic.
-    X = np.array([["a"], ["b"], ["b"]], dtype=object)
-    y = np.array([0.1, 1.2, 2.3])
-    X_new = np.array([["a"], ["unseen"]], dtype=object)
-
-    encoder = TargetEncoder(stat="var", smooth=0, output_type="numpy")
-    encoder.fit(X, y)
-    cuml_encoded = encoder.transform(X_new)
-
-    sklearn_model = encoder.as_sklearn()
-    exported = np.asarray(sklearn_model.encodings_[0], dtype=float)
-    assert not np.isnan(exported).any()
-    np.testing.assert_allclose(
-        sklearn_model.transform(X_new), cuml_encoded, rtol=1e-5
+        sklearn_model.transform(X_new), encoder.transform(X_new), rtol=1e-5
     )
