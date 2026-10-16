@@ -224,7 +224,7 @@ class BaseRandomForestModel(InteropMixin, Base):
             raise UnsupportedOnGPU("`warm_start=True` is not supported")
 
         if model.monotonic_cst is not None:
-            raise UnsupportedOnGPU(f"`monotonic_cst={model.monotonic_cst!r} is not supported")
+            raise UnsupportedOnGPU(f"`monotonic_cst={model.monotonic_cst!r}` is not supported")
 
         if model.ccp_alpha != 0:
             raise UnsupportedOnGPU(f"`ccp_alpha={model.ccp_alpha}` is not supported")
