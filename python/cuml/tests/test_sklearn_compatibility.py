@@ -55,6 +55,7 @@ from cuml.neighbors import (
     KernelDensity,
     KNeighborsClassifier,
     KNeighborsRegressor,
+    LocalOutlierFactor,
     NearestNeighbors,
 )
 from cuml.preprocessing import (
@@ -116,6 +117,8 @@ ESTIMATORS = [
     KNeighborsRegressor(),
     KNeighborsClassifier(),
     KernelDensity(),
+    LocalOutlierFactor(),
+    LocalOutlierFactor(novelty=True),
     EmpiricalCovariance(),
     LedoitWolf(),
     Lars(),
@@ -287,6 +290,9 @@ if missing := set(XFAILS).difference((type(est) for est in ESTIMATORS)):
 )
 @pytest.mark.filterwarnings("ignore:Changing solver to 'svd'.*:UserWarning")
 @pytest.mark.filterwarnings("ignore:The number of bins.*:UserWarning")
+@pytest.mark.filterwarnings(
+    "ignore:n_neighbors.*is greater than the total number of samples.*:UserWarning"
+)
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_sklearn_compatible_estimator(estimator, check):
     check_name = estimator_checks._get_check_estimator_ids(check)
