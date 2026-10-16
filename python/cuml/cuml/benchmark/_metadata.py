@@ -52,48 +52,33 @@ def _read_total_memory_bytes():
 
 def _gpu_hardware_from_nvml():
     try:
-        import pynvml
+        from cuda.core import system
     except ImportError:
         return None
 
     try:
-        pynvml.nvmlInit()
-        device_count = pynvml.nvmlDeviceGetCount()
         devices = []
-        for index in range(device_count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(index)
-            name = pynvml.nvmlDeviceGetName(handle)
-            uuid = pynvml.nvmlDeviceGetUUID(handle)
-            memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            major, minor = pynvml.nvmlDeviceGetCudaComputeCapability(handle)
-            if isinstance(name, bytes):
-                name = name.decode()
-            if isinstance(uuid, bytes):
-                uuid = uuid.decode()
+        for index, device in enumerate(system.Device.get_all_devices()):
+            major, minor = device.cuda_compute_capability
             devices.append(
                 {
                     "index": index,
-                    "name": name,
-                    "uuid": uuid,
-                    "total_memory_bytes": int(memory.total),
+                    "name": device.name,
+                    "uuid": device.uuid,
+                    "total_memory_bytes": int(device.memory_info.total),
                     "compute_capability": f"{major}.{minor}",
                 }
             )
-        driver_version = pynvml.nvmlSystemGetDriverVersion()
-        if isinstance(driver_version, bytes):
-            driver_version = driver_version.decode()
+        driver_version = ".".join(
+            str(part) for part in system.get_kernel_mode_driver_version()
+        )
         return {
-            "count": device_count,
+            "count": len(devices),
             "devices": devices,
             "driver_version": driver_version,
         }
     except Exception as exc:
         return {"error": str(exc)}
-    finally:
-        try:
-            pynvml.nvmlShutdown()
-        except Exception:
-            pass
 
 
 def _gpu_hardware_from_nvidia_smi():
