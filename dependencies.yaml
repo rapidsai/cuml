@@ -676,7 +676,6 @@ dependencies:
           - pyyaml
           - *scikit_learn
           - seaborn
-          - statsmodels
           - umap-learn>=0.5.7,<0.5.13
           - pynndescent
           - lightgbm
