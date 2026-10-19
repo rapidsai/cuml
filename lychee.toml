@@ -3,7 +3,6 @@
 # run from the repository root.
 
 cache = true
-max_cache_age = "3d"
 # Don't cache failures, so the confirmation pass checks them again
 cache_exclude_status = ["400..=599"]
 max_concurrency = 8
