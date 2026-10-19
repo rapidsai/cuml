@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -247,7 +247,7 @@ void approx_knn_build_index(raft::handle_t& handle,
 
   auto ivf_ft_pams = dynamic_cast<IVFFlatParam*>(params);
   auto ivf_pq_pams = dynamic_cast<IVFPQParam*>(params);
-  auto stream      = raft::resource::get_cuda_stream(handle);
+  auto stream      = raft::resource::get_cuda_stream(handle).get();
 
   // For correlation: preprocess (center + normalize), use InnerProduct, then revert
   if (metric == ML::distance::DistanceType::CorrelationExpanded) {
@@ -319,7 +319,7 @@ void approx_knn_search(raft::handle_t& handle,
                        float* query_array,
                        int n)
 {
-  auto stream = raft::resource::get_cuda_stream(handle);
+  auto stream = raft::resource::get_cuda_stream(handle).get();
 
   // Get dimension from index
   int D = index->pimpl->ivf_flat ? index->pimpl->ivf_flat->dim() : index->pimpl->ivf_pq->dim();
@@ -386,7 +386,7 @@ void approx_knn_search(raft::handle_t& handle,
                                  distances,
                                  n * k,
                                  raft::pow_const_op<float>(p),
-                                 raft::resource::get_cuda_stream(handle));
+                                 raft::resource::get_cuda_stream(handle).get());
   }
 
   // Post-process correlation: convert inner product to correlation distance
@@ -405,7 +405,7 @@ void knn_classify(raft::handle_t& handle,
                   int k,
                   float* sample_weight)
 {
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = handle.get_stream().get();
 
   std::vector<rmm::device_uvector<int>> uniq_labels_v;
   std::vector<int*> uniq_labels(y.size());
@@ -442,6 +442,19 @@ void knn_regress(raft::handle_t& handle,
     handle, out, knn_indices, y, n_index_rows, n_query_rows, k, sample_weight);
 }
 
+void knn_regress(raft::handle_t& handle,
+                 double* out,
+                 int64_t* knn_indices,
+                 std::vector<double*>& y,
+                 size_t n_index_rows,
+                 size_t n_query_rows,
+                 int k,
+                 float* sample_weight)
+{
+  MLCommon::Selection::knn_regress(
+    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, sample_weight);
+}
+
 void knn_class_proba(raft::handle_t& handle,
                      std::vector<float*>& out,
                      int64_t* knn_indices,
@@ -451,7 +464,7 @@ void knn_class_proba(raft::handle_t& handle,
                      int k,
                      float* sample_weight)
 {
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = handle.get_stream().get();
 
   std::vector<rmm::device_uvector<int>> uniq_labels_v;
   std::vector<int*> uniq_labels(y.size());

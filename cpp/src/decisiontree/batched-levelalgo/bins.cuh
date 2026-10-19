@@ -1,10 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <raft/util/cuda_utils.cuh>
+
+#include <cuda/std/array>
 
 namespace ML {
 namespace DT {
@@ -30,6 +32,14 @@ struct ClassificationBin {
   }
   HDI BinCountT Count() const { return count; }
   HDI double Weight() const { return static_cast<double>(count); }
+  HDI auto ToReductionBuffer() const
+  {
+    return cuda::std::array<double, 1>{static_cast<double>(count)};
+  }
+  HDI static ClassificationBin FromReductionBuffer(cuda::std::array<double, 1> const& buffer)
+  {
+    return {static_cast<BinCountT>(buffer[0])};
+  }
   HDI ClassificationBin& operator+=(const ClassificationBin& b)
   {
     count += b.count;
@@ -65,6 +75,15 @@ struct WeightedClassificationBin {
   }
   HDI BinCountT Count() const { return count; }
   HDI double Weight() const { return weight; }
+  HDI auto ToReductionBuffer() const
+  {
+    return cuda::std::array<double, 2>{static_cast<double>(count), weight};
+  }
+  HDI static WeightedClassificationBin FromReductionBuffer(
+    cuda::std::array<double, 2> const& buffer)
+  {
+    return {static_cast<BinCountT>(buffer[0]), buffer[1]};
+  }
   HDI WeightedClassificationBin& operator+=(const WeightedClassificationBin& b)
   {
     count += b.count;
@@ -98,6 +117,14 @@ struct RegressionBin {
   HDI double LabelSum() const { return label_sum; }
   HDI BinCountT Count() const { return count; }
   HDI double Weight() const { return static_cast<double>(count); }
+  HDI auto ToReductionBuffer() const
+  {
+    return cuda::std::array<double, 2>{label_sum, static_cast<double>(count)};
+  }
+  HDI static RegressionBin FromReductionBuffer(cuda::std::array<double, 2> const& buffer)
+  {
+    return {buffer[0], static_cast<BinCountT>(buffer[1])};
+  }
   HDI RegressionBin& operator+=(const RegressionBin& b)
   {
     label_sum += b.label_sum;
@@ -137,6 +164,14 @@ struct WeightedRegressionBin {
   HDI double LabelSum() const { return label_sum; }
   HDI BinCountT Count() const { return count; }
   HDI double Weight() const { return weight; }
+  HDI auto ToReductionBuffer() const
+  {
+    return cuda::std::array<double, 3>{label_sum, static_cast<double>(count), weight};
+  }
+  HDI static WeightedRegressionBin FromReductionBuffer(cuda::std::array<double, 3> const& buffer)
+  {
+    return {buffer[0], static_cast<BinCountT>(buffer[1]), buffer[2]};
+  }
   HDI WeightedRegressionBin& operator+=(const WeightedRegressionBin& b)
   {
     label_sum += b.label_sum;

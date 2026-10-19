@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -18,6 +18,7 @@
 #include <treelite/tree.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -246,7 +247,8 @@ void build_treelite_forest(TreeliteModelHandle* model_handle,
   tl::ModelPreset<T, T>& model_preset = std::get<tl::ModelPreset<T, T>>(model->variant_);
 
   // Determine number of outputs
-  ASSERT(forest->trees.size() == forest->rf_params.n_trees, "Inconsistent number of trees.");
+  ASSERT(forest->trees.size() == static_cast<std::size_t>(forest->rf_params.n_trees),
+         "Inconsistent number of trees.");
   ASSERT(forest->trees.size() > 0, "Empty forest.");
   int num_outputs = forest->trees.front()->num_outputs;
   ASSERT(num_outputs > 0, "Invalid forest");
@@ -335,8 +337,8 @@ void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
  * @brief Build (i.e., fit, train) random forest classifier for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
- * @param[in] input: train data (n_rows samples, n_cols features) in column major format,
- *   excluding labels. Device pointer.
+ * @param[in] input: train data (n_rows samples, n_cols features), excluding labels. Column-major
+ *   by default, or row-major when `input_row_major` is true. Device pointer.
  * @param[in] n_rows: number of training data samples.
  * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
  * @param[in] labels: 1D array of target features (int only), with one label per
@@ -346,6 +348,8 @@ void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
  * @param[in] n_unique_labels: #unique label values (known during preprocessing)
  * @param[in] rf_params: Random Forest training hyper parameter struct.
  * @param[in] verbosity: verbosity level for logging messages during execution
+ * @param[in] input_row_major: whether input training data is row-major instead of the default
+ *   column-major layout.
  * @{
  */
 void fit(const raft::handle_t& user_handle,
@@ -358,7 +362,8 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity,
          bool* bootstrap_masks,
-         const double* sample_weight)
+         const double* sample_weight,
+         bool input_row_major)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -376,7 +381,8 @@ void fit(const raft::handle_t& user_handle,
                      n_unique_labels,
                      forest,
                      bootstrap_masks,
-                     sample_weight);
+                     sample_weight,
+                     input_row_major);
 }
 
 void fit(const raft::handle_t& user_handle,
@@ -389,7 +395,8 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity,
          bool* bootstrap_masks,
-         const double* sample_weight)
+         const double* sample_weight,
+         bool input_row_major)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -407,7 +414,8 @@ void fit(const raft::handle_t& user_handle,
                      n_unique_labels,
                      forest,
                      bootstrap_masks,
-                     sample_weight);
+                     sample_weight,
+                     input_row_major);
 }
 
 template <typename value_t, typename label_t>
@@ -422,7 +430,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   value_t* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  const double* sample_weight)
+                  const double* sample_weight,
+                  bool input_row_major)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle,
@@ -435,7 +444,8 @@ void fit_treelite(const raft::handle_t& user_handle,
       rf_params,
       verbosity,
       bootstrap_masks,
-      sample_weight);
+      sample_weight,
+      input_row_major);
 
   // Compute feature importances if requested
   if (feature_importances != nullptr) {
@@ -586,14 +596,16 @@ RF_params set_rf_params(int max_depth,
  * @brief Build (i.e., fit, train) random forest regressor for input data.
  * @param[in] user_handle: raft::handle_t
  * @param[in,out] forest: CPU pointer to RandomForestMetaData object. User allocated.
- * @param[in] input: train data (n_rows samples, n_cols features) in column major format,
- *   excluding labels. Device pointer.
+ * @param[in] input: train data (n_rows samples, n_cols features), excluding labels. Column-major
+ *   by default, or row-major when `input_row_major` is true. Device pointer.
  * @param[in] n_rows: number of training data samples.
  * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
  * @param[in] labels: 1D array of target features (float or double), with one label per
  *   training sample. Device pointer.
  * @param[in] rf_params: Random Forest training hyper parameter struct.
  * @param[in] verbosity: verbosity level for logging messages during execution
+ * @param[in] input_row_major: whether input training data is row-major instead of the default
+ *   column-major layout.
  * @{
  */
 void fit(const raft::handle_t& user_handle,
@@ -605,7 +617,8 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity,
          bool* bootstrap_masks,
-         const double* sample_weight)
+         const double* sample_weight,
+         bool input_row_major)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -615,8 +628,16 @@ void fit(const raft::handle_t& user_handle,
 
   std::shared_ptr<RandomForest<float, float>> rf_regressor =
     std::make_shared<RandomForest<float, float>>(rf_params, RF_type::REGRESSION);
-  rf_regressor->fit(
-    user_handle, input, n_rows, n_cols, labels, 1, forest, bootstrap_masks, sample_weight);
+  rf_regressor->fit(user_handle,
+                    input,
+                    n_rows,
+                    n_cols,
+                    labels,
+                    1,
+                    forest,
+                    bootstrap_masks,
+                    sample_weight,
+                    input_row_major);
 }
 
 void fit(const raft::handle_t& user_handle,
@@ -628,7 +649,8 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity,
          bool* bootstrap_masks,
-         const double* sample_weight)
+         const double* sample_weight,
+         bool input_row_major)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -638,8 +660,16 @@ void fit(const raft::handle_t& user_handle,
 
   std::shared_ptr<RandomForest<double, double>> rf_regressor =
     std::make_shared<RandomForest<double, double>>(rf_params, RF_type::REGRESSION);
-  rf_regressor->fit(
-    user_handle, input, n_rows, n_cols, labels, 1, forest, bootstrap_masks, sample_weight);
+  rf_regressor->fit(user_handle,
+                    input,
+                    n_rows,
+                    n_cols,
+                    labels,
+                    1,
+                    forest,
+                    bootstrap_masks,
+                    sample_weight,
+                    input_row_major);
 }
 
 template <typename value_t, typename label_t>
@@ -653,7 +683,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   value_t* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  const double* sample_weight)
+                  const double* sample_weight,
+                  bool input_row_major)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle,
@@ -665,7 +696,8 @@ void fit_treelite(const raft::handle_t& user_handle,
       rf_params,
       verbosity,
       bootstrap_masks,
-      sample_weight);
+      sample_weight,
+      input_row_major);
 
   // Compute feature importances if requested
   if (feature_importances != nullptr) {
@@ -770,42 +802,56 @@ void compute_feature_importances(const RandomForestMetaData<T, L>* forest, T* im
   if (forest->n_features == 0) { return; }
 
   int n_cols = forest->n_features;
-  std::vector<T> accumulated_importances(n_cols, T(0));
+  std::vector<double> accumulated_importances(n_cols, 0.0);
 
   for (const auto& tree : forest->trees) {
-    std::vector<T> tree_importances(n_cols, T(0));
+    std::vector<double> finite_importances(n_cols, 0.0);
+    std::vector<double> infinite_importances(n_cols, 0.0);
+    bool has_infinite_importance = false;
 
     if (tree->sparsetree.empty()) continue;
     int root_sample_count = tree->sparsetree[0].InstanceCount();
 
     if (root_sample_count <= 0) continue;
 
+    // Some criteria can produce +inf split metrics on extreme inputs. Raw
+    // normalization would then divide inf by inf and return NaN importances;
+    // when that happens, finite contributions are negligible and the useful
+    // signal is which features received positive infinite contributions.
     for (const auto& node : tree->sparsetree) {
       if (!node.IsLeaf()) {
         int feature_id = node.ColumnId();
-        tree_importances[feature_id] += node.BestMetric() * node.InstanceCount();
+        double contribution =
+          static_cast<double>(node.BestMetric()) * static_cast<double>(node.InstanceCount());
+        if (std::isfinite(contribution)) {
+          if (contribution > 0.0) { finite_importances[feature_id] += contribution; }
+        } else if (std::isinf(contribution) && contribution > 0.0) {
+          infinite_importances[feature_id] += 1.0;
+          has_infinite_importance = true;
+        }
       }
     }
-    T sum = T(0);
+    const auto& tree_importances =
+      has_infinite_importance ? infinite_importances : finite_importances;
+    double sum = 0.0;
     for (int i = 0; i < n_cols; i++) {
       sum += tree_importances[i];
     }
 
     if (sum > 0) {
       for (int i = 0; i < n_cols; i++) {
-        tree_importances[i] /= sum;
-        accumulated_importances[i] += tree_importances[i];
+        accumulated_importances[i] += tree_importances[i] / sum;
       }
     }
   }
 
-  T sum = T(0);
+  double sum = 0.0;
   for (auto i = 0; i < n_cols; i++) {
     sum += accumulated_importances[i];
   }
   if (sum > 0) {
     for (auto i = 0; i < n_cols; i++) {
-      importances[i] = accumulated_importances[i] / sum;
+      importances[i] = T(accumulated_importances[i] / sum);
     }
   } else {
     for (auto i = 0; i < n_cols; i++) {
@@ -873,7 +919,8 @@ template CUML_EXPORT void fit_treelite<float, int>(const raft::handle_t& user_ha
                                                    bool* bootstrap_masks,
                                                    float* feature_importances,
                                                    rapids_logger::level_enum verbosity,
-                                                   const double* sample_weight);
+                                                   const double* sample_weight,
+                                                   bool input_row_major);
 template CUML_EXPORT void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                                     TreeliteModelHandle* model,
                                                     double* input,
@@ -885,7 +932,8 @@ template CUML_EXPORT void fit_treelite<double, int>(const raft::handle_t& user_h
                                                     bool* bootstrap_masks,
                                                     double* feature_importances,
                                                     rapids_logger::level_enum verbosity,
-                                                    const double* sample_weight);
+                                                    const double* sample_weight,
+                                                    bool input_row_major);
 template CUML_EXPORT void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                                      TreeliteModelHandle* model,
                                                      float* input,
@@ -896,7 +944,8 @@ template CUML_EXPORT void fit_treelite<float, float>(const raft::handle_t& user_
                                                      bool* bootstrap_masks,
                                                      float* feature_importances,
                                                      rapids_logger::level_enum verbosity,
-                                                     const double* sample_weight);
+                                                     const double* sample_weight,
+                                                     bool input_row_major);
 template CUML_EXPORT void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                                        TreeliteModelHandle* model,
                                                        double* input,
@@ -907,5 +956,6 @@ template CUML_EXPORT void fit_treelite<double, double>(const raft::handle_t& use
                                                        bool* bootstrap_masks,
                                                        double* feature_importances,
                                                        rapids_logger::level_enum verbosity,
-                                                       const double* sample_weight);
+                                                       const double* sample_weight,
+                                                       bool input_row_major);
 }  // End namespace ML

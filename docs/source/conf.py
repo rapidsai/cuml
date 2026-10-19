@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This file is execfile()d with the current directory set to its
@@ -15,9 +15,12 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import datetime
+import glob
 import os
 import sys
 import textwrap
+import xml.etree.ElementTree as ET
 
 from packaging.version import Version
 
@@ -42,6 +45,7 @@ from github_link import make_linkcode_resolve  # noqa
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "breathe",
     "numpydoc",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
@@ -54,7 +58,65 @@ extensions = [
     "recommonmark",
     "sphinx_markdown_tables",
     "sphinx_copybutton",
+    "sphinx_design",
+    "sphinx_llm.txt",
 ]
+
+# configuration for 'sphinx-llm'
+# Notebook examples write model files in the source directory. Build Markdown
+# after HTML to avoid concurrent writes from separate notebook executions.
+llms_txt_build_parallel = False
+llms_txt_summary_enabled = False
+llms_txt_suppress_unknown_node_warnings = True
+
+breathe_projects = {
+    "cuml": os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../cpp/xml")
+    )
+}
+breathe_default_project = "cuml"
+
+
+def clean_doxygen_xml(path: str) -> None:
+    # Doxygen 1.9.1 emits concepts and instantiations that Sphinx cannot parse,
+    # duplicates enum IDs, and gives TSNE_INIT::PCA the same C++ target as ML::PCA.
+    for filename in glob.glob(os.path.join(path, "*.xml")):
+        tree = ET.parse(filename)
+        changed = False
+        for section in tree.findall(".//sectiondef"):
+            for member in list(section.findall("memberdef")):
+                type_node = member.find("type")
+                type_text = (
+                    "".join(type_node.itertext())
+                    if type_node is not None
+                    else ""
+                )
+                if type_text in {"concept", "template void"}:
+                    section.remove(member)
+                    changed = True
+                    continue
+
+                if member.get("kind") != "enum":
+                    continue
+                member_id = member.get("id", "")
+                for value in list(member.findall("enumvalue")):
+                    if (
+                        member.findtext("name") == "TSNE_INIT"
+                        and value.findtext("name") == "PCA"
+                    ):
+                        member.remove(value)
+                        changed = True
+                    elif not value.get("id", "").startswith(member_id):
+                        value.set(
+                            "id", f"{member_id}_{value.findtext('name')}"
+                        )
+                        changed = True
+        if changed:
+            tree.write(filename, encoding="UTF-8", xml_declaration=True)
+
+
+for project_path in breathe_projects.values():
+    clean_doxygen_xml(project_path)
 
 ipython_mplbackend = "str"
 
@@ -74,8 +136,8 @@ source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
 
 # General information about the project.
-project = "cuml"
-copyright = "2020-2023, NVIDIA Corporation"
+project = "NVIDIA cuML"
+copyright = f"2020-{datetime.datetime.today().year}, NVIDIA Corporation"
 author = "NVIDIA Corporation"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -114,20 +176,32 @@ todo_include_todos = False
 # a list of builtin themes.
 #
 
-html_theme = "pydata_sphinx_theme"
+html_theme = "nvidia_sphinx_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
 html_theme_options = {
+    "public_docs_features": os.environ.get("CI") == "true"
+    and os.environ.get("RAPIDS_BUILD_TYPE") != "pull-request",
     "external_links": [],
-    # https://github.com/pydata/pydata-sphinx-theme/issues/1220
-    "icon_links": [],
-    "github_url": "https://github.com/rapidsai/cuml",
-    "twitter_url": "https://twitter.com/rapidsai",
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/NVIDIA/cuml",
+            "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+    ],
     "show_toc_level": 1,
     "navbar_align": "right",
+    "navbar_center": "navbar-nav, version-switcher, navbar-external-links",
+    "navigation_with_keys": True,
+    "switcher": {
+        "json_url": "https://docs.nvidia.com/cuml/versions.json",
+        "version_match": version,
+    },
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -166,7 +240,7 @@ latex_documents = [
     (
         master_doc,
         "cuml.tex",
-        "cuml Documentation",
+        f"{project} Documentation",
         "NVIDIA Corporation",
         "manual",
     ),
@@ -176,7 +250,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "cuml", "cuml Documentation", [author], 1)]
+man_pages = [(master_doc, "cuml", f"{project} Documentation", [author], 1)]
 
 # -- Options for Texinfo output -------------------------------------------
 
@@ -187,7 +261,7 @@ texinfo_documents = [
     (
         master_doc,
         "cuml",
-        "cuml Documentation",
+        f"{project} Documentation",
         author,
         "cuml",
         "One line description of project.",
@@ -195,9 +269,16 @@ texinfo_documents = [
     ),
 ]
 
+with open("../../RAPIDS_BRANCH", "r") as f:
+    branch = f.read().strip()
+intersphinx_version = "latest" if branch == "main" else version
+
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    "cudf": ("https://docs.rapids.ai/api/cudf/stable/", None),
+    "cudf": (
+        f"https://docs.nvidia.com/cudf/{intersphinx_version}/",
+        None,
+    ),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "python": ("https://docs.python.org/3", None),
     # TODO: re-enable once scipy docs are more reliable
@@ -208,7 +289,10 @@ intersphinx_mapping = {
         "https://nvidia.github.io/cuda-python/cuda-core/latest/",
         None,
     ),
-    "rmm": ("https://docs.rapids.ai/api/rmm/stable/", None),
+    "rmm": (
+        f"https://docs.nvidia.com/rmm/{intersphinx_version}/",
+        None,
+    ),
 }
 
 # Config numpydoc
@@ -220,7 +304,8 @@ numpydoc_class_members_toctree = False
 REDIRECTS = {
     "zero-code-change/index.html": "cuml-accel/",
     "zero-code-change-benchmarks/index.html": "cuml-accel/benchmarks/",
-    "zero-code-change-limitations/index.html": "cuml-accel/limitations/",
+    "zero-code-change-limitations/index.html": ("cuml-accel/compatibility/"),
+    "cuml-accel/limitations/index.html": "cuml-accel/compatibility/",
     "zero-code-change-logging/index.html": "cuml-accel/logging-and-profiling/",
     "zero_code_change_examples/plot_kmeans_digits/index.html": (
         "cuml-accel/examples/plot_kmeans_digits/"
@@ -236,7 +321,7 @@ def setup_redirects(app, docname):
         <head>
             <meta http-equiv="refresh" content="1; url={new_path}" />
             <script>
-            window.location.href = "{new_path}"
+            window.location.href = "{new_path}" + window.location.hash
             </script>
         </head>
         </html>
@@ -255,17 +340,16 @@ def setup_redirects(app, docname):
 
 def setup(app):
     app.add_css_file("custom.css")
-    app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
-    app.add_js_file(
-        "https://docs.rapids.ai/assets/js/custom.js", loading_method="defer"
-    )
+    app.add_css_file("cuml-accel-benchmarks.css")
+    app.add_js_file("open-details-on-fragment.js")
+    app.add_js_file("cuml-accel-benchmarks.js")
     app.connect("build-finished", setup_redirects)
 
 
 # The following is used by sphinx.ext.linkcode to provide links to github
 linkcode_resolve = make_linkcode_resolve(
     "cuml",
-    "https://github.com/rapidsai/"
+    "https://github.com/NVIDIA/"
     "cuml/blob/{revision}/python/cuml/"
     "{package}/{path}#L{lineno}",
 )

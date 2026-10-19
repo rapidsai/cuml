@@ -1,14 +1,11 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cuml.internals.nvtx as nvtx
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
-from cuml.metrics import r2_score
 
 
 class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
@@ -23,7 +20,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
 
     .. note:: You can export cuML Random Forest models and run predictions
       with them on machines without an NVIDIA GPUs. See
-      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      https://docs.nvidia.com/cuml/latest/pickling_cuml_models/
       for more details.
 
     Examples
@@ -106,7 +103,15 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
            and ``max(2, ceil(min_samples_split * n_rows))`` is the minimum
            number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
-        The minimum decrease in impurity required for node to be split
+        The minimum decrease in impurity required for a node to be split.
+
+        .. versionchanged:: 26.12
+            MSE split gains are doubled to match scikit-learn's full-variance
+            normalization. Double an existing positive threshold to preserve
+            previous split decisions, apart from numerical effects; otherwise,
+            retraining may produce larger trees and different predictions.
+            The default ``0.0`` needs no adjustment. Other split criteria
+            are unchanged.
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
@@ -120,8 +125,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -152,7 +156,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
 
     _cpu_class_path = "sklearn.ensemble.RandomForestRegressor"
 
-    oob_prediction_ = CumlArrayDescriptor(order="C")
+    oob_prediction_ = ReflectedAttr()
 
     def __init__(
         self,
@@ -196,62 +200,54 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         )
 
     @nvtx.annotate(
-        message="fit RF-Regressor @randomforestregressor.pyx",
+        message="fit RF-Regressor @randomforestregressor.py",
         domain="cuml_python",
     )
     @generate_docstring()
-    @reflect(reset=True)
-    def fit(
-        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
-    ) -> "RandomForestRegressor":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y, sample_weight=None) -> "RandomForestRegressor":
         """
         Perform Random Forest Regression on the input data
 
         """
-        X, y, sample_weight = check_inputs(
+        X, y, sample_weight = self._prepare_fit_inputs(X, y, sample_weight)
+        return self._fit_forest(X, y, sample_weight=sample_weight)
+
+    def _prepare_fit_inputs(self, X, y, sample_weight=None):
+        return check_inputs(
             self,
             X,
             y,
             sample_weight,
             dtype=("float32", "float64"),
-            convert_dtype=convert_dtype,
-            order="F",
+            order="A",
             sample_weight_dtype="float64",
             reset=True,
         )
-        return self._fit_forest(X, y, sample_weight=sample_weight)
 
     @nvtx.annotate(
-        message="predict RF-Regressor @randomforestclassifier.pyx",
+        message="predict RF-Regressor @randomforestregressor.py",
         domain="cuml_python",
     )
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @reflect
+    @mlfunc(preserve_index=True)
     def predict(
         self,
         X,
         *,
-        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-    ) -> CumlArray:
+    ):
         """
         Predicts the values for X.
 
         Parameters
         ----------
         X : {}
-        convert_dtype : bool, default="deprecated"
-            .. deprecated:: 26.08
-                `convert_dtype` was deprecated in version 26.08 and will be
-                removed in version 26.10. cuML only copies input arrays when
-                necessary (e.g. to unify dtypes), there is no reason to provide
-                this keyword going forward.
-
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -274,14 +270,12 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=nvforest_model.forest.get_dtype(),
-            convert_dtype=convert_dtype,
             order="C",
             mem_type="device",
-            return_index=True,
         )
         preds = nvforest_model.predict(X)
 
@@ -289,10 +283,10 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         # the output shape behavior of scikit-learn.
         if len(preds.shape) == 2 and preds.shape[1] == 1:
             preds = preds.reshape(-1)
-        return CumlArray(preds, index=index)
+        return preds
 
     @nvtx.annotate(
-        message="score RF-Regressor @randomforestclassifier.pyx",
+        message="score RF-Regressor @randomforestregressor.py",
         domain="cuml_python",
     )
     @insert_into_docstring(
@@ -301,14 +295,13 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
             ("dense", "(n_samples, 1)"),
         ]
     )
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(
         self,
         X,
         y,
         sample_weight=None,
         *,
-        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -322,13 +315,6 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         y : {}
         sample_weight : array-like, shape=(n_samples,), default=None
             Sample weights for weighted R^2.
-        convert_dtype : bool, default="deprecated"
-            .. deprecated:: 26.08
-                `convert_dtype` was deprecated in version 26.08 and will be
-                removed in version 26.10. cuML only copies input arrays when
-                necessary (e.g. to unify dtypes), there is no reason to provide
-                this keyword going forward.
-
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -346,11 +332,11 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         -------
         r2_score : float
         """
-        y_pred = self.predict(
+        return super().score(
             X,
-            convert_dtype=convert_dtype,
+            y,
+            sample_weight=sample_weight,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return r2_score(y, y_pred, sample_weight=sample_weight)

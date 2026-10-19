@@ -1,11 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.sgd import fit_sgd
 
@@ -16,8 +14,8 @@ class MBSGDRegressor(
     """
     Linear model fitted by minimizing a regularized empirical loss with SGD.
 
-    The MBSGD Regressor implementation is experimental and and it uses a
-    different algorithm than sklearn's SGDClassifier. In order to improve
+    The MBSGD Regressor implementation is experimental and it uses a
+    different algorithm than sklearn's SGDRegressor. In order to improve
     the results obtained from cuML's MBSGD Regressor:
 
     * Reduce the batch size
@@ -75,8 +73,7 @@ class MBSGDRegressor(
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -106,7 +103,7 @@ class MBSGDRegressor(
     array([1.5156871, 1.5121976], dtype=float32)
     """
 
-    coef_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -162,8 +159,8 @@ class MBSGDRegressor(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype="deprecated") -> "MBSGDRegressor":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y) -> "MBSGDRegressor":
         """
         Fit the model with X and y.
 
@@ -174,7 +171,6 @@ class MBSGDRegressor(
             self,
             X,
             y,
-            convert_dtype=convert_dtype,
             loss=self.loss,
             penalty=self.penalty,
             alpha=self.alpha,
@@ -189,6 +185,6 @@ class MBSGDRegressor(
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
         )
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef
         self.intercept_ = intercept
         return self

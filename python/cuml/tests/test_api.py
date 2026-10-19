@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -16,11 +16,6 @@ import cuml.internals.mixins as cumix
 from cuml.internals.base import Base
 from cuml.internals.mixins import CumlTags
 from cuml.testing.utils import ClassEnumerator
-
-# TODO(26.10) Remove this filter, once cuml.fil is removed
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:cuml.fil.ForestInference.* is deprecated:FutureWarning"
-)
 
 ###############################################################################
 #                        Helper functions and classes                         #
@@ -182,7 +177,6 @@ def test_fit_function(dataset, model_name):
     if model_name in [
         "TSNE",
         "TruncatedSVD",
-        "AutoARIMA",
         "MultinomialNB",
         "LabelEncoder",
     ]:
@@ -192,8 +186,6 @@ def test_fit_function(dataset, model_name):
 
     if model_name in ["SparseRandomProjection", "GaussianRandomProjection"]:
         model = models[model_name](n_components=2)
-    elif model_name in ["ARIMA", "AutoARIMA", "ExponentialSmoothing"]:
-        model = models[model_name](np.random.normal(0.0, 1.0, (10,)))
     elif model_name in ["RandomForestClassifier", "RandomForestRegressor"]:
         model = models[model_name](n_bins=32)
     elif model_name == "KMeans":
@@ -211,7 +203,6 @@ def test_fit_function(dataset, model_name):
         # and the inspect module doesn't work with Cython. Therefore we need
         # to register the number of arguments manually if `fit` is decorated
         pos_args_spec = {
-            "ARIMA": 1,
             "ElasticNet": 3,
             "Lasso": 3,
             "LinearRegression": 3,

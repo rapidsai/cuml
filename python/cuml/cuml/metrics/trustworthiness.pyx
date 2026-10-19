@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -28,19 +28,11 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
         except +
 
 
-def _get_array_ptr(obj):
-    """
-    Get ctype pointer of a numba style device array
-    """
-    return obj.device_ctypes_pointer.value
-
-
 def trustworthiness(
     X,
     X_embedded,
     n_neighbors=5,
     metric='euclidean',
-    convert_dtype="deprecated",
     batch_size=512,
 ) -> float:
     """
@@ -64,13 +56,6 @@ def trustworthiness(
             Metric used to compute the trustworthiness. For the moment only
             'euclidean' is supported.
 
-        convert_dtype : bool, default="deprecated"
-            .. deprecated:: 26.08
-                `convert_dtype` was deprecated in version 26.08 and will be
-                removed in version 26.10. cuML only copies input arrays when
-                necessary (e.g. to unify dtypes), there is no reason to provide
-                this keyword going forward.
-
         batch_size : int (default=512)
             The number of samples to use for each batch.
 
@@ -93,7 +78,6 @@ def trustworthiness(
         X,
         order='C',
         dtype=np.float32,
-        convert_dtype=convert_dtype,
         input_name='X',
     )
     cdef int n_samples = X_m.shape[0]
@@ -104,7 +88,6 @@ def trustworthiness(
         X_embedded,
         order='C',
         dtype=np.float32,
-        convert_dtype=convert_dtype,
         input_name='X_embedded',
     )
     check_consistent_length(X_m, X_m2)

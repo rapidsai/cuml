@@ -1,6 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+
+from numbers import Integral
 
 import cupy as cp
 import dask.array as da
@@ -14,13 +16,31 @@ from cuml.dask.common.base import (
     DelayedTransformMixin,
     mnmg_import,
 )
-from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.part_utils import flatten_grouped_results
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.internals.validation import check_random_seed
 
 
-def _get_inertia_and_n_samples(estimator):
-    return (estimator.inertia_, len(estimator.labels_))
+def _get_inertia(estimator):
+    return estimator.inertia_
+
+
+def _get_label_parts(estimator, partition_sizes):
+    parts = []
+    start = 0
+    for size in partition_sizes:
+        stop = start + size
+        parts.append(estimator.labels_[start:stop])
+        start = stop
+    return parts
+
+
+def _validate_n_clusters(n_clusters):
+    if not isinstance(n_clusters, Integral) or n_clusters <= 0:
+        raise ValueError(
+            f"n_clusters={n_clusters} should be a positive integer."
+        )
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -79,8 +99,26 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client, verbose=verbose, **kwargs)
+    def __init__(self, *, client=None, verbose=False, n_clusters=8, **kwargs):
+        super().__init__(
+            client=client, verbose=verbose, n_clusters=n_clusters, **kwargs
+        )
+
+    @staticmethod
+    @mnmg_import
+    def _func_preflight_fit(sessionId, objs, datatype, has_weights, **kwargs):
+        from cuml.cluster.kmeans_mg import KMeansMG
+
+        comm_state = get_raft_comm_state(sessionId, get_worker())
+        X = objs if not has_weights else [X for X, _ in objs]
+
+        model = KMeansMG(
+            handle=comm_state["handle"],
+            output_type=datatype,
+            **kwargs,
+        )
+        model._validate_fit_params()
+        model.validate(X, comm_state["wid"], comm_state["nworkers"])
 
     @staticmethod
     @mnmg_import
@@ -90,11 +128,11 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
         if not has_weights:
-            inp_data = concatenate(objs)
+            inp_data = list(objs)
             inp_weights = None
         else:
-            inp_data = concatenate([X for X, weights in objs])
-            inp_weights = concatenate([weights for X, weights in objs])
+            inp_data = [X for X, weights in objs]
+            inp_weights = [weights for X, weights in objs]
 
         return KMeansMG(handle=handle, output_type=datatype, **kwargs).fit(
             inp_data, sample_weight=inp_weights
@@ -104,14 +142,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     def _score(model, data, sample_weight=None):
         ret = model.score(data, sample_weight=sample_weight)
         return ret
-
-    @staticmethod
-    def _check_normalize_sample_weight(sample_weight):
-        if sample_weight is not None:
-            n_samples = len(sample_weight)
-            scale = n_samples / sample_weight.sum()
-            sample_weight *= scale
-        return sample_weight
 
     def fit(self, X, sample_weight=None):
         """
@@ -132,8 +162,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         """
 
-        sample_weight = self._check_normalize_sample_weight(sample_weight)
-
         inputs = X if sample_weight is None else (X, sample_weight)
 
         data = DistributedDataHandler.create(inputs, client=self.client)
@@ -143,45 +171,59 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         kwargs = self.kwargs.copy()
         kwargs["random_state"] = check_random_seed(kwargs.get("random_state"))
 
-        # Validate total sample count before submitting distributed work.
-        # Each rank requests `n_clusters` centroids, but partitions may not
-        # have enough data points. The dask layer should surface a clear
-        # error when n_clusters > total data points across all workers.
-        n_clusters = self.kwargs.get("n_clusters")
-        if n_clusters is not None:
-            data._fetch_worker_sizes()
-            total_rows = sum(
-                total for (_, total) in data._worker_sizes.values()
+        # Validate predictable global failures before submitting distributed
+        # work. MG-specific parameter and rank-local row checks are performed
+        # in the all-worker preflight after the communicator is initialized.
+        n_clusters = kwargs["n_clusters"]
+        _validate_n_clusters(n_clusters)
+        data._fetch_worker_sizes()
+        total_rows = sum(total for (_, total) in data._worker_sizes.values())
+        if total_rows < n_clusters:
+            raise ValueError(
+                f"n_samples={total_rows} should be >= n_clusters={n_clusters}. "
+                f"There are fewer data points across all workers than the "
+                f"number of requested clusters. Please reduce n_clusters or "
+                f"increase the number of data points."
             )
-            if total_rows < n_clusters:
-                raise ValueError(
-                    f"n_samples={total_rows} should be >= n_clusters={n_clusters}. "
-                    f"There are fewer data points across all workers than the "
-                    f"number of requested clusters. Please reduce n_clusters or "
-                    f"increase the number of data points."
-                )
 
         # This needs to happen on the scheduler
         comms = Comms(comms_p2p=False, client=self.client)
         comms.init(workers=data.workers)
 
-        kmeans_fit = [
-            self.client.submit(
-                KMeans._func_fit,
-                comms.sessionId,
-                wf[1],
-                self.datatype,
-                data.multiple,
-                **kwargs,
-                workers=[wf[0]],
-                pure=False,
-            )
-            for idx, wf in enumerate(data.worker_to_parts.items())
-        ]
+        kmeans_fit = []
+        try:
+            preflight_futures = [
+                self.client.submit(
+                    KMeans._func_preflight_fit,
+                    comms.sessionId,
+                    parts,
+                    self.datatype,
+                    data.multiple,
+                    **kwargs,
+                    workers=[worker],
+                    pure=False,
+                )
+                for worker, parts in data.worker_to_parts.items()
+            ]
+            self.client.gather(preflight_futures)
 
-        wait_and_raise_from_futures(kmeans_fit)
+            kmeans_fit = [
+                self.client.submit(
+                    KMeans._func_fit,
+                    comms.sessionId,
+                    wf[1],
+                    self.datatype,
+                    data.multiple,
+                    **kwargs,
+                    workers=[wf[0]],
+                    pure=False,
+                )
+                for idx, wf in enumerate(data.worker_to_parts.items())
+            ]
 
-        comms.destroy()
+            wait_and_raise_from_futures(kmeans_fit)
+        finally:
+            comms.destroy()
 
         # Collect the full model from only the first worker (for
         # cluster_centers_ etc). Since cluster centers are synchronized
@@ -193,28 +235,46 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         workers = list(data.worker_to_parts.keys())
 
         # Compute and store the total inertia_
-        inertia_and_lengths = self.client.gather(
+        inertias = self.client.gather(
             [
-                self.client.submit(_get_inertia_and_n_samples, f, workers=[w])
-                for f, w in zip(kmeans_fit, workers)
+                self.client.submit(_get_inertia, f, workers=[w])
+                for f, w in zip(kmeans_fit, workers, strict=True)
             ]
         )
-        self.inertia_ = sum(inertia for inertia, _ in inertia_and_lengths)
+        self.inertia_ = sum(inertias)
 
         # Store labels_ as a distributed dask array. This attribute scales with
         # n_samples, and shouldn't be pulled back to a local node.
-        labels_meta = cp.zeros(0, dtype=first.labels_.dtype)
-        labels = [
-            self.client.submit(getattr, f, "labels_", workers=[w])
-            for f, w in zip(kmeans_fit, workers)
-        ]
+        labels_by_worker = {
+            worker: self.client.submit(
+                _get_label_parts,
+                model,
+                data._worker_sizes[worker][0],
+                workers=[worker],
+            )
+            for model, worker in zip(kmeans_fit, workers, strict=True)
+        }
+        labels = flatten_grouped_results(
+            self.client,
+            data.gpu_futures,
+            labels_by_worker,
+        )
+
+        worker_partition_indices = {}
+        label_lengths = []
+        for worker, _ in data.gpu_futures:
+            index = worker_partition_indices.get(worker, 0)
+            label_lengths.append(data._worker_sizes[worker][0][index])
+            worker_partition_indices[worker] = index + 1
+
         if self.datatype == "cudf":
             self.labels_ = dd.from_delayed(labels)
         else:
+            labels_meta = cp.zeros(0, dtype=first.labels_.dtype)
             self.labels_ = da.concatenate(
                 [
                     da.from_delayed(f, shape=(length,), meta=labels_meta)
-                    for f, (_, length) in zip(labels, inertia_and_lengths)
+                    for f, length in zip(labels, label_lengths, strict=True)
                 ]
             )
 
@@ -304,16 +364,19 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dataframe to compute score
+        X : Dask cuDF DataFrame or Dask Array
+            Data to score.
+
+        sample_weight : Dask cuDF DataFrame or Series, or Dask Array, \
+                shape = (n_samples,), default=None
+            The weight for each observation. It must have the same row
+            partitioning as ``X``.
 
         Returns
         -------
 
         Inertial score
         """
-
-        sample_weight = self._check_normalize_sample_weight(sample_weight)
 
         scores = self._run_parallel_func(
             KMeans._score,

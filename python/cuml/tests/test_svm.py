@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import platform
@@ -9,7 +9,6 @@ import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
 from cudf.pandas import LOADED as cudf_pandas_active
-from numba import cuda
 from sklearn import svm
 from sklearn.datasets import (
     load_iris,
@@ -189,6 +188,85 @@ def test_svm_skl_cmp_multiclass(
         )
 
 
+@pytest.mark.parametrize("sparse", [False, True])
+@pytest.mark.parametrize("label_kind", ["numeric", "string"])
+@pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
+def test_svc_multiclass_class_weight(
+    sparse, label_kind, decision_function_shape
+):
+    X = np.array(
+        [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5]],
+        dtype=np.float64,
+    )
+    y = np.repeat(np.arange(3), 2)
+    class_weight = {0: 0.1, 1: 10.0, 2: 0.5}
+    X_test = X[[0, 3, 5]]
+
+    if label_kind == "string":
+        labels = np.array(["a", "b", "c"])
+        y = labels.take(y)
+        class_weight = dict(zip(labels, class_weight.values()))
+
+    if sparse:
+        X = scipy_sparse.csr_matrix(X)
+        X_test = scipy_sparse.csr_matrix(X_test)
+
+    params = {
+        "kernel": "rbf",
+        "decision_function_shape": decision_function_shape,
+        "class_weight": class_weight,
+    }
+    cu_model = cu_svm.SVC(**params).fit(X, y)
+    sk_model = svm.SVC(**params).fit(X, y)
+
+    expected = np.array([1, 1, 2])
+    if label_kind == "string":
+        expected = labels.take(expected)
+
+    np.testing.assert_array_equal(cu_model.predict(X_test), expected)
+    np.testing.assert_array_equal(sk_model.predict(X_test), expected)
+    np.testing.assert_allclose(cu_model.class_weight_, sk_model.class_weight_)
+
+
+@pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
+def test_svc_multiclass_sample_weight(decision_function_shape):
+    X = np.array(
+        [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5]],
+        dtype=np.float64,
+    )
+    y = np.repeat(np.arange(3), 2)
+    sample_weight = np.array([0.1, 0.1, 10.0, 10.0, 0.5, 0.5])
+    X_test = X[[0, 3, 5]]
+
+    params = {
+        "kernel": "rbf",
+        "decision_function_shape": decision_function_shape,
+    }
+    cu_model = cu_svm.SVC(**params).fit(X, y, sample_weight=sample_weight)
+    sk_model = svm.SVC(**params).fit(X, y, sample_weight=sample_weight)
+
+    expected = np.array([1, 1, 2])
+    np.testing.assert_array_equal(cu_model.predict(X_test), expected)
+    np.testing.assert_array_equal(sk_model.predict(X_test), expected)
+
+
+@pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
+def test_svc_multiclass_balanced_class_weight(decision_function_shape):
+    X = np.arange(14, dtype=np.float64).reshape(7, 2) / 2
+    y = np.array([0, 0, 0, 0, 1, 1, 2])
+
+    params = {
+        "kernel": "rbf",
+        "decision_function_shape": decision_function_shape,
+        "class_weight": "balanced",
+    }
+    cu_model = cu_svm.SVC(**params).fit(X, y)
+    sk_model = svm.SVC(**params).fit(X, y)
+
+    np.testing.assert_array_equal(cu_model.predict(X), sk_model.predict(X))
+    np.testing.assert_allclose(cu_model.class_weight_, sk_model.class_weight_)
+
+
 def test_svm_skl_cmp_decision_function():
     X_train, X_test, y_train, _ = make_dataset("classification1", 4000, 20)
     y_train = y_train.astype("int32")
@@ -305,7 +383,7 @@ def test_svc_weights(class_weight, sample_weight):
                 "degree": 40,
                 "C": 1,
                 "gamma": "scale",
-                "x_arraytype": "numba",
+                "x_arraytype": "cupy",
             }
         ),
     ],
@@ -323,8 +401,6 @@ def test_svm_gamma(params):
     X = X.astype(np.float32)
     if x_arraytype == "dataframe":
         y = cudf.Series(y)
-    elif x_arraytype == "numba":
-        X = cuda.to_device(X)
     # Using degree 40 polynomials and fp32 training would fail with
     # gamma = 1/(n_cols*X.std()), but it works with the correct implementation:
     # gamma = 1/(n_cols*X.var())
@@ -470,6 +546,14 @@ def test_svr_skl_cmp_weighted():
     compare_svr(cuSVR, sklSVR, X, y)
 
 
+def test_svr_float32_numerical_stagnation_error():
+    X = np.arange(5, dtype=np.float32).reshape(-1, 1)
+    y = np.arange(5, dtype=np.float32)
+
+    with pytest.raises(RuntimeError, match="made no progress.*float64"):
+        cu_svm.SVR(kernel="poly", degree=10).fit(X, y)
+
+
 @pytest.mark.parametrize("classifier", [True, False])
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
@@ -493,7 +577,7 @@ def test_svm_predict_mixed_dtypes(train_dtype, test_dtype, classifier):
 @pytest.mark.skipif(
     IS_ARM,
     reason="Test fails unexpectedly on ARM. "
-    "github.com/rapidsai/cuml/issues/5100",
+    "https://github.com/rapidsai/NVIDIA/issues/5100",
 )
 @pytest.mark.skipif(
     cudf_pandas_active,
@@ -516,7 +600,7 @@ def test_svm_no_support_vectors():
     assert model.dual_coef_.shape == (1, 0)
     assert model.support_.shape == (0,)
     assert model.support_vectors_.shape[0] == 0
-    # Check disabled due to https://github.com/rapidsai/cuml/issues/4095
+    # Check disabled due to https://github.com/NVIDIA/cuml/issues/4095
     # assert model.support_vectors_.shape[1] == n_cols
 
 

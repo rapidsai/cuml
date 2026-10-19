@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -49,19 +49,23 @@ def _set_cuda_cache_path_per_xdist_worker(config):
 # =============================================================================
 
 # Add the import here for any plugins that should be loaded EVERY TIME
-pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
+pytest_plugins = [
+    "cuml.testing.plugins.quick_run_plugin",
+    "cuml.testing.plugins.restart_corrupted_xdist_worker",
+]
 
 
 # =============================================================================
 # Test Configuration Constants
 # =============================================================================
 
+# Many CI systems set the "magic" CI variable to let code know it is running
+# in a CI environment.
 CI = os.environ.get("CI") in ("true", "1")
 HYPOTHESIS_ENABLED = os.environ.get("HYPOTHESIS_ENABLED") in (
     "true",
     "1",
 )
-IS_XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER") is not None
 
 
 # =============================================================================
@@ -91,7 +95,9 @@ HYPOTHESIS_DEFAULT_PHASES = (
 
 hypothesis.settings.register_profile(
     name="unit",
-    deadline=None if CI else timedelta(milliseconds=2000),
+    # CI runners have varying performance, so we do not set a deadline for CI
+    # jobs to avoid flaky tests.
+    deadline=None if CI else timedelta(milliseconds=5000),
     parent=hypothesis.settings.get_profile("default"),
     phases=HYPOTHESIS_DEFAULT_PHASES,
     max_examples=20,
@@ -119,7 +125,7 @@ hypothesis.settings.register_profile(
 def pytest_addoption(parser):
     """Add custom command line options for pytest.
 
-    This function adds three custom options to control test execution:
+    This function adds four custom options to control test execution:
     - --run_stress: Run stress tests
     - --run_quality: Run quality tests
     - --run_unit: Run unit tests
@@ -328,7 +334,7 @@ def _get_gpu_memory(device_index=0):
     Parameters
     ----------
     device_index: int or str
-        The index or UUID of the device from which to obtain the CPU affinity.
+        The index or UUID of the device from which to obtain the total memory.
 
     Returns
     -------
@@ -343,32 +349,6 @@ def _get_gpu_memory(device_index=0):
         return ceil(pynvml.nvmlDeviceGetMemoryInfo(handle).total / 2**30)
     except pynvml.NVMLError_NotSupported:
         return None
-
-
-@pytest.hookimpl(trylast=True)
-def pytest_runtest_logreport(report):
-    """Some CUDA errors are "sticky" and cause subsequent CUDA calls in a
-    process to error.
-
-    When running under pytest-xdist, this hook checks for sticky errors on
-    failed tests, and if present will crash the worker after reporting the
-    failure. pytest-xdist will then start a new worker with a clean CUDA
-    context, avoiding sticky errors.
-
-    This hook is a no-op when run outside of pytest-xdist.
-    """
-    if not IS_XDIST_WORKER:
-        return
-
-    # Only check on failed test runs, not other events
-    if report.when == "call" and report.failed:
-        try:
-            # Try allocating a tiny array to invoke a CUDA API. If this fails,
-            # then the context is definitely corrupted.
-            cp.ones(1)
-        except Exception:
-            # Hardcrash the worker
-            os._exit(1)
 
 
 # =============================================================================

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -27,6 +27,7 @@
 #include <cublas_v2.h>
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/distance/grammian.hpp>
+#include <matrix/kernel_params.hpp>
 
 #include <iostream>
 
@@ -52,13 +53,13 @@ int svrFitX(const raft::handle_t& handle,
   // ML::detail::streamSyncer _(handle_impl.getImpl());
   const raft::handle_t& handle_impl = handle;
 
-  cudaStream_t stream = handle_impl.get_stream();
+  cudaStream_t stream = handle_impl.get_stream().get();
 
   bool is_precomputed = kernel_params.kernel == ML::matrix::KernelType::PRECOMPUTED;
 
   // For precomputed kernels, we don't need to create a cuvs kernel
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel = nullptr;
-  cuvs::distance::kernels::KernelParams cuvs_params       = kernel_params.to_cuvs();
+  cuvs::distance::kernels::KernelParams cuvs_params       = ML::matrix::to_cuvs(kernel_params);
   if (!is_precomputed) {
     kernel = cuvs::distance::kernels::KernelFactory<math_t>::create(cuvs_params);
   }

@@ -1,15 +1,13 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
 
 from libc.stdint cimport uintptr_t
@@ -30,6 +28,7 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML::linkage" nogil:
         DistanceType metric,
         int* children,
         int* labels,
+        float* distances,
         bool use_knn,
         int c,
     ) except +
@@ -80,11 +79,13 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         Indirectly influences the number of neighbors to use when
         ``connectivity="knn"``, with ``n_neighbors = log(n_samples) + c``. The
         default of 15 should suffice for most problems.
+    compute_distances : bool, default=False
+        Whether to also compute and store the distances between nodes as
+        ``distances_``.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -102,10 +103,14 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         The estimated number of connected components in the graph.
     children_ : array, shape (n_samples - 1, 2)
         The children of each non-leave node.
+    distances_ : array-like of shape (n_samples - 1,)
+        Distances between the corresponding nodes in `children_`. Only exists
+        if `compute_distances=True`.
     """
 
-    labels_ = CumlArrayDescriptor(order="C")
-    children_ = CumlArrayDescriptor(order="C")
+    labels_ = ReflectedAttr()
+    children_ = ReflectedAttr()
+    distances_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -116,6 +121,7 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
             "linkage",
             "connectivity",
             "c",
+            "compute_distances",
         ]
 
     def __init__(
@@ -126,6 +132,7 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         connectivity="knn",
         linkage="single",
         c=15,
+        compute_distances=False,
         verbose=False,
         output_type=None,
     ):
@@ -136,10 +143,11 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         self.connectivity = connectivity
         self.linkage = linkage
         self.c = c
+        self.compute_distances = compute_distances
 
     @generate_docstring()
-    @reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype="deprecated") -> "AgglomerativeClustering":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y=None) -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.
         """
@@ -149,7 +157,6 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
             X,
             order="C",
             dtype="float32",
-            convert_dtype=convert_dtype,
             ensure_min_samples=2,
             reset=True,
         )
@@ -177,6 +184,10 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         # Allocate outputs
         labels = cp.empty(n_rows, dtype="int32", order="C")
         children = cp.empty((n_rows - 1, 2), dtype="int32", order="C")
+        distances = (
+            cp.empty(n_rows - 1, dtype="float32")
+            if self.compute_distances else None
+        )
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
@@ -184,6 +195,9 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
         cdef int* children_ptr = <int*><uintptr_t>children.data.ptr
         cdef int* labels_ptr = <int*><uintptr_t>labels.data.ptr
+        cdef float* distances_ptr = <float*><uintptr_t>(
+            0 if distances is None else distances.data.ptr
+        )
 
         # Perform fit
         with nogil:
@@ -196,6 +210,7 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
                 metric,
                 children_ptr,
                 labels_ptr,
+                distances_ptr,
                 use_knn,
                 c,
             )
@@ -206,8 +221,13 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         self.n_connected_components_ = 1
         self.n_leaves_ = n_rows
         self.n_clusters_ = n_clusters
-        self.labels_ = CumlArray(data=labels)
-        self.children_ = CumlArray(data=children)
+        self.labels_ = labels
+        self.children_ = children
+        if distances is not None:
+            self.distances_ = distances
+        elif hasattr(self, "distances_"):
+            # Remove distances_ stored from a previous fit, if any
+            del self.distances_
 
         return self
 
@@ -215,8 +235,8 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
                                        "type": "dense",
                                        "description": "Cluster indexes",
                                        "shape": "(n_samples, 1)"})
-    @reflect
-    def fit_predict(self, X, y=None) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def fit_predict(self, X, y=None):
         """
         Fit and return the assigned cluster labels.
         """

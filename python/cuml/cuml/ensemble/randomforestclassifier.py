@@ -1,23 +1,16 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import numpy as np
 
-import cuml.internals
 import cuml.internals.nvtx as nvtx
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import (
-    decode_labels,
-    process_class_weight,
-    validate_class_weight,
-)
+from cuml.common.classification import process_class_weight
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import ClassLabels, ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
-from cuml.metrics import accuracy_score
 
 
 class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
@@ -33,7 +26,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
 
     .. note:: You can export cuML Random Forest models and run predictions
       with them on machines without an NVIDIA GPUs. See
-      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      https://docs.nvidia.com/cuml/latest/pickling_cuml_models/
       for more details.
 
     Examples
@@ -132,8 +125,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -168,7 +160,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
     `importances = cuml_model.feature_importances_`
     """
 
-    oob_decision_function_ = CumlArrayDescriptor(order="C")
+    oob_decision_function_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
 
@@ -258,58 +250,65 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         self.class_weight = class_weight
 
     @nvtx.annotate(
-        message="fit RF-Classifier @randomforestclassifier.pyx",
+        message="fit RF-Classifier @randomforestclassifier.py",
         domain="cuml_python",
     )
     @generate_docstring(y="dense_intdtype")
-    @cuml.internals.reflect(reset=True)
-    def fit(
-        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
-    ) -> "RandomForestClassifier":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y, sample_weight=None) -> "RandomForestClassifier":
         """
         Perform Random Forest Classification on the input data
         """
-        validate_class_weight(self.class_weight)
+        X, y, sample_weight = self._prepare_fit_inputs(X, y, sample_weight)
+        return self._fit_forest(X, y, sample_weight=sample_weight)
 
+    def _prepare_fit_inputs(self, X, y, sample_weight=None):
+        classes = getattr(self, "_distributed_classes", True)
         X, y, sample_weight, classes = check_inputs(
             self,
             X,
             y,
             sample_weight,
             dtype=("float32", "float64"),
-            convert_dtype=convert_dtype,
-            order="F",
+            order="A",
             y_dtype="int32",
             sample_weight_dtype="float64",
-            return_classes=True,
+            return_classes=classes,
             reset=True,
         )
         self.classes_ = classes
         self.n_classes_ = len(classes)
+        class_weight = self.class_weight
+        class_counts = getattr(self, "_distributed_class_counts", None)
+        if class_weight == "balanced" and class_counts is not None:
+            class_counts = np.asarray(class_counts)
+            balanced_weights = class_counts.sum() / (
+                self.n_classes_ * class_counts
+            )
+            class_weight = dict(zip(classes, balanced_weights, strict=True))
         _, sample_weight = process_class_weight(
             classes,
             y,
-            class_weight=self.class_weight,
+            class_weight=class_weight,
             sample_weight=sample_weight,
             dtype=np.float64,
         )
-        return self._fit_forest(X, y, sample_weight=sample_weight)
+        return X, y, sample_weight
 
     @nvtx.annotate(
-        message="predict RF-Classifier @randomforestclassifier.pyx",
+        message="predict RF-Classifier @randomforestclassifier.py",
         domain="cuml_python",
     )
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.run_in_internal_context
+    @mlfunc(preserve_index=True)
     def predict(
         self,
         X,
         *,
         threshold=0.5,
-        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -322,13 +321,6 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         X : {}
         threshold : float (default = 0.5)
             Threshold used for classification.
-        convert_dtype : bool, default="deprecated"
-            .. deprecated:: 26.08
-                `convert_dtype` was deprecated in version 26.08 and will be
-                removed in version 26.10. cuML only copies input arrays when
-                necessary (e.g. to unify dtypes), there is no reason to provide
-                this keyword going forward.
-
         layout : string (default = 'depth_first')
             Forest layout for GPU inference. Options: 'depth_first', 'layered',
             'breadth_first'.
@@ -348,49 +340,35 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        X_converted, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=nvforest_model.forest.get_dtype(),
-            convert_dtype=convert_dtype,
             order="C",
             mem_type="device",
-            return_index=True,
         )
-        inds = nvforest_model.predict(X_converted, threshold=threshold)
-        with cuml.internals.exit_internal_context():
-            output_type = self._get_output_type(X)
-        return decode_labels(
-            inds, self.classes_, output_type=output_type, index=index
-        )
+        indices = nvforest_model.predict(X, threshold=threshold)
+        return ClassLabels(indices, self.classes_)
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.reflect
+    @mlfunc(preserve_index=True)
     def predict_proba(
         self,
         X,
         *,
-        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-    ) -> CumlArray:
+    ):
         """
         Predicts class probabilities for X.
 
         Parameters
         ----------
         X : {}
-        convert_dtype : bool, default="deprecated"
-            .. deprecated:: 26.08
-                `convert_dtype` was deprecated in version 26.08 and will be
-                removed in version 26.10. cuML only copies input arrays when
-                necessary (e.g. to unify dtypes), there is no reason to provide
-                this keyword going forward.
-
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -413,44 +391,34 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=nvforest_model.forest.get_dtype(),
-            convert_dtype=convert_dtype,
             order="C",
             mem_type="device",
-            return_index=True,
         )
-        return CumlArray(nvforest_model.predict_proba(X), index=index)
+        return nvforest_model.predict_proba(X)
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.reflect
+    @mlfunc(preserve_index=True)
     def predict_log_proba(
         self,
         X,
         *,
-        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-    ) -> CumlArray:
+    ):
         """
         Predicts log class probabilities for X.
 
         Parameters
         ----------
         X : {}
-        convert_dtype : bool, default="deprecated"
-            .. deprecated:: 26.08
-                `convert_dtype` was deprecated in version 26.08 and will be
-                removed in version 26.10. cuML only copies input arrays when
-                necessary (e.g. to unify dtypes), there is no reason to provide
-                this keyword going forward.
-
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -468,19 +436,17 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         -------
         y : {}
         """
-        preds = self.predict_proba(
+        out = self.predict_proba(
             X,
-            convert_dtype=convert_dtype,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        out = preds.to_output("cupy")
         cp.log(out, out=out)
-        return CumlArray(data=out, index=preds.index)
+        return out
 
     @nvtx.annotate(
-        message="score RF-Classifier @randomforestclassifier.pyx",
+        message="score RF-Classifier @randomforestclassifier.py",
         domain="cuml_python",
     )
     @insert_into_docstring(
@@ -489,7 +455,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             ("dense_intdtype", "(n_samples, 1)"),
         ]
     )
-    @cuml.internals.run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(
         self,
         X,
@@ -497,7 +463,6 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         sample_weight=None,
         *,
         threshold=0.5,
-        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -513,13 +478,6 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             Sample weights for weighted mean accuracy.
         threshold : float (default = 0.5)
             Threshold used for classification predictions
-        convert_dtype : bool, default="deprecated"
-            .. deprecated:: 26.08
-                `convert_dtype` was deprecated in version 26.08 and will be
-                removed in version 26.10. cuML only copies input arrays when
-                necessary (e.g. to unify dtypes), there is no reason to provide
-                this keyword going forward.
-
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -538,12 +496,12 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
-        y_pred = self.predict(
+        return super().score(
             X,
+            y,
+            sample_weight=sample_weight,
             threshold=threshold,
-            convert_dtype=convert_dtype,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return accuracy_score(y, y_pred, sample_weight=sample_weight)

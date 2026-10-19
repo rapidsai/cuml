@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -46,8 +46,7 @@ class ElasticNet(BaseEstimator):
         rather than looping over features sequentially by default.
         This (setting to 'random') often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -89,7 +88,7 @@ class ElasticNet(BaseEstimator):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         y : Dask cuDF DataFrame or CuPy backed Dask Array
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Dense vector (floats or doubles) of shape (n_samples,).
 
         """
         self.solver.fit(X, y)
@@ -112,7 +111,7 @@ class ElasticNet(BaseEstimator):
         Returns
         -------
         y : Dask cuDF DataFrame or CuPy backed Dask Array
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Dense vector (floats or doubles) of shape (n_samples,).
 
         """
 

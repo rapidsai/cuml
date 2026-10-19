@@ -1,16 +1,14 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import cupyx.scipy.sparse as sp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.classification import process_class_weight
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_inputs,
@@ -127,7 +125,6 @@ def fit_qn(
     y,
     sample_weight=None,
     *,
-    convert_dtype="deprecated",
     loss="l2",
     class_weight=None,
     bool fit_intercept=True,
@@ -155,13 +152,6 @@ def fit_qn(
         The target values.
     sample_weight : None or array-like, shape=(n_samples,)
         The sample weights.
-    convert_dtype : bool, default="deprecated"
-        .. deprecated:: 26.08
-            `convert_dtype` was deprecated in version 26.08 and will be
-            removed in version 26.10. cuML only copies input arrays when
-            necessary (e.g. to unify dtypes), there is no reason to provide
-            this keyword going forward.
-
     class_weight : dict or 'balanced', default=None
         Weights associated per-classes, or None for uniform weights. If 'balanced',
         weights inversely proportional to the class frequencies will be used.
@@ -192,7 +182,6 @@ def fit_qn(
         y,
         sample_weight,
         dtype=("float32", "float64"),
-        convert_dtype=convert_dtype,
         accept_sparse="csr",
         ensure_min_samples=2,
         y_dtype=(None if return_classes else ...),
@@ -246,9 +235,7 @@ def fit_qn(
     if init_coef is None:
         coef = cp.zeros(coef_shape, dtype=X.dtype, order="C")
     else:
-        coef = check_array(
-            init_coef, dtype=X.dtype, convert_dtype=convert_dtype, order="C",
-        )
+        coef = check_array(init_coef, dtype=X.dtype, order="C")
         if coef.shape != coef_shape:
             raise ValueError(f"Expected coef.shape == ({coef_shape}), got {coef.shape}")
 
@@ -448,8 +435,7 @@ class QN(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -491,8 +477,8 @@ class QN(Base):
     array([0, 0, 1, 1], dtype=int32)
     """
 
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
+    intercept_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -543,8 +529,8 @@ class QN(Base):
         self.penalty_normalized = penalty_normalized
 
     @generate_docstring(X="dense_sparse")
-    @reflect(reset=True)
-    def fit(self, X, y, sample_weight=None, convert_dtype="deprecated") -> "QN":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y, sample_weight=None) -> "QN":
         """
         Fit the model with X and y.
         """
@@ -553,11 +539,9 @@ class QN(Base):
         )
 
         if self.warm_start and hasattr(self, "coef_"):
-            init_coef = self.coef_.to_output("cupy").T
+            init_coef = self.coef_.T
             if self.fit_intercept:
-                init_coef = cp.concatenate(
-                    [init_coef, self.intercept_.to_output("cupy")[None, :]]
-                )
+                init_coef = cp.concatenate([init_coef, self.intercept_[None, :]])
         else:
             init_coef = None
 
@@ -566,7 +550,6 @@ class QN(Base):
             X,
             y,
             sample_weight=sample_weight,
-            convert_dtype=convert_dtype,
             loss=self.loss,
             fit_intercept=self.fit_intercept,
             l1_strength=self.l1_strength,
@@ -588,8 +571,8 @@ class QN(Base):
             coef, intercept, n_iter, objective = out
             n_classes = 0
 
-        self.coef_ = CumlArray(data=coef)
-        self.intercept_ = CumlArray(data=intercept)
+        self.coef_ = coef
+        self.intercept_ = intercept
         self.n_classes_ = n_classes
         self.n_iter_ = n_iter
         self.objective = objective
@@ -597,25 +580,20 @@ class QN(Base):
         return self
 
     @generate_docstring(X="dense_sparse")
-    @reflect
-    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X):
         """Predicts the y for X."""
         check_is_fitted(self)
 
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=self.coef_.dtype,
-            convert_dtype=convert_dtype,
             accept_sparse=True,
-            return_index=True,
         )
 
-        coef = self.coef_.to_output("cupy")
-        intercept = self.intercept_.to_output("cupy")
-
-        out = X @ coef.T
-        out += intercept
+        out = X @ self.coef_.T
+        out += self.intercept_
 
         if out.ndim > 1 and out.shape[1] == 1:
             out = out.reshape(-1)
@@ -626,8 +604,8 @@ class QN(Base):
             else:
                 out = cp.argmax(out, axis=1)
 
-        return CumlArray(data=out, index=index)
+        return out
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))

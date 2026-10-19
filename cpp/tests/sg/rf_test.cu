@@ -1,8 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/tree/algo_helper.h>
@@ -18,6 +20,7 @@
 #include <cub/device/device_segmented_reduce.cuh>
 #include <cuda/iterator>
 #include <cuda/std/functional>
+#include <cuda/stream>
 #include <thrust/binary_search.h>
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>
@@ -36,7 +39,7 @@
 #include <decisiontree/batched-levelalgo/objectives.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <gtest/gtest.h>
-#include <nvforest/detail/raft_proto/device_type.hpp>
+#include <nvforest/device_type.hpp>
 #include <nvforest/infer_kind.hpp>
 #include <nvforest/tree_layout.hpp>
 #include <nvforest/treelite_importer.hpp>
@@ -129,6 +132,7 @@ struct RfTestParams {
   int n_labels;
   bool sample_weight;
   bool double_precision;
+  bool input_row_major;
   // c++ has no reflection, so we enumerate the types here
   // This must be updated if new fields are added
   using types = std::tuple<std::size_t,
@@ -148,6 +152,7 @@ struct RfTestParams {
                            int,
                            int,
                            bool,
+                           bool,
                            bool>;
 };
 
@@ -163,8 +168,67 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps)
      << ", n_streams = " << ps.n_streams;
   os << ", split_criterion = " << ps.split_criterion << ", seed = " << ps.seed;
   os << ", n_labels = " << ps.n_labels << ", sample_weight = " << ps.sample_weight
-     << ", double_precision = " << ps.double_precision;
+     << ", double_precision = " << ps.double_precision
+     << ", input_row_major = " << ps.input_row_major;
   return os;
+}
+
+namespace {
+
+template <typename BinT>
+void expectBinEqual(const BinT& actual, const BinT& expected)
+{
+  EXPECT_EQ(actual.Count(), expected.Count());
+  EXPECT_DOUBLE_EQ(actual.Weight(), expected.Weight());
+  if constexpr (std::is_same_v<BinT, DT::RegressionBin> ||
+                std::is_same_v<BinT, DT::WeightedRegressionBin>) {
+    EXPECT_DOUBLE_EQ(actual.LabelSum(), expected.LabelSum());
+  }
+}
+
+template <typename BinT>
+void testBinReductionRoundTrip(std::vector<BinT> const& input)
+{
+  if (input.empty()) { return; }
+
+  raft::handle_t handle;
+  auto stream = handle.get_stream();
+  rmm::device_uvector<BinT> d_input(input.size(), stream);
+  rmm::device_uvector<double> d_packed(DT::reduction_buffer_size_v<BinT> * input.size(), stream);
+  rmm::device_uvector<BinT> d_output(input.size(), stream);
+
+  raft::update_device(d_input.data(), input.data(), input.size(), stream);
+  DT::packHistograms(d_input.data(), d_packed.data(), input.size(), stream.get());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  DT::unpackHistograms(d_packed.data(), d_output.data(), input.size(), stream.get());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  std::vector<BinT> output(input.size());
+  raft::update_host(output.data(), d_output.data(), output.size(), stream);
+  handle.sync_stream();
+
+  for (std::size_t i = 0; i < input.size(); ++i) {
+    expectBinEqual(output[i], input[i]);
+  }
+}
+
+}  // namespace
+
+TEST(RfTests, BinReductionRoundTrip)
+{
+  testBinReductionRoundTrip<DT::ClassificationBin>({});
+  testBinReductionRoundTrip<DT::ClassificationBin>({{7}});
+  testBinReductionRoundTrip<DT::WeightedClassificationBin>({});
+  testBinReductionRoundTrip<DT::WeightedClassificationBin>({{4, 2.5}});
+  testBinReductionRoundTrip<DT::RegressionBin>({});
+  testBinReductionRoundTrip<DT::RegressionBin>({{3.5, 4}});
+  testBinReductionRoundTrip<DT::WeightedRegressionBin>({});
+  testBinReductionRoundTrip<DT::WeightedRegressionBin>({{6.75, 3, 2.25}});
+  testBinReductionRoundTrip<DT::ClassificationBin>({{0}, {7}, {13}});
+  testBinReductionRoundTrip<DT::WeightedClassificationBin>({{0, 0.0}, {4, 2.5}, {11, 8.25}});
+  testBinReductionRoundTrip<DT::RegressionBin>({{0.0, 0}, {3.5, 4}, {-2.25, 9}});
+  testBinReductionRoundTrip<DT::WeightedRegressionBin>(
+    {{0.0, 0, 0.0}, {6.75, 3, 2.25}, {-1.5, 8, 5.5}});
 }
 
 template <typename DataT, typename LabelT>
@@ -191,23 +255,26 @@ std::shared_ptr<thrust::device_vector<LabelT>> nvForestPredict(
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest, params.n_cols);
 
+  auto device = handle.get_device();
+  auto stream = handle.get_next_usable_stream().get();
+
   auto nvforest_model = nvforest::import_from_treelite_handle(model,
                                                               nvforest::tree_layout::breadth_first,
                                                               128,
                                                               std::is_same_v<DataT, double>,
-                                                              raft_proto::device_type::gpu,
-                                                              handle.get_device(),
-                                                              handle.get_next_usable_stream());
+                                                              nvforest::device_type::gpu,
+                                                              device,
+                                                              stream);
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  nvforest_model.predict(handle,
+  nvforest_model.predict(stream,
                          workspace->data().get(),
                          X_transpose,
                          params.n_rows,
-                         raft_proto::device_type::gpu,
-                         raft_proto::device_type::gpu,
+                         nvforest::device_type::gpu,
+                         nvforest::device_type::gpu,
                          nvforest::infer_kind::default_kind,
                          1);
   handle.sync_stream();
@@ -262,23 +329,26 @@ auto nvForestPredictProba(const raft::handle_t& handle,
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest, params.n_cols);
 
+  auto device = handle.get_device();
+  auto stream = handle.get_next_usable_stream().get();
+
   auto nvforest_model = nvforest::import_from_treelite_handle(model,
                                                               nvforest::tree_layout::breadth_first,
                                                               128,
                                                               std::is_same_v<DataT, double>,
-                                                              raft_proto::device_type::gpu,
-                                                              handle.get_device(),
-                                                              handle.get_next_usable_stream());
+                                                              nvforest::device_type::gpu,
+                                                              device,
+                                                              stream);
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  nvforest_model.predict(handle,
+  nvforest_model.predict(stream,
                          pred->data().get(),
                          X_transpose,
                          params.n_rows,
-                         raft_proto::device_type::gpu,
-                         raft_proto::device_type::gpu,
+                         nvforest::device_type::gpu,
+                         nvforest::device_type::gpu,
                          nvforest::infer_kind::default_kind,
                          1);
   handle.sync_stream();
@@ -365,7 +435,8 @@ auto TrainScore(const raft::handle_t& handle,
         rf_params,
         rapids_logger::level_enum::info,
         nullptr,
-        sample_weight);
+        sample_weight,
+        params.input_row_major);
   } else {
     fit(handle,
         forest_ptr,
@@ -376,7 +447,8 @@ auto TrainScore(const raft::handle_t& handle,
         rf_params,
         rapids_logger::level_enum::info,
         nullptr,
-        sample_weight);
+        sample_weight,
+        params.input_row_major);
   }
 
   auto pred = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
@@ -393,7 +465,7 @@ class RfSpecialisedTest {
   RfSpecialisedTest(RfTestParams params) : params(params)
   {
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
     X.resize(params.n_rows * params.n_cols);
     X_transpose.resize(params.n_rows * params.n_cols);
     y.resize(params.n_rows);
@@ -447,8 +519,12 @@ class RfSpecialisedTest {
       sample_weight = h_sample_weight;
     }
     forest.reset(new typename ML::RandomForestMetaData<DataT, LabelT>);
-    std::tie(forest, predictions, training_metrics) = TrainScore(
-      handle, params, X.data().get(), X_transpose.data().get(), y.data().get(), SampleWeightPtr());
+    std::tie(forest, predictions, training_metrics) = TrainScore(handle,
+                                                                 params,
+                                                                 TrainingInputPtr(),
+                                                                 X_transpose.data().get(),
+                                                                 y.data().get(),
+                                                                 SampleWeightPtr());
 
     Test();
   }
@@ -461,12 +537,12 @@ class RfSpecialisedTest {
     // accuracy is not guaranteed to improve with bootstrapping
     if (params.bootstrap) { return; }
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
     RfTestParams alt_params = params;
     alt_params.max_depth--;
     auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(handle,
                                                                  alt_params,
-                                                                 X.data().get(),
+                                                                 TrainingInputPtr(),
                                                                  X_transpose.data().get(),
                                                                  y.data().get(),
                                                                  SampleWeightPtr());
@@ -523,9 +599,13 @@ class RfSpecialisedTest {
 
     // Repeat training
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
-    auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(
-      handle, params, X.data().get(), X_transpose.data().get(), y.data().get(), SampleWeightPtr());
+    raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
+    auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(handle,
+                                                                 params,
+                                                                 TrainingInputPtr(),
+                                                                 X_transpose.data().get(),
+                                                                 y.data().get(),
+                                                                 SampleWeightPtr());
 
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
       EXPECT_EQ(forest->trees[i]->sparsetree, alt_forest->trees[i]->sparsetree);
@@ -622,7 +702,7 @@ class RfSpecialisedTest {
       return;
     } else {
       auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
-      raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+      raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
       auto nvforest_pred = nvForestPredict(handle, params, X_transpose.data().get(), forest.get());
 
       thrust::host_vector<float> h_nvforest_pred(*nvforest_pred);
@@ -686,6 +766,11 @@ class RfSpecialisedTest {
   const double* SampleWeightPtr() const
   {
     return params.sample_weight ? sample_weight.data().get() : nullptr;
+  }
+
+  DataT* TrainingInputPtr()
+  {
+    return params.input_row_major ? X_transpose.data().get() : X.data().get();
   }
 
   void Test()
@@ -758,6 +843,7 @@ std::vector<int> seed                    = {0, 17};
 std::vector<int> n_labels                = {2, 10, 20};
 std::vector<bool> sample_weight          = {false, true};
 std::vector<bool> double_precision       = {false, true};
+std::vector<bool> input_row_major        = {false, true};
 
 int n_tests = 100;
 
@@ -782,7 +868,38 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            seed,
                                                                            n_labels,
                                                                            sample_weight,
-                                                                           double_precision)));
+                                                                           double_precision,
+                                                                           input_row_major)));
+
+TEST(RfTests, FeatureImportancesHandleInfiniteMetrics)
+{
+  // This direct metadata fixture covers the old inf / inf normalization path,
+  // which returned NaN feature importances even though the splits were valid.
+  auto forest        = std::make_shared<RandomForestMetaData<float, float>>();
+  forest->n_features = 2;
+
+  auto tree           = std::make_shared<DT::TreeMetaDataNode<float, float>>();
+  tree->treeid        = 0;
+  tree->depth_counter = 2;
+  tree->leaf_counter  = 3;
+  tree->train_time    = 0.0;
+  tree->num_outputs   = 1;
+  tree->sparsetree    = {SparseTreeNode<float, float>::CreateSplitNode(
+                        0, 0.5f, std::numeric_limits<float>::infinity(), 1, 8),
+                         SparseTreeNode<float, float>::CreateSplitNode(
+                        1, 1.5f, std::numeric_limits<float>::infinity(), 3, 4),
+                         SparseTreeNode<float, float>::CreateLeafNode(4),
+                         SparseTreeNode<float, float>::CreateLeafNode(2),
+                         SparseTreeNode<float, float>::CreateLeafNode(2)};
+  forest->trees.push_back(tree);
+
+  std::vector<float> importances(forest->n_features);
+  ML::compute_feature_importances(forest.get(), importances.data());
+  EXPECT_TRUE(std::isfinite(importances[0]));
+  EXPECT_TRUE(std::isfinite(importances[1]));
+  EXPECT_FLOAT_EQ(importances[0], 0.5f);
+  EXPECT_FLOAT_EQ(importances[1], 0.5f);
+}
 
 TEST(RfTests, InvalidNStreams)
 {
@@ -806,7 +923,7 @@ TEST(RfTests, IntegerOverflow)
   auto forest      = std::make_shared<RandomForestMetaData<float, float>>();
   auto forest_ptr  = forest.get();
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(4);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
   RF_params rf_params =
     set_rf_params(3, 100, 1.0, 256, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::MSE, 4, 128);
   fit(handle, forest_ptr, X.data().get(), m, n, y.data().get(), rf_params);
@@ -819,27 +936,83 @@ TEST(RfTests, IntegerOverflow)
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest_ptr, n);
 
+  auto device = handle.get_device();
+  auto stream = handle.get_next_usable_stream().get();
+
   auto nvforest_model = nvforest::import_from_treelite_handle(model,
                                                               nvforest::tree_layout::breadth_first,
                                                               128,
                                                               false,
-                                                              raft_proto::device_type::gpu,
-                                                              handle.get_device(),
-                                                              handle.get_next_usable_stream());
+                                                              nvforest::device_type::gpu,
+                                                              device,
+                                                              stream);
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  nvforest_model.predict(handle,
+  nvforest_model.predict(stream,
                          pred.data().get(),
                          X.data().get(),
                          m,
-                         raft_proto::device_type::gpu,
-                         raft_proto::device_type::gpu,
+                         nvforest::device_type::gpu,
+                         nvforest::device_type::gpu,
                          nvforest::infer_kind::default_kind,
                          1);
   handle.sync_stream();
   handle.sync_stream_pool();
+}
+
+TEST(RfTests, EmptyGlobalRowsRejected)
+{
+  thrust::device_vector<float> X(1);
+  thrust::device_vector<float> y(1);
+  auto forest      = std::make_shared<RandomForestMetaData<float, float>>();
+  auto forest_ptr  = forest.get();
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
+  RF_params rf_params =
+    set_rf_params(3, 100, 1.0, 16, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::MSE, 1, 128);
+
+  EXPECT_THROW(fit(handle, forest_ptr, X.data().get(), 0, 1, y.data().get(), rf_params),
+               raft::exception);
+}
+
+TEST(RfTests, HighClassCountSplitHistogramFallsBackToGlobalMemory)
+{
+  constexpr std::size_t n_rows = 640;
+  constexpr std::size_t n_cols = 4;
+  constexpr int n_classes      = 80;
+  constexpr int max_n_bins     = 256;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
+  thrust::device_vector<float> X(n_rows * n_cols);
+  thrust::device_vector<int> y(n_rows);
+
+  Datasets::make_blobs(handle,
+                       X.data().get(),
+                       y.data().get(),
+                       n_rows,
+                       n_cols,
+                       n_classes,
+                       false,
+                       nullptr,
+                       nullptr,
+                       5.0,
+                       false,
+                       -10.0f,
+                       10.0f,
+                       1234);
+
+  auto forest = std::make_shared<RandomForestMetaData<float, int>>();
+  auto rf_params =
+    set_rf_params(2, -1, 1.0f, max_n_bins, 1, 2, 0.0f, false, 1, 1.0f, 1234, CRITERION::GINI, 1, 4);
+  auto forest_ptr = forest.get();
+
+  ASSERT_NO_THROW(
+    fit(handle, forest_ptr, X.data().get(), n_rows, n_cols, y.data().get(), n_classes, rf_params));
+  ASSERT_EQ(forest->trees.size(), 1);
+  EXPECT_GT(forest->trees.front()->depth_counter, 0);
 }
 
 TEST(RfTests, InvalidSampleWeightThrows)
@@ -848,12 +1021,12 @@ TEST(RfTests, InvalidSampleWeightThrows)
   constexpr std::size_t n_cols = 2;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
   thrust::device_vector<float> X(n_rows * n_cols);
   thrust::device_vector<int> y(n_rows);
   thrust::device_vector<double> sample_weight(n_rows, 1.0);
   raft::random::Rng r(8);
-  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, handle.get_stream());
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, handle.get_stream().get());
   thrust::host_vector<int> h_y(n_rows);
   for (std::size_t i = 0; i < n_rows; ++i) {
     h_y[i] = i % 2;
@@ -864,8 +1037,10 @@ TEST(RfTests, InvalidSampleWeightThrows)
     set_rf_params(3, 100, 1.0, 8, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::GINI, 1, 128);
 
   auto expect_invalid_weight_throws = [&](double invalid_weight) {
-    thrust::fill(
-      thrust::cuda::par.on(handle.get_stream()), sample_weight.begin(), sample_weight.end(), 1.0);
+    thrust::fill(thrust::cuda::par.on(handle.get_stream().get()),
+                 sample_weight.begin(),
+                 sample_weight.end(),
+                 1.0);
     sample_weight[0] = invalid_weight;
     auto forest      = std::make_shared<RandomForestMetaData<float, int>>();
     auto forest_ptr  = forest.get();
@@ -886,8 +1061,10 @@ TEST(RfTests, InvalidSampleWeightThrows)
   expect_invalid_weight_throws(-1.0);
   expect_invalid_weight_throws(std::numeric_limits<double>::quiet_NaN());
 
-  thrust::fill(
-    thrust::cuda::par.on(handle.get_stream()), sample_weight.begin(), sample_weight.end(), 0.0);
+  thrust::fill(thrust::cuda::par.on(handle.get_stream().get()),
+               sample_weight.begin(),
+               sample_weight.end(),
+               0.0);
   auto forest     = std::make_shared<RandomForestMetaData<float, int>>();
   auto forest_ptr = forest.get();
   EXPECT_THROW(fit(handle,
@@ -912,13 +1089,13 @@ TEST(RfTests, WeightedBootstrapSamplesOnlyPositiveWeightRows)
   constexpr int n_zero_weight_rows = 16;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(2);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
   thrust::device_vector<float> X(n_rows * n_cols);
   thrust::device_vector<int> y(n_rows);
   thrust::device_vector<double> sample_weight(n_rows);
 
   raft::random::Rng r(8);
-  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, handle.get_stream());
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, handle.get_stream().get());
 
   thrust::host_vector<int> h_y(n_rows);
   thrust::host_vector<double> h_sample_weight(n_rows);
@@ -978,57 +1155,6 @@ struct QuantileTestParameters {
 };
 
 template <typename T>
-class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTestParameters> {
- public:
-  void SetUp() override
-  {
-    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
-
-    thrust::device_vector<T> data(params.n_rows);
-    thrust::host_vector<T> h_data(params.n_rows);
-    thrust::host_vector<T> h_quantiles(params.max_n_bins);
-    raft::random::Rng r(8);
-    r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
-    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
-
-    // computing the quantiles
-    auto quantile_result =
-      DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
-    auto quantiles = quantile_result.view();
-
-    raft::update_host(
-      h_quantiles.data(), quantiles.quantiles_array, params.max_n_bins, handle.get_stream());
-
-    int n_unique_bins;
-    raft::copy(&n_unique_bins, quantiles.n_bins_array, 1, handle.get_stream());
-    if (n_unique_bins < params.max_n_bins) {
-      return;  // almost impossible that this happens, skip if so
-    }
-
-    h_data = data;
-    for (std::size_t i = 0; i < h_data.size(); ++i) {
-      auto d = h_data[i];
-      // golden lower bound from thrust
-      auto golden_lb =
-        thrust::lower_bound(
-          thrust::seq, h_quantiles.data(), h_quantiles.data() + params.max_n_bins, d) -
-        h_quantiles.data();
-      // lower bound from custom lower_bound impl
-      auto lb = DT::lower_bound(h_quantiles.data(), params.max_n_bins, d);
-      if (golden_lb == params.max_n_bins) {
-        ASSERT_EQ(lb, params.max_n_bins - 1)
-          << "custom lower_bound should clamp values above the last quantile to the last bin"
-          << std::endl;
-        continue;
-      }
-      ASSERT_EQ(golden_lb, lb)
-        << "custom lower_bound method is inconsistent with thrust::lower_bound" << std::endl;
-    }
-  }
-};
-
-template <typename T>
 class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
  public:
   void SetUp() override
@@ -1040,7 +1166,7 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
 
     // computing the quantiles
     auto quantile_result =
@@ -1073,7 +1199,7 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
     srand(params.seed);
 
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
     thrust::device_vector<T> data(params.n_rows);
 
     // n_uniques guaranteed to be non-zero and smaller than `max_n_bins`
@@ -1142,7 +1268,7 @@ class RFSampledQuantileExactFallbackTest : public ::testing::TestWithParam<Quant
     auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
 
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
     thrust::device_vector<T> data(params.n_rows);
     thrust::sequence(data.begin(), data.end(), T(0));
 
@@ -1179,7 +1305,7 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
     auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
 
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
     thrust::device_vector<T> data(params.n_rows);
     raft::random::Rng r(params.seed);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
@@ -1216,21 +1342,21 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
   }
 };
 
-template <typename ObjectiveT, typename BinT, typename DataT, typename IdxT>
-__global__ void objectiveGainKernel(BinT const* hist,
-                                    DataT const* quantiles,
-                                    DT::Split<DataT, IdxT>* out,
-                                    int* mutex,
-                                    ObjectiveT objective,
-                                    IdxT col,
-                                    IdxT len,
-                                    IdxT n_bins)
+template <typename ObjectiveT, typename BinT, typename DataT>
+CUML_KERNEL void objectiveGainKernel(BinT const* hist,
+                                     DataT const* quantiles,
+                                     DT::Split<DataT>* out,
+                                     int* mutex,
+                                     ObjectiveT objective,
+                                     std::int64_t col,
+                                     std::int64_t len,
+                                     std::int64_t n_bins)
 {
-  __shared__ __align__(alignof(
-    DT::Split<DataT, IdxT>)) unsigned char split_scratch_storage[sizeof(DT::Split<DataT, IdxT>)];
-  auto* split_scratch = reinterpret_cast<DT::Split<DataT, IdxT>*>(split_scratch_storage);
+  __shared__ __align__(
+    alignof(DT::Split<DataT>)) unsigned char split_scratch_storage[sizeof(DT::Split<DataT>)];
+  auto* split_scratch = reinterpret_cast<DT::Split<DataT>*>(split_scratch_storage);
   if (threadIdx.x == 0) {
-    *out   = DT::Split<DataT, IdxT>();
+    *out   = DT::Split<DataT>();
     *mutex = 0;
   }
   __syncthreads();
@@ -1242,61 +1368,55 @@ __global__ void objectiveGainKernel(BinT const* hist,
 
 TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 {
-  using DataT           = float;
-  using IdxT            = int;
-  constexpr IdxT len    = 10;
-  constexpr IdxT n_bins = 6;
+  using DataT                   = float;
+  constexpr std::int64_t len    = 8;
+  constexpr std::int64_t n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
 
   std::vector<DT::ClassificationBin> h_hist = {
-    {1},
     {2},
-    {2},
-    {2},
-    {2},
-    {5},
-    {1},
-    {2},
-    {2},
-    {2},
-    {2},
-    {5},
+    {4},
+    {4},
+    {4},
+    {4},
+    {4},
+    {0},
+    {0},
+    {0},
+    {0},
+    {0},
+    {4},
   };
   std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
 
   thrust::device_vector<DT::ClassificationBin> hist(h_hist.begin(), h_hist.end());
   thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
-  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+  thrust::device_vector<DT::Split<DataT>> split(1);
   thrust::device_vector<int> mutex(1);
 
-  DT::ClassificationObjectiveFunction<DataT, int, IdxT, false> objective(2, 1, CRITERION::GINI);
-  objectiveGainKernel<<<1, 32, 0, handle.get_stream()>>>(hist.data().get(),
-                                                         quantiles.data().get(),
-                                                         split.data().get(),
-                                                         mutex.data().get(),
-                                                         objective,
-                                                         IdxT{0},
-                                                         len,
-                                                         n_bins);
+  DT::ClassificationObjectiveFunction<DataT, int> objective(2, 1, CRITERION::GINI);
+  objectiveGainKernel<<<1, 32, 0, handle.get_stream().get()>>>(hist.data().get(),
+                                                               quantiles.data().get(),
+                                                               split.data().get(),
+                                                               mutex.data().get(),
+                                                               objective,
+                                                               std::int64_t{0},
+                                                               len,
+                                                               n_bins);
   RAFT_CUDA_TRY(cudaGetLastError());
 
-  struct HostSplit {
-    DataT quesval;
-    IdxT colid;
-    DataT best_metric_val;
-    int nLeft;
-    IdxT split_start;
-    IdxT split_end;
-  };
-  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
-  HostSplit h_split;
-  RAFT_CUDA_TRY(cudaMemcpyAsync(
-    &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
+  DT::Split<DataT> h_split;
+  RAFT_CUDA_TRY(cudaMemcpyAsync(&h_split,
+                                split.data().get(),
+                                sizeof(h_split),
+                                cudaMemcpyDeviceToHost,
+                                handle.get_stream().get()));
   handle.sync_stream();
 
-  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.global_nLeft, 4);
+  EXPECT_EQ(h_split.local_nLeft, 0);
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);
@@ -1304,58 +1424,54 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 
 TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
 {
-  using DataT           = float;
-  using IdxT            = int;
-  constexpr IdxT len    = 10;
-  constexpr IdxT n_bins = 6;
+  using DataT                   = float;
+  constexpr std::int64_t len    = 8;
+  constexpr std::int64_t n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
 
   std::vector<DT::RegressionBin> h_hist = {
-    {2.0, 2},
-    {4.0, 4},
-    {4.0, 4},
-    {4.0, 4},
-    {4.0, 4},
-    {10.0, 10},
+    {0.0, 2},
+    {0.0, 4},
+    {0.0, 4},
+    {0.0, 4},
+    {0.0, 4},
+    {8.0, 8},
   };
   std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
 
   thrust::device_vector<DT::RegressionBin> hist(h_hist.begin(), h_hist.end());
   thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
-  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+  thrust::device_vector<DT::Split<DataT>> split(1);
   thrust::device_vector<int> mutex(1);
 
-  DT::RegressionObjectiveFunction<DataT, DataT, IdxT, false> objective(1, 1, CRITERION::MSE);
-  objectiveGainKernel<<<1, 32, 0, handle.get_stream()>>>(hist.data().get(),
-                                                         quantiles.data().get(),
-                                                         split.data().get(),
-                                                         mutex.data().get(),
-                                                         objective,
-                                                         IdxT{0},
-                                                         len,
-                                                         n_bins);
+  // Four zeros and four twos have variance 1. The best split must exceed 0.75;
+  DT::RegressionObjectiveFunction<DataT, DataT> objective(1, 1, CRITERION::MSE, DataT{0.75});
+  objectiveGainKernel<<<1, 32, 0, handle.get_stream().get()>>>(hist.data().get(),
+                                                               quantiles.data().get(),
+                                                               split.data().get(),
+                                                               mutex.data().get(),
+                                                               objective,
+                                                               std::int64_t{0},
+                                                               len,
+                                                               n_bins);
   RAFT_CUDA_TRY(cudaGetLastError());
 
-  struct HostSplit {
-    DataT quesval;
-    IdxT colid;
-    DataT best_metric_val;
-    int nLeft;
-    IdxT split_start;
-    IdxT split_end;
-  };
-  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
-  HostSplit h_split;
-  RAFT_CUDA_TRY(cudaMemcpyAsync(
-    &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
+  DT::Split<DataT> h_split;
+  RAFT_CUDA_TRY(cudaMemcpyAsync(&h_split,
+                                split.data().get(),
+                                sizeof(h_split),
+                                cudaMemcpyDeviceToHost,
+                                handle.get_stream().get()));
   handle.sync_stream();
 
-  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.global_nLeft, 4);
+  EXPECT_EQ(h_split.local_nLeft, 0);
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);
+  EXPECT_EQ(h_split.best_metric_val, DataT{1});
 }
 
 template <typename T>
@@ -1366,7 +1482,7 @@ class RFSampledQuantileRankErrorTest : public ::testing::TestWithParam<QuantileT
     auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
 
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
     thrust::device_vector<T> data(params.n_rows);
     thrust::sequence(data.begin(), data.end(), T(0));
 
@@ -1451,16 +1567,6 @@ typedef RFQuantileTest<double> RFQuantileTestD;
 TEST_P(RFQuantileTestD, test) {}
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestD, ::testing::ValuesIn(inputs));
 
-// float type quantile bins lower bounds test
-typedef RFQuantileBinsLowerBoundTest<float> RFQuantileBinsLowerBoundTestF;
-TEST_P(RFQuantileBinsLowerBoundTestF, test) {}
-INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestF, ::testing::ValuesIn(inputs));
-
-// double type quantile bins lower bounds test
-typedef RFQuantileBinsLowerBoundTest<double> RFQuantileBinsLowerBoundTestD;
-TEST_P(RFQuantileBinsLowerBoundTestD, test) {}
-INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestD, ::testing::ValuesIn(inputs));
-
 // float type quantile variable binning test
 typedef RFQuantileVariableBinsTest<float> RFQuantileVariableBinsTestF;
 TEST_P(RFQuantileVariableBinsTestF, test) {}
@@ -1512,7 +1618,7 @@ TEST(RfTest, TextDump)
   thrust::device_vector<int> y   = y_host;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
   auto forest_ptr = forest.get();
   fit(handle, forest_ptr, X.data().get(), y.size(), 1, y.data().get(), 2, rf_params);
 
@@ -1551,7 +1657,7 @@ TEST(RfTest, EquivalentSplitRangePersistsThroughBuilder)
   thrust::device_vector<int> y   = y_host;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
   auto forest_ptr = forest.get();
   fit(handle, forest_ptr, X.data().get(), y.size(), 2, y.data().get(), 2, rf_params);
 
@@ -1590,7 +1696,7 @@ TEST(RfWeightedTest, ClassificationRootLeafUsesWeights)
   std::vector<double> weight_host       = {100.0f, 1.0f, 1.0f};
   thrust::device_vector<double> weights = weight_host;
   auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
 
   fit(handle,
       forest.get(),
@@ -1626,7 +1732,7 @@ TEST(RfWeightedTest, RegressionRootLeafUsesWeights)
   std::vector<double> weight_host       = {1.0f, 0.0f, 3.0f};
   thrust::device_vector<double> weights = weight_host;
   auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
 
   fit(handle,
       forest.get(),
@@ -1660,7 +1766,7 @@ TEST(RfWeightedTest, MinSamplesLeafUsesCountsNotWeights)
   std::vector<double> weight_host       = {0.1f, 0.1f, 100.0f, 100.0f};
   thrust::device_vector<double> weights = weight_host;
   auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
 
   fit(handle,
       forest.get(),
@@ -1700,7 +1806,7 @@ TEST(RfWeightedTest, ZeroWeightSamplesDoNotCreatePositiveWeightSplit)
   std::vector<double> weight_host       = {0.0f, 0.0f, 1.0f, 1.0f};
   thrust::device_vector<double> weights = weight_host;
   auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
 
   fit(handle,
       forest.get(),
@@ -1733,7 +1839,7 @@ TEST(RfWeightedTest, BootstrapDuplicatesContributePerOccurrence)
   std::vector<double> weight_host       = {1.0f, 2.0f, 5.0f};
   thrust::device_vector<double> weights = weight_host;
   auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
-  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  raft::handle_t handle(cuda::stream_ref{cudaStreamPerThread}, stream_pool);
 
   constexpr int n_rows = 3;
   bool found_duplicate = false;
@@ -1819,7 +1925,6 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   using ObjectiveT = typename ObjectiveConfig::ObjectiveT;
   typedef typename ObjectiveT::DataT DataT;
   typedef typename ObjectiveT::LabelT LabelT;
-  typedef typename ObjectiveT::IdxT IdxT;
   typedef typename ObjectiveT::BinT BinT;
 
   static constexpr auto eps_              = 10 * std::numeric_limits<DataT>::epsilon();
@@ -1933,9 +2038,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     return std::max(1, non_empty_n_bins - 1);
   }
 
-  auto MSE(std::vector<DataT> const& data,
-           std::vector<double> const&
-             sample_weights)  //  1/w * 1/2 * sum(w_i * (y - y_pred) * (y - y_pred))
+  auto MSE(
+    std::vector<DataT> const& data,
+    std::vector<double> const& sample_weights)  //  1/w * sum(w_i * (y - y_pred) * (y - y_pred))
   {
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
     DataT sum{0};
@@ -1950,7 +2055,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       mse += sample_weights[i] * (d - mean) * (d - mean);  // unit deviance
     }
 
-    mse /= 2 * weight_sum;
+    mse /= weight_sum;
     return std::make_tuple(mse, sum, DataT(data.size()), weight_sum);
   }
 
@@ -1973,7 +2078,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
     auto gain = parent_mse -
                 ((weight_sum_left / weight_sum) * left_mse +    // the minimizing objective function
-                                                                // is half deviance
+                                                                // is weighted variance
                  (weight_sum_right / weight_sum) * right_mse);  // gain in long form without proxy
 
     // edge cases
@@ -2257,11 +2362,11 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     return DataT(0.0);
   }
 
-  auto NumLeftOfBin(std::vector<BinT> const& cdf_hist, IdxT idx)
+  auto NumLeftOfBin(std::vector<BinT> const& cdf_hist, std::int64_t idx)
   {
-    auto count{IdxT(0)};
+    auto count{std::int64_t(0)};
     for (auto c = 0; c < params.n_classes; ++c) {
-      count += static_cast<IdxT>(cdf_hist[params.max_n_bins * c + idx].Count());
+      count += static_cast<std::int64_t>(cdf_hist[params.max_n_bins * c + idx].Count());
     }
     return count;
   }
@@ -2293,7 +2398,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
 TEST(WeightedObjectiveEdgeCases, ClassificationRejectsZeroWeightChild)
 {
-  using ObjectiveT = ClassificationObjectiveFunction<double, int, int, true>;
+  using ObjectiveT = ClassificationObjectiveFunction<double, int, true>;
   WeightedClassificationBin hist[]{{1, 0.0}, {1, 0.0}, {0, 0.0}, {1, 1.0}};
   CRITERION criteria[] = {CRITERION::GINI, CRITERION::ENTROPY};
 
@@ -2306,7 +2411,7 @@ TEST(WeightedObjectiveEdgeCases, ClassificationRejectsZeroWeightChild)
 
 TEST(WeightedObjectiveEdgeCases, RegressionRejectsZeroWeightChild)
 {
-  using ObjectiveT = RegressionObjectiveFunction<double, double, int, true>;
+  using ObjectiveT = RegressionObjectiveFunction<double, double, true>;
   WeightedRegressionBin hist[]{{0.0, 1, 0.0}, {2.0, 2, 1.0}};
   CRITERION criteria[] = {
     CRITERION::MSE, CRITERION::POISSON, CRITERION::GAMMA, CRITERION::INVERSE_GAUSSIAN};
@@ -2368,28 +2473,28 @@ const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
 
 // mse objective test
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>, CRITERION::MSE>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double>, CRITERION::MSE>>
   MSEObjectiveTestD;
 TEST_P(MSEObjectiveTestD, MSEObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         MSEObjectiveTestD,
                         ::testing::ValuesIn(mse_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::MSE>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float>, CRITERION::MSE>>
   MSEObjectiveTestF;
 TEST_P(MSEObjectiveTestF, MSEObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         MSEObjectiveTestF,
                         ::testing::ValuesIn(mse_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int, true>, CRITERION::MSE>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, true>, CRITERION::MSE>>
   WeightedMSEObjectiveTestD;
 TEST_P(WeightedMSEObjectiveTestD, MSEObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         WeightedMSEObjectiveTestD,
                         ::testing::ValuesIn(mse_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int, true>, CRITERION::MSE>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, true>, CRITERION::MSE>>
   WeightedMSEObjectiveTestF;
 TEST_P(WeightedMSEObjectiveTestF, MSEObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
@@ -2398,28 +2503,28 @@ INSTANTIATE_TEST_CASE_P(RfTests,
 
 // poisson objective test
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>, CRITERION::POISSON>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double>, CRITERION::POISSON>>
   PoissonObjectiveTestD;
 TEST_P(PoissonObjectiveTestD, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         PoissonObjectiveTestD,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::POISSON>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float>, CRITERION::POISSON>>
   PoissonObjectiveTestF;
 TEST_P(PoissonObjectiveTestF, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         PoissonObjectiveTestF,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int, true>, CRITERION::POISSON>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, true>, CRITERION::POISSON>>
   WeightedPoissonObjectiveTestD;
 TEST_P(WeightedPoissonObjectiveTestD, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         WeightedPoissonObjectiveTestD,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int, true>, CRITERION::POISSON>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, true>, CRITERION::POISSON>>
   WeightedPoissonObjectiveTestF;
 TEST_P(WeightedPoissonObjectiveTestF, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
@@ -2428,28 +2533,28 @@ INSTANTIATE_TEST_CASE_P(RfTests,
 
 // gamma objective test
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>, CRITERION::GAMMA>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double>, CRITERION::GAMMA>>
   GammaObjectiveTestD;
 TEST_P(GammaObjectiveTestD, GammaObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GammaObjectiveTestD,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::GAMMA>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float>, CRITERION::GAMMA>>
   GammaObjectiveTestF;
 TEST_P(GammaObjectiveTestF, GammaObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GammaObjectiveTestF,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int, true>, CRITERION::GAMMA>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, true>, CRITERION::GAMMA>>
   WeightedGammaObjectiveTestD;
 TEST_P(WeightedGammaObjectiveTestD, GammaObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         WeightedGammaObjectiveTestD,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int, true>, CRITERION::GAMMA>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, true>, CRITERION::GAMMA>>
   WeightedGammaObjectiveTestF;
 TEST_P(WeightedGammaObjectiveTestF, GammaObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
@@ -2457,29 +2562,29 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
 
 // InvGauss objective test
-typedef ObjectiveTest<ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>,
-                                          CRITERION::INVERSE_GAUSSIAN>>
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double>, CRITERION::INVERSE_GAUSSIAN>>
   InverseGaussianObjectiveTestD;
 TEST_P(InverseGaussianObjectiveTestD, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         InverseGaussianObjectiveTestD,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::INVERSE_GAUSSIAN>>
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float>, CRITERION::INVERSE_GAUSSIAN>>
   InverseGaussianObjectiveTestF;
 TEST_P(InverseGaussianObjectiveTestF, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         InverseGaussianObjectiveTestF,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
-typedef ObjectiveTest<ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int, true>,
+typedef ObjectiveTest<ObjectiveTestConfig<RegressionObjectiveFunction<double, double, true>,
                                           CRITERION::INVERSE_GAUSSIAN>>
   WeightedInverseGaussianObjectiveTestD;
 TEST_P(WeightedInverseGaussianObjectiveTestD, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         WeightedInverseGaussianObjectiveTestD,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
-typedef ObjectiveTest<ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int, true>,
-                                          CRITERION::INVERSE_GAUSSIAN>>
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, true>, CRITERION::INVERSE_GAUSSIAN>>
   WeightedInverseGaussianObjectiveTestF;
 TEST_P(WeightedInverseGaussianObjectiveTestF, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
@@ -2488,28 +2593,28 @@ INSTANTIATE_TEST_CASE_P(RfTests,
 
 // entropy objective test
 typedef ObjectiveTest<
-  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, int>, CRITERION::ENTROPY>>
+  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int>, CRITERION::ENTROPY>>
   EntropyObjectiveTestD;
 TEST_P(EntropyObjectiveTestD, entropyObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         EntropyObjectiveTestD,
                         ::testing::ValuesIn(entropy_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, int>, CRITERION::ENTROPY>>
+  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int>, CRITERION::ENTROPY>>
   EntropyObjectiveTestF;
 TEST_P(EntropyObjectiveTestF, entropyObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         EntropyObjectiveTestF,
                         ::testing::ValuesIn(entropy_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, int, true>, CRITERION::ENTROPY>>
+  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, true>, CRITERION::ENTROPY>>
   WeightedEntropyObjectiveTestD;
 TEST_P(WeightedEntropyObjectiveTestD, entropyObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         WeightedEntropyObjectiveTestD,
                         ::testing::ValuesIn(entropy_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, int, true>, CRITERION::ENTROPY>>
+  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, true>, CRITERION::ENTROPY>>
   WeightedEntropyObjectiveTestF;
 TEST_P(WeightedEntropyObjectiveTestF, entropyObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
@@ -2518,28 +2623,28 @@ INSTANTIATE_TEST_CASE_P(RfTests,
 
 // gini objective test
 typedef ObjectiveTest<
-  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, int>, CRITERION::GINI>>
+  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int>, CRITERION::GINI>>
   GiniObjectiveTestD;
 TEST_P(GiniObjectiveTestD, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestD,
                         ::testing::ValuesIn(gini_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, int>, CRITERION::GINI>>
+  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int>, CRITERION::GINI>>
   GiniObjectiveTestF;
 TEST_P(GiniObjectiveTestF, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestF,
                         ::testing::ValuesIn(gini_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, int, true>, CRITERION::GINI>>
+  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, true>, CRITERION::GINI>>
   WeightedGiniObjectiveTestD;
 TEST_P(WeightedGiniObjectiveTestD, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         WeightedGiniObjectiveTestD,
                         ::testing::ValuesIn(gini_objective_test_parameters));
 typedef ObjectiveTest<
-  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, int, true>, CRITERION::GINI>>
+  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, true>, CRITERION::GINI>>
   WeightedGiniObjectiveTestF;
 TEST_P(WeightedGiniObjectiveTestF, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
@@ -2561,7 +2666,7 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
   {
     params      = ::testing::TestWithParam<FeatureSamplingBiasTestParams>::GetParam();
     stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-    handle.reset(new raft::handle_t(rmm::cuda_stream_per_thread, stream_pool));
+    handle.reset(new raft::handle_t(cuda::stream_ref{cudaStreamPerThread}, stream_pool));
   }
 
   void TearDown() override
@@ -2574,14 +2679,17 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
   {
     auto stream = handle->get_stream();
 
+    const auto node_count        = ML::narrow_cast<std::size_t>(params.n_nodes);
+    const auto feature_count     = ML::narrow_cast<std::size_t>(params.n_features);
+    const auto sampled_col_count = ML::checked_mul<std::size_t>(params.n_nodes, params.k);
+
     // Allocate device memory
-    rmm::device_uvector<int> d_colids(params.n_nodes * params.k, stream);
-    rmm::device_uvector<NodeWorkItem> d_work_items(params.n_nodes, stream);
-    rmm::device_uvector<unsigned long long> d_counts(params.n_features, stream);
+    rmm::device_uvector<std::int64_t> d_colids(sampled_col_count, stream);
+    rmm::device_uvector<NodeWorkItem> d_work_items(node_count, stream);
 
     // Initialize work items on host
-    std::vector<NodeWorkItem> h_work_items(params.n_nodes);
-    for (int i = 0; i < params.n_nodes; ++i) {
+    std::vector<NodeWorkItem> h_work_items(node_count);
+    for (std::size_t i = 0; i < node_count; ++i) {
       h_work_items[i].idx             = i;
       h_work_items[i].depth           = 0;
       h_work_items[i].instances.begin = 0;
@@ -2589,58 +2697,35 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
     }
 
     // Copy to device
-    raft::update_device(d_work_items.data(), h_work_items.data(), params.n_nodes, stream);
+    raft::update_device(d_work_items.data(), h_work_items.data(), node_count, stream);
 
-    // Initialize counts to zero
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(d_counts.data(), 0, params.n_features * sizeof(unsigned long long), stream));
+    sample_features(d_colids.data(),
+                    d_work_items.data(),
+                    node_count,
+                    std::int64_t{0},  // treeid
+                    std::uint64_t{42},
+                    std::int64_t{0},  // sample_offset
+                    params.n_features,
+                    params.k,
+                    stream.get());
+    stream.sync();
 
-    // Calculate n_parallel_samples using the same formula as in builder.cuh
-    const int BLOCK_THREADS          = 128;
-    const int MAX_SAMPLES_PER_THREAD = 1;
-    // Formula: log(1 - k/n) / log(1 - 1/n)
-    // where k = params.k (features to sample), n = params.n_features (total features)
-    int n_parallel_samples = std::ceil(raft::log(1 - double(params.k) / double(params.n_features)) /
-                                       raft::log(1 - 1.0 / double(params.n_features)));
+    // Copy colids back to host for duplicate checking and bias counting
+    std::vector<std::int64_t> h_colids(sampled_col_count);
+    raft::update_host(h_colids.data(), d_colids.data(), sampled_col_count, stream);
+    stream.sync();
 
-    // Verify that test conditions ensure excess_sample_with_replacement_kernel is used
-    // (instead of falling back to algo_L_sample_kernel)
-    ASSERT_GE(MAX_SAMPLES_PER_THREAD * BLOCK_THREADS, n_parallel_samples)
-      << "Test parameters would trigger reservoir sampling instead of excess sampling. "
-      << "n_parallel_samples=" << n_parallel_samples
-      << ", max capacity=" << (MAX_SAMPLES_PER_THREAD * BLOCK_THREADS);
-
-    // Run the sampling kernel with diagnostics enabled
-    excess_sample_with_replacement_kernel<int, MAX_SAMPLES_PER_THREAD, BLOCK_THREADS>
-      <<<params.n_nodes, BLOCK_THREADS, 0, stream>>>(d_colids.data(),
-                                                     d_work_items.data(),
-                                                     params.n_nodes,
-                                                     0,   // treeid
-                                                     42,  // seed
-                                                     params.n_features,
-                                                     params.k,
-                                                     n_parallel_samples,
-                                                     d_counts.data());
-
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-
-    // Copy counts back to host for verification
-    std::vector<unsigned long long> h_counts(params.n_features);
-    raft::update_host(h_counts.data(), d_counts.data(), params.n_features, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-
-    // Copy colids back to host for duplicate checking
-    std::vector<int> h_colids(params.n_nodes * params.k);
-    raft::update_host(h_colids.data(), d_colids.data(), params.n_nodes * params.k, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    std::vector<unsigned long long> h_counts(feature_count, 0);
 
     // Verify that each node's sampled features are unique and valid
     for (int node = 0; node < params.n_nodes; ++node) {
-      std::vector<bool> feature_seen(params.n_features, false);
+      std::vector<bool> feature_seen(feature_count, false);
       int unique_count = 0;
 
       for (int j = 0; j < params.k; ++j) {
-        int feature_idx = h_colids[node * params.k + j];
+        const auto sample_idx =
+          ML::checked_add<std::size_t>(ML::checked_mul<std::size_t>(node, params.k), j);
+        auto feature_idx = h_colids[sample_idx];
 
         // Check feature index is within valid range
         EXPECT_GE(feature_idx, 0) << "Node " << node << " has invalid feature index " << feature_idx
@@ -2651,10 +2736,12 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
 
         // Check for duplicates
         if (feature_idx >= 0 && feature_idx < params.n_features) {
-          EXPECT_FALSE(feature_seen[feature_idx]) << "Node " << node << " has duplicate feature "
+          const auto feature_pos = ML::narrow_cast<std::size_t>(feature_idx);
+          h_counts[feature_pos]++;
+          EXPECT_FALSE(feature_seen[feature_pos]) << "Node " << node << " has duplicate feature "
                                                   << feature_idx << " at positions in sampled set";
-          if (!feature_seen[feature_idx]) {
-            feature_seen[feature_idx] = true;
+          if (!feature_seen[feature_pos]) {
+            feature_seen[feature_pos] = true;
             unique_count++;
           }
         }
@@ -2665,8 +2752,8 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
     }
 
     // Verify uniform sampling (no bias)
-    unsigned long long total_samples = params.n_nodes * params.k;
-    double expected_per_feature      = double(total_samples) / params.n_features;
+    auto total_samples          = ML::checked_mul<unsigned long long>(params.n_nodes, params.k);
+    double expected_per_feature = double(total_samples) / params.n_features;
 
     // Check for feature 0 under-sampling
     double feature_0_ratio = h_counts[0] / expected_per_feature;
@@ -2674,12 +2761,12 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
       << "Feature 0 is under-sampled! Ratio: " << feature_0_ratio << " (expected ~1.0)";
 
     // Check for feature n-1 over-sampling
-    double feature_n1_ratio = h_counts[params.n_features - 1] / expected_per_feature;
+    double feature_n1_ratio = h_counts[feature_count - 1] / expected_per_feature;
     EXPECT_LT(feature_n1_ratio, 1.0 + params.tolerance_ratio)
       << "Feature n-1 is over-sampled! Ratio: " << feature_n1_ratio << " (expected ~1.0)";
 
     // Check all features are reasonably sampled
-    for (int i = 0; i < params.n_features; ++i) {
+    for (std::size_t i = 0; i < feature_count; ++i) {
       double ratio = h_counts[i] / expected_per_feature;
       EXPECT_GT(ratio, 1.0 - params.tolerance_ratio)
         << "Feature " << i << " under-sampled. Ratio: " << ratio;

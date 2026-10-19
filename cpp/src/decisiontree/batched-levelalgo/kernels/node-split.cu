@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,51 +9,44 @@ namespace ML {
 namespace DT {
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchNodeSplitKernel<float, int, int, TPB_DEFAULT>(
-  const int min_samples_leaf,
-  const float min_impurity_decrease,
-  const Dataset<float, int, int>& dataset,
-  const NodeWorkItem* work_items,
-  const Split<float, int>* splits,
-  const WorkloadInfo<int>* workload_info,
-  size_t n_blocks_dimx,
-  int* partition_row_ids,
-  cudaStream_t builder_stream);
+template void launchNodeSplitKernel<float, int, TPB_DEFAULT>(const Dataset<float, int>& dataset,
+                                                             const NodeWorkItem* work_items,
+                                                             Split<float>* splits,
+                                                             const WorkloadInfo* workload_info,
+                                                             size_t n_blocks_dimx,
+                                                             size_t n_work_items,
+                                                             std::int64_t* partition_row_ids,
+                                                             cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchNodeSplitKernel<double, int, int, TPB_DEFAULT>(
-  const int min_samples_leaf,
-  const double min_impurity_decrease,
-  const Dataset<double, int, int>& dataset,
-  const NodeWorkItem* work_items,
-  const Split<double, int>* splits,
-  const WorkloadInfo<int>* workload_info,
-  size_t n_blocks_dimx,
-  int* partition_row_ids,
-  cudaStream_t builder_stream);
+template void launchNodeSplitKernel<double, int, TPB_DEFAULT>(const Dataset<double, int>& dataset,
+                                                              const NodeWorkItem* work_items,
+                                                              Split<double>* splits,
+                                                              const WorkloadInfo* workload_info,
+                                                              size_t n_blocks_dimx,
+                                                              size_t n_work_items,
+                                                              std::int64_t* partition_row_ids,
+                                                              cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchNodeSplitKernel<float, float, int, TPB_DEFAULT>(
-  const int min_samples_leaf,
-  const float min_impurity_decrease,
-  const Dataset<float, float, int>& dataset,
-  const NodeWorkItem* work_items,
-  const Split<float, int>* splits,
-  const WorkloadInfo<int>* workload_info,
-  size_t n_blocks_dimx,
-  int* partition_row_ids,
-  cudaStream_t builder_stream);
+template void launchNodeSplitKernel<float, float, TPB_DEFAULT>(const Dataset<float, float>& dataset,
+                                                               const NodeWorkItem* work_items,
+                                                               Split<float>* splits,
+                                                               const WorkloadInfo* workload_info,
+                                                               size_t n_blocks_dimx,
+                                                               size_t n_work_items,
+                                                               std::int64_t* partition_row_ids,
+                                                               cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchNodeSplitKernel<double, double, int, TPB_DEFAULT>(
-  const int min_samples_leaf,
-  const double min_impurity_decrease,
-  const Dataset<double, double, int>& dataset,
+template void launchNodeSplitKernel<double, double, TPB_DEFAULT>(
+  const Dataset<double, double>& dataset,
   const NodeWorkItem* work_items,
-  const Split<double, int>* splits,
-  const WorkloadInfo<int>* workload_info,
+  Split<double>* splits,
+  const WorkloadInfo* workload_info,
   size_t n_blocks_dimx,
-  int* partition_row_ids,
+  size_t n_work_items,
+  std::int64_t* partition_row_ids,
   cudaStream_t builder_stream);
 
 }  // namespace DT

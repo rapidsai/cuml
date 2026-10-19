@@ -1,23 +1,18 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+from numbers import Real
+
 import cupy as cp
 import cupyx
 import numpy as np
 
 import cuml.internals.nvtx as nvtx
-from cuml.common import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
-from cuml.internals.outputs import (
-    exit_internal_context,
-    reflect,
-    run_in_internal_context,
-)
+from cuml.internals.outputs import ClassLabels, ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_inputs,
@@ -53,11 +48,16 @@ def _count_classes(y, n_classes, dtype):
     return cp.bincount(y, minlength=n_classes).astype(dtype, copy=False)
 
 
+def _alpha_dtype(dtype):
+    """Preserve fractional alpha values when the target dtype is integral."""
+    return np.float64 if np.issubdtype(dtype, np.integer) else dtype
+
+
 class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
     """A base class for all naive-bayes estimators"""
 
-    class_count_ = CumlArrayDescriptor()
-    feature_count_ = CumlArrayDescriptor()
+    class_count_ = ReflectedAttr()
+    feature_count_ = ReflectedAttr()
     # a tuple of dtypes to coerce X to
     _supported_dtypes = ("float32", "float64")
 
@@ -65,20 +65,17 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         """An optional transform to apply to X after it's been validated"""
         return X
 
-    def _check_predict(self, X, *, convert_dtype="deprecated"):
-        """Validate X and return (X, index) for predict."""
-        X, index = check_inputs(
+    def _check_predict(self, X):
+        """Validate and return X for predict."""
+        X = check_inputs(
             self,
             X,
             dtype=self._supported_dtypes,
             sample_weight_dtype=("float32", "float64"),
-            convert_dtype=convert_dtype,
             accept_sparse=["coo", "csr"],
-            return_index=True,
             ensure_non_negative=self.__sklearn_tags__().input_tags.positive_only,
         )
-        X = self._transform_X(X)
-        return X, index
+        return self._transform_X(X)
 
     def _check_fit(
         self,
@@ -88,11 +85,17 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         sample_weight=None,
         *,
         reset=False,
-        convert_dtype="deprecated",
     ):
         """Validate and return (X, y, classes, sample_weight) for fit."""
         if reset:
             self._set_output_type(X)
+        elif classes is None:
+            # Not the first call, and no `classes` passed: encode `y`
+            # against the already-established `self.classes_` rather than
+            # letting `check_inputs` derive classes from just this batch,
+            # which would silently corrupt updates for any class not
+            # present in the current batch.
+            classes = self.classes_
         X, y, sample_weight, classes = check_inputs(
             self,
             X,
@@ -101,7 +104,6 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
             dtype=self._supported_dtypes,
             y_dtype=None,
             sample_weight_dtype=("float32", "float64"),
-            convert_dtype=convert_dtype,
             accept_sparse=["coo", "csr"],
             ensure_non_negative=self.__sklearn_tags__().input_tags.positive_only,
             return_classes=(True if classes is None else classes),
@@ -148,24 +150,18 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
             "shape": "(n_rows, 1)",
         },
     )
-    @run_in_internal_context
-    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X):
         """
         Perform classification on an array of test vectors X.
 
         """
         check_is_fitted(self)
 
-        with exit_internal_context():
-            output_type = self._get_output_type(X)
-
-        X, index = self._check_predict(X, convert_dtype=convert_dtype)
+        X = self._check_predict(X)
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1)
-
-        return decode_labels(
-            indices, self.classes_, output_type=output_type, index=index
-        )
+        return ClassLabels(indices, self.classes_)
 
     @generate_docstring(
         X="dense_sparse",
@@ -180,14 +176,14 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
             "shape": "(n_rows, 1)",
         },
     )
-    @reflect
-    def predict_log_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict_log_proba(self, X):
         """
         Return log-probability estimates for the test vector X.
 
         """
         check_is_fitted(self)
-        X, index = self._check_predict(X, convert_dtype=convert_dtype)
+        X = self._check_predict(X)
         jll = self._joint_log_likelihood(X)
 
         # normalize by P(X) = P(f_1, ..., f_n)
@@ -199,8 +195,7 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         log_prob_x = cp.squeeze(a_max, axis=1) + logsumexp
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
-        result = jll - log_prob_x.T
-        return CumlArray(data=result, index=index)
+        return jll - log_prob_x.T
 
     @generate_docstring(
         X="dense_sparse",
@@ -215,14 +210,14 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
             "shape": "(n_rows, 1)",
         },
     )
-    @reflect
-    def predict_proba(self, X) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict_proba(self, X):
         """
         Return probability estimates for the test vector X.
         """
         log_proba = self.predict_log_proba(X)
-        result = cp.exp(log_proba)
-        return CumlArray(data=result, index=log_proba.index)
+        cp.exp(log_proba, out=log_proba)
+        return log_proba
 
 
 class GaussianNB(_BaseNB):
@@ -243,8 +238,7 @@ class GaussianNB(_BaseNB):
     var_smoothing : float, default=1e-9
         Portion of the largest variance of all features that is added to
         variances for calculation stability.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -267,7 +261,7 @@ class GaussianNB(_BaseNB):
     [1]
     """
 
-    class_prior_ = CumlArrayDescriptor()
+    class_prior_ = ReflectedAttr()
 
     def __init__(
         self,
@@ -281,7 +275,7 @@ class GaussianNB(_BaseNB):
         self.priors = priors
         self.var_smoothing = var_smoothing
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(self, X, y, sample_weight=None) -> "GaussianNB":
         """
         Fit Gaussian Naive Bayes classifier according to X, y
@@ -313,7 +307,6 @@ class GaussianNB(_BaseNB):
         classes=None,
         sample_weight=None,
         reset=False,
-        convert_dtype="deprecated",
     ) -> "GaussianNB":
         classes, reset = self._check_classes(classes, reset)
         X, y, classes, sample_weight = self._check_fit(
@@ -322,7 +315,6 @@ class GaussianNB(_BaseNB):
             classes=classes,
             sample_weight=sample_weight,
             reset=reset,
-            convert_dtype=convert_dtype,
         )
 
         self.epsilon_ = self.var_smoothing * (
@@ -399,7 +391,7 @@ class GaussianNB(_BaseNB):
 
         return self
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "GaussianNB":
@@ -575,8 +567,8 @@ class GaussianNB(_BaseNB):
 
 
 class _BaseDiscreteNB(_BaseNB):
-    class_log_prior_ = CumlArrayDescriptor()
-    feature_log_prob_ = CumlArrayDescriptor()
+    class_log_prior_ = ReflectedAttr()
+    feature_log_prob_ = ReflectedAttr()
     _supported_dtypes = ("float32", "float64", "int32", "int64")
 
     def __init__(
@@ -598,6 +590,12 @@ class _BaseDiscreteNB(_BaseNB):
         tags.classifier_tags.poor_score = True
         return tags
 
+    def _check_alpha(self, alpha, n_features):
+        """Validate and return a nonnegative scalar alpha."""
+        if alpha < 0:
+            raise ValueError(f"Expected alpha >= 0, got {alpha}")
+        return alpha
+
     def _update_class_log_prior(self, class_prior=None):
         if class_prior is not None:
             if class_prior.shape[0] != self.n_classes_:
@@ -617,7 +615,7 @@ class _BaseDiscreteNB(_BaseNB):
                 self.n_classes_, -np.log(self.n_classes_)
             )
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def partial_fit(
         self,
         X,
@@ -666,18 +664,20 @@ class _BaseDiscreteNB(_BaseNB):
         y,
         classes=None,
         reset=False,
-        convert_dtype="deprecated",
     ) -> "_BaseDiscreteNB":
-        if self.alpha < 0:
-            raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
-
         classes, reset = self._check_classes(classes, reset)
         X, y, classes, _ = self._check_fit(
             X,
             y,
             classes=classes,
             reset=reset,
-            convert_dtype=convert_dtype,
+        )
+
+        alpha = self._check_alpha(self.alpha, X.shape[1])
+        self._alpha_ = (
+            alpha
+            if isinstance(alpha, Real)
+            else cp.asarray(alpha, dtype=_alpha_dtype(X.dtype))
         )
 
         if reset:
@@ -692,11 +692,11 @@ class _BaseDiscreteNB(_BaseNB):
         else:
             self._count(X, y)
 
-        self._update_feature_log_prob(self.alpha)
+        self._update_feature_log_prob(self._alpha_)
         self._update_class_log_prior(class_prior=self.class_prior)
         return self
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(self, X, y) -> "_BaseDiscreteNB":
         """
         Fit Naive Bayes classifier according to X, y
@@ -726,7 +726,13 @@ class _BaseDiscreteNB(_BaseNB):
         can be updated incrementally without incurring this cost each
         time.
         """
-        self._update_feature_log_prob(self.alpha)
+        alpha = self._check_alpha(self.alpha, self.n_features_)
+        if isinstance(alpha, Real):
+            self._alpha_ = alpha
+        else:
+            dtype = _alpha_dtype(self.feature_count_.dtype)
+            self._alpha_ = cp.asarray(alpha, dtype=dtype)
+        self._update_feature_log_prob(self._alpha_)
         self._update_class_log_prior(class_prior=self.class_prior)
 
     def _count(self, X, y):
@@ -829,8 +835,7 @@ class MultinomialNB(_BaseDiscreteNB):
     class_prior : array-like, size (n_classes) (default=None)
         Prior probabilities of the classes. If specified, the priors are
         not adjusted according to the data.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -925,8 +930,7 @@ class BernoulliNB(_BaseDiscreteNB):
     class_prior : array-like of shape (n_classes,), default=None
         Prior probabilities of the classes. If specified the priors are not
         adjusted according to the data.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -1048,7 +1052,7 @@ class ComplementNB(_BaseDiscreteNB):
 
     Parameters
     ----------
-    alpha : float, default=1.0
+    alpha : float or array-like of shape (n_features,), default=1.0
         Additive (Laplace/Lidstone) smoothing parameter
         (0 for no smoothing).
     fit_prior : bool, default=True
@@ -1062,8 +1066,7 @@ class ComplementNB(_BaseDiscreteNB):
         The default behavior mirrors the implementation found in Mahout and
         Weka, which do not follow the full algorithm described in Table 9 of
         the paper.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -1133,6 +1136,26 @@ class ComplementNB(_BaseDiscreteNB):
         tags.input_tags.positive_only = True
         return tags
 
+    def _check_alpha(self, alpha, n_features):
+        """Validate and return finite, nonnegative scalar or per-feature alpha."""
+        if not isinstance(alpha, Real):
+            # cp.ndarray can't be passed to np.asarray directly; unwrap.
+            alpha = alpha.get() if isinstance(alpha, cp.ndarray) else alpha
+            alpha = np.asarray(alpha)
+            if alpha.ndim == 0:
+                alpha = alpha.item()  # e.g. np.array(1.5) is just a scalar
+            elif alpha.ndim != 1 or alpha.shape[0] != n_features:
+                raise ValueError(
+                    "alpha must be a scalar or an array-like of shape "
+                    f"(n_features,)=({n_features},); got shape "
+                    f"{alpha.shape} instead."
+                )
+
+        if not np.all(np.isfinite(alpha)) or np.any(np.asarray(alpha) < 0):
+            raise ValueError(f"alpha must be finite and >= 0, got {alpha!r}")
+
+        return alpha
+
     def _count(self, X, y):
         super()._count(X, y)
         self.feature_all_ = self.feature_count_.sum(axis=0)
@@ -1189,8 +1212,7 @@ class CategoricalNB(_BaseDiscreteNB):
     class_prior : array-like of shape (n_classes,), default=None
         Prior probabilities of the classes. If specified the priors are not
         adjusted according to the data.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See

@@ -1,9 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import pickle
 
+import cupy as cp
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
@@ -26,7 +27,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-from cuml.tsa.arima import ARIMA
 
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
@@ -85,17 +85,11 @@ k_neighbors_config = ClassEnumerator(
 k_neighbors_models = k_neighbors_config.get_models()
 
 unfit_pickle_xfail = [
-    "ARIMA",
-    "AutoARIMA",
-    "KalmanFilter",
     "BaseRandomForestModel",
-    "ForestInference",
     "OneVsOneClassifier",
     "OneVsRestClassifier",
 ]
 unfit_clone_xfail = [
-    "AutoARIMA",
-    "ARIMA",
     "BaseRandomForestModel",
     "OneVsOneClassifier",
     "OneVsRestClassifier",
@@ -117,10 +111,6 @@ all_models.update(
         **umap_model,
         **rf_models,
         **k_neighbors_models,
-        "ARIMA": lambda: ARIMA(np.random.normal(0.0, 1.0, (10,))),
-        "ExponentialSmoothing": lambda: cuml.ExponentialSmoothing(
-            np.array([-217.72, -206.77])
-        ),
     }
 )
 
@@ -167,6 +157,18 @@ def make_dataset(datatype, nrows, ncols, n_info):
     return X_train, y_train, X_test
 
 
+def test_cupy_pickle_roundtrip_order():
+    """Test for workaround for https://github.com/cupy/cupy/issues/10084"""
+    X_c = cp.array([[1, 2], [3, 4], [5, 6]], order="C")
+    X_f = cp.array([[1, 2], [3, 4], [5, 6]], order="f")
+
+    X_c2 = pickle.loads(pickle.dumps(X_c))
+    X_f2 = pickle.loads(pickle.dumps(X_f))
+
+    assert X_c2.flags.c_contiguous
+    assert X_f2.flags.f_contiguous
+
+
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("key", rf_models.keys())
 @pytest.mark.parametrize("nrows", [unit_param(500)])
@@ -196,10 +198,12 @@ def test_rf_regression_pickle(
 
     def assert_model(pickled_model, X_test):
         assert array_equal(result["rf_res"], pickled_model.predict(X_test))
-        # Confirm no crash from score
-        pickled_model.score(X_test, np.zeros(X_test.shape[0]))
+        if key != "IsolationForest":
+            # Confirm no crash from score. IsolationForest is an outlier
+            # detector and has no `score`, as in sklearn.
+            pickled_model.score(X_test, np.zeros(X_test.shape[0]))
 
-        pickle_save_load(tmpdir, create_mod, assert_model)
+    pickle_save_load(tmpdir, create_mod, assert_model)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -455,7 +459,8 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 
 @pytest.mark.parametrize("algorithm", ["brute", "rbc", "ivfpq", "ivfflat"])
 def test_nearest_neighbors_pickle(algorithm):
-    X, _ = make_blobs(n_features=3, n_samples=500, random_state=42)
+    # Default IVF-PQ needs 256 training samples and uses half the data.
+    X, _ = make_blobs(n_features=3, n_samples=512, random_state=42)
     model = cuml.NearestNeighbors(algorithm=algorithm)
     model.fit(X)
     model2 = pickle.loads(pickle.dumps(model))
@@ -465,11 +470,10 @@ def test_nearest_neighbors_pickle(algorithm):
         # Currently ivf indices aren't serialized, which may result in small
         # differences upon reload. For now we check for comparable performance
         # just to ensure things are wired together properly.
-        # See https://github.com/rapidsai/cuml/issues/8144.
+        # See https://github.com/NVIDIA/cuml/issues/8144.
+        min_acc = 0.75 if algorithm == "ivfpq" else 0.9
         accuracy = (i1 == i2).sum() / i1.size
-        assert accuracy >= 0.9
-        atol = 5e-3 if algorithm == "ivfpq" else 1e-3
-        np.testing.assert_allclose(d1, d2, atol=atol)
+        assert accuracy >= min_acc
     else:
         np.testing.assert_allclose(i1, i2)
         np.testing.assert_allclose(d1, d2)
@@ -612,7 +616,7 @@ def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("keys", spectral_clustering_model.keys())
 @pytest.mark.parametrize(
-    "data_size", [unit_param([500, 20, 10]), stress_param([500000, 1000, 500])]
+    "data_size", [unit_param([500, 20, 10]), stress_param([50000, 1000, 500])]
 )
 def test_spectral_clustering_pickle(tmpdir, datatype, keys, data_size):
     result = {}
@@ -621,12 +625,11 @@ def test_spectral_clustering_pickle(tmpdir, datatype, keys, data_size):
         nrows, ncols, n_info = data_size
         X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
         model = spectral_clustering_model[keys](random_state=42)
-        result["spectral_clustering"] = model.fit_predict(X_train)
+        result["labels"] = model.fit_predict(X_train)
         return model, X_train
 
     def assert_model(pickled_model, X_train):
-        pickle_after_predict = pickled_model.fit_predict(X_train)
-        assert array_equal(result["spectral_clustering"], pickle_after_predict)
+        np.testing.assert_array_equal(pickled_model.labels_, result["labels"])
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 

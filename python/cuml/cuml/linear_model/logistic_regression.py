@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -7,23 +7,16 @@ import numpy as np
 import sklearn
 from packaging.version import Version
 
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
+from cuml.internals.outputs import ClassLabels, ReflectedAttr, mlfunc
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.qn import fit_qn
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+SKLEARN_110 = Version(sklearn.__version__) >= Version("1.10.0.dev0")
 
 
 class LogisticRegression(
@@ -88,8 +81,7 @@ class LogisticRegression(
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -130,8 +122,8 @@ class LogisticRegression(
 
     _cpu_class_path = "sklearn.linear_model.LogisticRegression"
 
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
+    intercept_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -155,9 +147,12 @@ class LogisticRegression(
         if model.warm_start:
             raise UnsupportedOnGPU("`warm_start=True` is not supported")
 
-        if model.intercept_scaling != 1:
+        # sklearn 1.10 deprecated this liblinear-only parameter for removal
+        # in 1.12. An absent parameter also implies default scaling.
+        intercept_scaling = getattr(model, "intercept_scaling", "deprecated")
+        if intercept_scaling not in (1, "deprecated"):
             raise UnsupportedOnGPU(
-                f"`intercept_scaling={model.intercept_scaling}` is not supported"
+                f"`intercept_scaling={intercept_scaling}` is not supported"
             )
 
         # `multi_class` was deprecated in sklearn 1.5 and will be removed in 1.8
@@ -178,11 +173,22 @@ class LogisticRegression(
             else:
                 penalty = "elasticnet"
 
+        # `C` was deprecated in sklearn 1.10 in favor of `alpha = 1 / C`
+        if model.C == "deprecated":
+            C = np.inf if model.alpha == 0 else 1.0 / model.alpha
+        elif SKLEARN_110 and model.alpha != 1.0:
+            # Setting both is an error in sklearn, fall back to CPU to raise it
+            raise UnsupportedOnGPU(
+                "Setting both `C` and `alpha` is not supported"
+            )
+        else:
+            C = model.C
+
         return {
             "penalty": penalty,
             "l1_ratio": l1_ratio,
             "tol": model.tol,
-            "C": model.C,
+            "C": C,
             "fit_intercept": model.fit_intercept,
             "class_weight": model.class_weight,
             "max_iter": model.max_iter,
@@ -196,8 +202,12 @@ class LogisticRegression(
                 "l1_ratio": {"l1": 1.0, "l2": 0.0, None: 0.0}.get(
                     self.l1_ratio
                 ),
-                "C": np.inf if self.penalty is None else self.C,
             }
+            # `C` was deprecated in sklearn 1.10 in favor of `alpha = 1 / C`
+            if SKLEARN_110:
+                extra["alpha"] = 0.0 if self.penalty is None else 1.0 / self.C
+            else:
+                extra["C"] = np.inf if self.penalty is None else self.C
         else:
             extra = {
                 "penalty": self.penalty,
@@ -217,8 +227,8 @@ class LogisticRegression(
     def _attrs_from_cpu(self, model):
         return {
             "classes_": model.classes_,
-            "intercept_": to_gpu(model.intercept_, order="F"),
-            "coef_": to_gpu(model.coef_, order="F"),
+            "intercept_": cp.asarray(model.intercept_),
+            "coef_": cp.asarray(model.coef_),
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
@@ -226,8 +236,8 @@ class LogisticRegression(
     def _attrs_to_cpu(self, model):
         return {
             "classes_": self.classes_,
-            "intercept_": to_cpu(self.intercept_),
-            "coef_": to_cpu(self.coef_),
+            "intercept_": cp.asnumpy(self.intercept_, order="A"),
+            "coef_": cp.asnumpy(self.coef_, order="A"),
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
@@ -295,10 +305,8 @@ class LogisticRegression(
         return l1_strength, l2_strength
 
     @generate_docstring(X="dense_sparse")
-    @cuml.internals.reflect(reset=True)
-    def fit(
-        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
-    ) -> "LogisticRegression":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y, sample_weight=None) -> "LogisticRegression":
         """
         Fit the model with X and y.
         """
@@ -309,7 +317,6 @@ class LogisticRegression(
             X,
             y,
             sample_weight=sample_weight,
-            convert_dtype=convert_dtype,
             loss="logistic",
             fit_intercept=self.fit_intercept,
             l1_strength=l1_strength,
@@ -325,8 +332,8 @@ class LogisticRegression(
         )
 
         self.classes_ = classes
-        self.coef_ = CumlArray(data=coef)
-        self.intercept_ = CumlArray(data=intercept)
+        self.coef_ = coef
+        self.intercept_ = intercept
         self.n_iter_ = np.asarray([n_iter])
 
         return self
@@ -340,26 +347,20 @@ class LogisticRegression(
             "shape": "(n_samples, 1)",
         },
     )
-    @cuml.internals.run_in_internal_context
-    def predict(self, X, *, convert_dtype="deprecated"):
+    @mlfunc(preserve_index=True)
+    def predict(self, X):
         """
         Predicts the y for X.
 
         """
-        scores = self.decision_function(X, convert_dtype=convert_dtype)
-        index = scores.index
-        scores = scores.to_output("cupy")
+        scores = self.decision_function(X)
 
         if scores.ndim == 1:
             indices = (scores > 0).view(cp.int8)
         else:
             indices = cp.argmax(scores, axis=1)
 
-        with cuml.internals.exit_internal_context():
-            output_type = self._get_output_type(X)
-        return decode_labels(
-            indices, self.classes_, output_type=output_type, index=index
-        )
+        return ClassLabels(indices, self.classes_)
 
     @generate_docstring(
         X="dense_sparse",
@@ -370,13 +371,12 @@ class LogisticRegression(
             "shape": "(n_samples, n_classes)",
         },
     )
-    @cuml.internals.reflect
-    def predict_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict_proba(self, X):
         """
         Predicts the class probabilities for each class in X
         """
-        scores = self.decision_function(X, convert_dtype=convert_dtype)
-        scores = scores.to_output("cupy")
+        scores = self.decision_function(X)
 
         n_classes = self.classes_.shape[0]
         if n_classes == 2:
@@ -389,7 +389,7 @@ class LogisticRegression(
             proba = cp.exp(scores)
             row_sum = cp.sum(proba, axis=1).reshape((-1, 1))
             proba /= row_sum
-        return CumlArray(data=proba)
+        return proba
 
     @generate_docstring(
         X="dense_sparse",
@@ -400,13 +400,11 @@ class LogisticRegression(
             "shape": "(n_samples, n_classes)",
         },
     )
-    @cuml.internals.reflect
-    def predict_log_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict_log_proba(self, X):
         """
         Predicts the log class probabilities for each class in X
         """
-        out = self.predict_proba(X, convert_dtype=convert_dtype).to_output(
-            "cupy"
-        )
+        out = self.predict_proba(X)
         cp.log(out, out=out)
-        return CumlArray(data=out)
+        return out

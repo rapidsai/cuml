@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -11,12 +11,15 @@ from cuml.accel.estimator_proxy import (
     classproperty,
 )
 from cuml.internals.interop import UnsupportedOnGPU
+from cuml.internals.validation import check_cudf
 
 __all__ = (
     "StandardScaler",
     "MinMaxScaler",
     "MaxAbsScaler",
     "PolynomialFeatures",
+    "OneHotEncoder",
+    "OrdinalEncoder",
     "TargetEncoder",
     "LabelEncoder",
     "LabelBinarizer",
@@ -53,6 +56,48 @@ class PolynomialFeatures(ArrayAPIProxyBase):
         if model.order == "F":
             raise UnsupportedOnGPU("order='F' is not supported")
         return model.get_params(deep=False)
+
+
+def _encoders_check_X(X):
+    """Fallback if input values are unsupported"""
+    try:
+        return check_cudf(X, input_name="X")
+    except TypeError as exc:
+        exc_str = str(exc)
+        if exc_str.startswith("X with bytes dtype"):
+            raise UnsupportedOnGPU(
+                "X with bytes dtype is not supported"
+            ) from None
+        elif exc_str.startswith("An object dtype X argument must be composed"):
+            raise UnsupportedOnGPU(
+                "X has object dtype and contains values that can't "
+                "be coerced to the GPU"
+            ) from None
+        raise
+
+
+class OneHotEncoder(ProxyBase):
+    _gpu_class = cuml.preprocessing.OneHotEncoder
+
+    def _gpu_fit(self, X, y=None):
+        X = _encoders_check_X(X)
+        return self._gpu.fit(X, y=y)
+
+    def _gpu_fit_transform(self, X, y=None, **fit_params):
+        X = _encoders_check_X(X)
+        return self._gpu.fit_transform(X, y=y, **fit_params)
+
+
+class OrdinalEncoder(ProxyBase):
+    _gpu_class = cuml.preprocessing.OrdinalEncoder
+
+    def _gpu_fit(self, X, y=None):
+        X = _encoders_check_X(X)
+        return self._gpu.fit(X, y=y)
+
+    def _gpu_fit_transform(self, X, y=None, **fit_params):
+        X = _encoders_check_X(X)
+        return self._gpu.fit_transform(X, y=y, **fit_params)
 
 
 class LabelEncoder(ProxyBase):

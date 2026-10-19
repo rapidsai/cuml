@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,6 +9,7 @@
 
 #include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/export.hpp>
+#include <cuml/common/utils.hpp>
 
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
@@ -20,7 +21,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <cub/cub.cuh>
+#include <cub/device/device_segmented_radix_sort.cuh>
 #include <cuda/std/algorithm>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
@@ -38,15 +39,17 @@ namespace detail {
 
 // Draw global sample rows and copy values owned by this rank into a column-major sample buffer.
 template <typename T>
-static __global__ void sampleOwnedColumnsKernel(T* out,
-                                                const T* data,
-                                                const std::uint64_t* rank_row_offsets,
-                                                int comm_size,
-                                                std::uint64_t global_rows,
-                                                int sample_count,
-                                                int rank,
-                                                int n_rows,
-                                                std::uint64_t seed)
+CUML_KERNEL void sampleOwnedColumnsKernel(T* out,
+                                          const T* data,
+                                          const std::uint64_t* rank_row_offsets,
+                                          int comm_size,
+                                          std::uint64_t global_rows,
+                                          int sample_count,
+                                          int rank,
+                                          int n_rows,
+                                          int n_cols,
+                                          bool row_major,
+                                          std::uint64_t seed)
 {
   int col        = blockIdx.x;
   int sample_idx = blockIdx.y * blockDim.x + threadIdx.x;
@@ -70,7 +73,8 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
   if (sample_rank == rank) {
     int local_row = static_cast<int>(global_row - local_begin);
     out[static_cast<std::size_t>(col) * sample_count + sample_idx] =
-      data[static_cast<int64_t>(col) * n_rows + local_row];
+      row_major ? data[static_cast<std::size_t>(local_row) * n_cols + col]
+                : data[static_cast<std::size_t>(col) * n_rows + local_row];
   }
 }
 
@@ -78,7 +82,7 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
 
 // Convert sorted per-column samples into quantile candidates and compact duplicate candidates.
 template <typename T>
-static __global__ void computeQuantilesBatchedKernel(
+CUML_KERNEL void computeQuantilesBatchedKernel(
   T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int sample_count)
 {
   int col           = blockIdx.x;
@@ -112,8 +116,8 @@ struct QuantileResult {
   rmm::device_uvector<T> quantiles_array;
   rmm::device_uvector<int> n_bins_array;
 
-  Quantiles<T, int> view() & { return {quantiles_array.data(), n_bins_array.data()}; }
-  Quantiles<T, int> view() && = delete;
+  Quantiles<T> view() & { return {quantiles_array.data(), n_bins_array.data()}; }
+  Quantiles<T> view() && = delete;
 };
 
 /**
@@ -125,7 +129,9 @@ struct QuantileResult {
  *
  * @tparam T Floating-point input type.
  * @param handle RAFT handle used for stream and resource access.
- * @param data Column-major input matrix with shape `[n_cols, n_rows]`.
+ * @param data Input matrix. When `row_major` is false, data is column-major with
+ * shape `[n_cols, n_rows]`; when `row_major` is true, data is row-major with
+ * shape `[n_rows, n_cols]`.
  * @param max_n_bins Maximum number of quantile candidates to retain per feature.
  * @param n_rows Number of local rows in `data` for this rank.
  * @param n_cols Number of columns in `data`.
@@ -135,6 +141,7 @@ struct QuantileResult {
  * `max_n_bins`, rank error decreases like O(1 / sqrt(oversampling_factor)), so
  * returns from increasing this are strongly diminishing.
  * @param seed User seed for deterministic sampling.
+ * @param row_major Whether `data` is row-major instead of column-major.
  * @return Quantile metadata and owning device buffers for quantile values and bin counts.
  */
 template <typename T>
@@ -144,19 +151,20 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                                int n_rows,
                                                int n_cols,
                                                int oversampling_factor = 4,
-                                               uint64_t seed           = uint64_t{0})
+                                               uint64_t seed           = uint64_t{0},
+                                               bool row_major          = false)
 {
   raft::common::nvtx::push_range("computeQuantiles");
-  RAFT_EXPECTS(data != nullptr, "data pointer must not be null");
+  auto stream      = handle.get_stream().get();
+  bool distributed = raft::resource::comms_initialized(handle) && handle.get_comms().get_size() > 1;
+
   RAFT_EXPECTS(max_n_bins > 0, "max_n_bins must be positive");
-  RAFT_EXPECTS(n_rows > 0, "n_rows must be positive");
+  RAFT_EXPECTS(distributed ? n_rows >= 0 : n_rows > 0, "n_rows must be positive");
+  RAFT_EXPECTS(n_rows == 0 || data != nullptr, "data pointer must not be null");
   RAFT_EXPECTS(n_cols > 0, "n_cols must be positive");
   RAFT_EXPECTS(oversampling_factor > 0, "oversampling_factor must be positive");
-
-  auto stream      = handle.get_stream();
-  bool distributed = raft::resource::comms_initialized(handle) && handle.get_comms().get_size() > 1;
-  int rank         = distributed ? handle.get_comms().get_rank() : 0;
-  int comm_size    = distributed ? handle.get_comms().get_size() : 1;
+  int rank      = distributed ? handle.get_comms().get_rank() : 0;
+  int comm_size = distributed ? handle.get_comms().get_size() : 1;
 
   // Build exclusive global row offsets so sampled global row ids can be mapped to owning ranks.
   rmm::device_uvector<std::uint64_t> rank_row_offsets(comm_size + 1, stream);
@@ -190,12 +198,10 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
   rmm::device_uvector<T> sampled_columns(total_sample_values, stream);
   rmm::device_uvector<T> sorted_samples(total_sample_values, stream);
 
-  int n_threads = 256;
-  auto segment_offsets =
-    thrust::make_transform_iterator(thrust::make_counting_iterator<std::int64_t>(0),
-                                    [sample_count] __host__ __device__(std::int64_t col) {
-                                      return col * static_cast<std::int64_t>(sample_count);
-                                    });
+  int n_threads        = 256;
+  auto segment_offsets = thrust::make_transform_iterator(
+    thrust::make_counting_iterator<std::int64_t>(0),
+    [sample_count] __host__ __device__(std::int64_t col) { return col * sample_count; });
   rmm::device_uvector<T> quantiles_array(ML::checked_mul<std::size_t>(n_cols, max_n_bins), stream);
   rmm::device_uvector<int> n_bins_array(n_cols, stream);
 
@@ -213,6 +219,8 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                                                           sample_count,
                                                                           rank,
                                                                           n_rows,
+                                                                          n_cols,
+                                                                          row_major,
                                                                           seed);
   RAFT_CUDA_TRY(cudaGetLastError());
   if (distributed) {

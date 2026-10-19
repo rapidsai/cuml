@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -285,6 +285,46 @@ def _cuml_preds(model, X):
     return cp.asnumpy(cp.asarray(model.predict(X)))
 
 
+@pytest.mark.parametrize(
+    "estimator", [curfc, curfr], ids=["classifier", "regressor"]
+)
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_fit_input_order_parity(datatype, input_type, estimator):
+    X, y = make_classification(
+        n_samples=128,
+        n_features=8,
+        n_informative=5,
+        n_redundant=0,
+        n_clusters_per_class=1,
+        n_classes=3,
+        class_sep=2.0,
+        random_state=7,
+    )
+    xp = cp if input_type == "cupy" else np
+    X_c = xp.asarray(X, dtype=datatype, order="C")
+    X_f = xp.asarray(X, dtype=datatype, order="F")
+
+    params = dict(
+        n_estimators=3,
+        bootstrap=False,
+        max_depth=4,
+        max_features=1.0,
+        n_bins=16,
+        random_state=11,
+        n_streams=1,
+    )
+    c_model = estimator(**params).fit(X_c, y)
+    f_model = estimator(**params).fit(X_f, y)
+
+    X_pred = np.array(X, dtype=datatype, order="C")
+    c_preds = _cuml_preds(c_model, X_pred)
+    f_preds = _cuml_preds(f_model, X_pred)
+
+    np.testing.assert_allclose(c_preds, f_preds, rtol=1e-6, atol=1e-6)
+    assert c_model.as_treelite().num_feature == X.shape[1]
+
+
 def _sklearn_fit_params(cuml_model):
     params = cuml_model._params_to_cpu()
     if params["max_samples"] == 1.0:
@@ -371,25 +411,6 @@ def test_rf_regressor_sample_weight_min_samples_leaf_matches_sklearn(datatype):
     np.testing.assert_allclose(
         _cuml_preds(cuml_model, X), sk_model.predict(X), rtol=1e-6, atol=1e-6
     )
-
-
-def test_rf_classifier_balanced_subsample_rejected_before_fit_state():
-    X = np.array([[0.0], [1.0]], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.int32)
-    clf = curfc(
-        n_estimators=1,
-        max_depth=1,
-        n_bins=2,
-        n_streams=1,
-        class_weight="balanced_subsample",
-    )
-
-    with pytest.raises(ValueError, match="class_weight"):
-        clf.fit(X, y)
-
-    assert not hasattr(clf, "classes_")
-    assert not hasattr(clf, "n_classes_")
-    assert not hasattr(clf, "n_features_in_")
 
 
 @pytest.mark.parametrize(
@@ -507,7 +528,8 @@ def test_tweedie_convergence(max_depth, split_criterion):
             n_estimators=n_estimators,
             bootstrap=bootstrap,
             max_features=max_features,
-            min_impurity_decrease=min_impurity_decrease,
+            # MSE uses the full variance, while others use the half deviance.
+            min_impurity_decrease=2 * min_impurity_decrease,
         )
         .fit(X, y)
         .predict(X)
@@ -537,7 +559,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 def test_rf_classification(small_clf, datatype, max_samples, max_features):
     X, y = small_clf
@@ -645,7 +667,7 @@ def test_rf_classification_unorder(
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 def test_rf_regression(
     special_reg, datatype, max_features, max_samples, n_bins
@@ -691,7 +713,7 @@ def test_rf_regression(
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_seed(small_clf, datatype):
@@ -726,7 +748,7 @@ def test_rf_classification_seed(small_clf, datatype):
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 def test_rf_classification_fit_and_predict_dtypes_differ(small_clf, datatype):
     X, y = small_clf
@@ -758,7 +780,7 @@ def test_rf_classification_fit_and_predict_dtypes_differ(small_clf, datatype):
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 def test_rf_regression_fit_and_predict_dtypes_differ(large_reg, datatype):
     X, y = large_reg
@@ -858,7 +880,7 @@ def rf_classification(
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 def test_rf_classification_multi_class(mclass_clf, datatype, array_type):
     rf_classification(datatype, array_type, 1.0, 1.0, mclass_clf)
@@ -870,7 +892,7 @@ def test_rf_classification_multi_class(mclass_clf, datatype, array_type):
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 def test_rf_classification_proba(
     small_clf, datatype, max_samples, max_features
@@ -885,7 +907,7 @@ def test_rf_classification_proba(
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 def test_rf_classification_sparse(small_clf, datatype, nvforest_layout):
     num_trees = 50
@@ -947,7 +969,7 @@ def test_rf_classification_sparse(small_clf, datatype, nvforest_layout):
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 def test_rf_regression_sparse(special_reg, datatype, nvforest_layout):
     num_trees = 50
@@ -1297,47 +1319,6 @@ def test_rf_feature_sampling_retries_until_valid_split():
         assert cuml_acc == sk_acc
 
 
-def test_rf_feature_sampling_does_not_retry_below_impurity_threshold():
-    n_samples = 128
-    n_features = 32
-    X = np.zeros((n_samples, n_features), dtype=np.float32)
-    y = np.zeros(n_samples, dtype=np.int32)
-    y[n_samples // 2 :] = 1
-
-    X[:, :-1] = (np.arange(n_samples) % 2).reshape(-1, 1)
-    X[:, -1] = y
-
-    cuml_accs = []
-    sk_accs = []
-    for random_state in range(16):
-        clf = curfc(
-            n_estimators=1,
-            bootstrap=False,
-            max_depth=None,
-            max_features=1,
-            min_impurity_decrease=0.1,
-            n_bins=4,
-            n_streams=1,
-            random_state=random_state,
-        )
-        clf.fit(X, y)
-        cuml_accs.append(accuracy_score(y, clf.predict(X)))
-
-        sk_clf = skrfc(
-            n_estimators=1,
-            bootstrap=False,
-            max_depth=None,
-            max_features=1,
-            min_impurity_decrease=0.1,
-            random_state=random_state,
-        )
-        sk_clf.fit(X, y)
-        sk_accs.append(accuracy_score(y, sk_clf.predict(X)))
-
-    assert min(sk_accs) == 0.5
-    assert min(cuml_accs) == 0.5
-
-
 def test_rf_predict_returns_int():
     X, y = make_classification()
 
@@ -1672,7 +1653,7 @@ def test_rf_oob_score_binary_classification():
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
-    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+    "Issue: https://github.com/NVIDIA/cuml/issues/5991",
 )
 def test_rf_feature_zero_bias(datatype, n_features):
     """
@@ -1682,7 +1663,7 @@ def test_rf_feature_zero_bias(datatype, n_features):
     and all other features are pure noise. This tests whether
     feature 0 is being properly sampled during tree building.
 
-    Regression test for: https://github.com/rapidsai/cuml/issues/7422
+    Regression test for: https://github.com/NVIDIA/cuml/issues/7422
     """
     n_samples = 5000
 

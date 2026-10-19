@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -27,6 +27,9 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/std/tuple>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/sort.h>
 #include <thrust/transform.h>
 
 #include <cuvs/distance/distance.hpp>
@@ -42,6 +45,21 @@ inline constexpr bool is_instance_of = std::false_type{};
 template <template <class> class U, class V>
 inline constexpr bool is_instance_of<U<V>, U> = std::true_type{};
 
+template <typename value_idx, typename value_t>
+knn_graph<value_idx, value_t> make_tsne_knn_graph(int n_rows,
+                                                  value_idx* knn_indices,
+                                                  value_t* knn_dists,
+                                                  TSNEParams& params)
+{
+  ML::default_logger().set_level(params.verbosity);
+  if (params.n_neighbors > n_rows) params.n_neighbors = n_rows;
+  if (params.n_neighbors > 1023) {
+    CUML_LOG_WARN("FAISS only supports maximum n_neighbors = 1023.");
+    params.n_neighbors = 1023;
+  }
+  return {n_rows, params.n_neighbors, knn_indices, knn_dists};
+}
+
 template <typename tsne_input, typename value_idx, typename value_t>
 class TSNE_runner {
  public:
@@ -53,7 +71,7 @@ class TSNE_runner {
       input(input_),
       k_graph(k_graph_),
       params(params_),
-      COO_Matrix(handle_.get_stream())
+      COO_Matrix(handle_.get_stream().get())
   {
     this->n = input.n;
     this->p = input.d;
@@ -65,11 +83,6 @@ class TSNE_runner {
       CUML_LOG_WARN(
         "Barnes Hut and FFT only work for dim == 2. Switching to exact "
         "solution.");
-    }
-    if (params.n_neighbors > n) params.n_neighbors = n;
-    if (params.n_neighbors > 1023) {
-      CUML_LOG_WARN("FAISS only supports maximum n_neighbors = 1023.");
-      params.n_neighbors = 1023;
     }
     // Perplexity must be less than number of datapoints
     // "How to Use t-SNE Effectively" https://distill.pub/2016/misread-tsne/
@@ -86,7 +99,7 @@ class TSNE_runner {
         "# of Nearest Neighbors should be at least 3 * perplexity. Your results"
         " might be a bit strange...");
 
-    auto stream         = handle.get_stream();
+    auto stream         = handle.get_stream().get();
     const value_idx dim = params.dim;
 
     if (params.init == TSNE_INIT::RANDOM) {
@@ -186,7 +199,7 @@ class TSNE_runner {
     // Get distances
     CUML_LOG_DEBUG("Getting distances.");
 
-    auto stream = handle.get_stream();
+    auto stream = handle.get_stream().get();
 
     rmm::device_uvector<value_idx> indices(0, stream);
     rmm::device_uvector<value_t> distances(0, stream);
@@ -204,7 +217,6 @@ class TSNE_runner {
       k_graph.knn_dists   = distances.data();
       TSNE::get_distances(handle, input, k_graph, stream, params.metric, params.p);
     }
-
     if (params.square_distances) {
       auto policy = handle.get_thrust_policy();
 
@@ -214,7 +226,6 @@ class TSNE_runner {
                         k_graph.knn_dists,
                         TSNE::FunctionalSquare());
     }
-
     //---------------------------------------------------
     END_TIMER(DistancesTime);
 
@@ -261,6 +272,18 @@ class TSNE_runner {
                                 &COO_Matrix,
                                 stream,
                                 handle);
+
+    if (params.algorithm == TSNE_ALGORITHM::FFT && params.random_state >= 0) {
+      // Canonicalize fixed-seed FFT inputs with value as a tie-breaker for
+      // duplicate (row, col) entries. raft::sparse::op::coo_sort orders by
+      // (row, col) only and carries values as payload; that is not enough for
+      // byte-identical sums when duplicate edges are later walked row-wise.
+      auto policy    = handle.get_thrust_policy();
+      auto coo_begin = thrust::make_zip_iterator(
+        cuda::std::make_tuple(COO_Matrix.rows(), COO_Matrix.cols(), COO_Matrix.vals()));
+      thrust::sort(policy, coo_begin, coo_begin + COO_Matrix.nnz);
+    }
+
     END_TIMER(SymmetrizeTime);
   }
 

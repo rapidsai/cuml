@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+
 import cudf
 import cupy as cp
-from numba import cuda as numba_cuda
 from sklearn.model_selection import (
     train_test_split as sklearn_train_test_split,
 )
@@ -31,9 +31,9 @@ def train_test_split(
     Parameters
     ----------
     *arrays : sequence of indexables with same length / shape[0]
-        Allowed inputs are cudf DataFrames/Series, cupy arrays, numba device
-        arrays, numpy arrays, pandas DataFrames/Series, or any array-like
-        objects with a shape attribute.
+        Allowed inputs are cudf DataFrames/Series, cupy arrays, numpy arrays,
+        pandas DataFrames/Series, or any array-like objects with a shape
+        attribute.
 
     test_size : float or int, default=None
         If float, should be between 0.0 and 1.0 and represent the proportion
@@ -92,38 +92,14 @@ def train_test_split(
     if stratify is not None:
         stratify = check_array(stratify, ensure_2d=False, mem_type="host")
 
-    # Check for numba device arrays, scikit-learn can't handle them directly
-    original_types = []
-    converted_arrays = []
-    for arr in arrays:
-        if numba_cuda.devicearray.is_cuda_ndarray(arr):
-            original_types.append("numba")
-            converted_arrays.append(cp.asarray(arr))
-        else:
-            original_types.append(None)
-            converted_arrays.append(arr)
-
-    results = sklearn_train_test_split(
-        *converted_arrays,
+    return sklearn_train_test_split(
+        *arrays,
         test_size=test_size,
         train_size=train_size,
         random_state=sklearn_random_state,
         shuffle=shuffle,
         stratify=stratify,
     )
-
-    # Convert numba arrays back to numba device arrays
-    # There are two results for each original array.
-    final_results = []
-    for i, orig_type in enumerate(original_types):
-        for n in (0, 1):
-            result = results[i * 2 + n]
-            if orig_type == "numba":
-                final_results.append(numba_cuda.as_cuda_array(result))
-            else:
-                final_results.append(result)
-
-    return final_results
 
 
 class _KFoldBase:

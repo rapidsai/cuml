@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -88,7 +88,7 @@ class Fixture : public ::benchmark::Fixture {
 
   void SetUp(const ::benchmark::State& state) override
   {
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    if (stream == 0) { RAFT_CUDA_TRY(cudaStreamCreate(&stream)); }
     allocateBuffers(state);
     int devId = 0;
     RAFT_CUDA_TRY(cudaGetDevice(&devId));
@@ -105,10 +105,14 @@ class Fixture : public ::benchmark::Fixture {
   void TearDown(const ::benchmark::State& state) override
   {
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    if (l2CacheSize > 0) { dealloc(scratchBuffer, l2CacheSize); }
+    if (l2CacheSize > 0) {
+      dealloc(scratchBuffer, l2CacheSize);
+      scratchBuffer = nullptr;
+    }
     deallocateBuffers(state);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+    stream = 0;
   }
 
   // to keep compiler happy

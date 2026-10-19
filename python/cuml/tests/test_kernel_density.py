@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -20,7 +20,7 @@ from sklearn.neighbors._ball_tree import kernel_norm
 
 import cuml
 from cuml.neighbors import VALID_KERNELS, KernelDensity
-from cuml.testing.utils import as_type
+from cuml.testing.utils import as_numpy, as_type
 
 
 def _cosine_kernel_norm(h, d):
@@ -112,12 +112,7 @@ metrics_strategy = st.sampled_from(
 
 @settings(deadline=None)
 @example(
-    arrays=as_type(
-        "numpy",
-        np.array([[1.0, 2.0], [3.0, 4.0]]),
-        np.array([[1.5, 2.5]]),
-        None,
-    ),
+    arrays=(np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([[1.5, 2.5]]), None),
     kernel="gaussian",
     metric="euclidean",
     bandwidth=1.0,
@@ -130,7 +125,7 @@ metrics_strategy = st.sampled_from(
 )
 def test_kernel_density(arrays, kernel, metric, bandwidth):
     X, X_test, sample_weight = arrays
-    X_np, X_test_np, sample_weight_np = as_type("numpy", *arrays)
+    X_np, X_test_np, sample_weight_np = as_numpy(*arrays)
 
     if kernel == "cosine":
         # cosine is numerically unstable at high dimensions for both cuml
@@ -152,14 +147,14 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         )
         tol = 1e-3
         assert np.allclose(
-            np.exp(as_type("numpy", cuml_prob), dtype="float64"),
+            np.exp(as_numpy(cuml_prob), dtype="float64"),
             ref_prob,
             rtol=tol,
             atol=tol,
             equal_nan=True,
         )
         assert np.allclose(
-            np.exp(as_type("numpy", cuml_prob_test), dtype="float64"),
+            np.exp(as_numpy(cuml_prob_test), dtype="float64"),
             ref_prob_test,
             rtol=tol,
             atol=tol,
@@ -398,7 +393,7 @@ def test_all_kernels_all_metrics(metric, kernel):
 
     kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=h)
     kde.fit(X)
-    cuml_log = as_type("numpy", kde.score_samples(Q))
+    cuml_log = as_numpy(kde.score_samples(Q))
 
     # -inf is valid (zero density when all train points are beyond the bandwidth);
     # only NaN indicates a real bug.
@@ -448,7 +443,7 @@ def test_russellrao_coerces_non_binary_with_warning():
     with pytest.warns(DataConversionWarning, match="converted to boolean"):
         kde.fit(X)
     with pytest.warns(DataConversionWarning, match="converted to boolean"):
-        cuml_log = as_type("numpy", kde.score_samples(Q))
+        cuml_log = as_numpy(kde.score_samples(Q))
 
     X_bin = np.where(X != 0.0, 1.0, 0.0)
     Q_bin = np.where(Q != 0.0, 1.0, 0.0)
@@ -482,7 +477,7 @@ def test_tiling_multipass():
 
     kde = KernelDensity(kernel="gaussian", metric="euclidean", bandwidth=0.5)
     kde.fit(X_train)
-    cuml_scores = as_type("numpy", kde.score_samples(X_query))
+    cuml_scores = as_numpy(kde.score_samples(X_query))
 
     ref = compute_kernel_naive(
         X_query, X_train, "gaussian", "euclidean", 0.5, None

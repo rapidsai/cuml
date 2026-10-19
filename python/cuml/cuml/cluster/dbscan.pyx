@@ -1,21 +1,15 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger, reflect
-from cuml.internals.array import CumlArray
+from cuml.internals import logger
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -175,8 +169,7 @@ class DBSCAN(InteropMixin,
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -220,9 +213,9 @@ class DBSCAN(InteropMixin,
     """
     _multi_gpu = False
 
-    core_sample_indices_ = CumlArrayDescriptor(order="C")
-    components_ = CumlArrayDescriptor(order="C")
-    labels_ = CumlArrayDescriptor(order="C")
+    core_sample_indices_ = ReflectedAttr()
+    components_ = ReflectedAttr()
+    labels_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.cluster.DBSCAN"
 
@@ -263,17 +256,23 @@ class DBSCAN(InteropMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "core_sample_indices_": to_gpu(model.core_sample_indices_, order="C"),
-            "components_": to_gpu(model.components_, order="C"),
-            "labels_": to_gpu(model.labels_, order="C"),
+            "core_sample_indices_": cp.asarray(model.core_sample_indices_, order="C"),
+            "components_": cp.asarray(model.components_, order="C"),
+            "labels_": ArrayIndexPair(cp.asarray(model.labels_, order="C"), None),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "core_sample_indices_": to_cpu(self.core_sample_indices_, order="C"),
-            "components_": to_cpu(self.components_, order="C"),
-            "labels_": to_cpu(self.labels_, order="C"),
+            "core_sample_indices_": (
+                None if self.core_sample_indices_ is None
+                else self.core_sample_indices_.get(order="C")
+            ),
+            "components_": (
+                None if self.components_ is None
+                else self.components_.get(order="C")
+            ),
+            "labels_": self.labels_.array.get(order="C"),
             **super()._attrs_to_cpu(model),
         }
 
@@ -298,7 +297,7 @@ class DBSCAN(InteropMixin,
         self.algorithm = algorithm
 
     @generate_docstring(skip_parameters_heading=True)
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self,
         X,
@@ -306,7 +305,6 @@ class DBSCAN(InteropMixin,
         sample_weight=None,
         *,
         out_dtype="int32",
-        convert_dtype="deprecated"
     ) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
@@ -328,7 +326,6 @@ class DBSCAN(InteropMixin,
             X,
             sample_weight=sample_weight,
             dtype=("float32", "float64"),
-            convert_dtype=convert_dtype,
             order="C",
             return_index=True,
             reset=True,
@@ -465,13 +462,9 @@ class DBSCAN(InteropMixin,
             components = None
 
         # Store fitted attributes
-        self.labels_ = CumlArray(data=labels, index=index)
-        self.core_sample_indices_ = (
-            None if core_sample_indices is None else CumlArray(data=core_sample_indices)
-        )
-        self.components_ = (
-            None if components is None else CumlArray(data=components)
-        )
+        self.labels_ = ArrayIndexPair(labels, index)
+        self.core_sample_indices_ = core_sample_indices
+        self.components_ = components
         return self
 
     @generate_docstring(skip_parameters_heading=True,
@@ -479,7 +472,7 @@ class DBSCAN(InteropMixin,
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
-    @reflect
+    @mlfunc(preserve_index=True)
     def fit_predict(
         self,
         X,
@@ -487,8 +480,7 @@ class DBSCAN(InteropMixin,
         sample_weight=None,
         *,
         out_dtype="int32",
-        convert_dtype="deprecated",
-    ) -> CumlArray:
+    ):
         """
         Performs clustering on X and returns cluster labels.
 
@@ -504,10 +496,5 @@ class DBSCAN(InteropMixin,
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
         """
-        self.fit(
-            X,
-            sample_weight=sample_weight,
-            out_dtype=out_dtype,
-            convert_dtype=convert_dtype
-        )
+        self.fit(X, sample_weight=sample_weight, out_dtype=out_dtype)
         return self.labels_

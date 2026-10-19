@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -176,12 +176,12 @@ void fit_impl(raft::handle_t& handle,
   }
 
   if (algo == 0 || input_desc.N == 1) {
-    ASSERT(false, "olsFit: no algorithm with this id has been implemented");
+    ASSERT(false, "ridgeFit: no algorithm with this id has been implemented");
   } else if (algo == 1) {
     ridgeEig(
       handle, input_data, input_desc, labels, alpha, n_alpha, coef, streams, n_streams, verbose);
   } else {
-    ASSERT(false, "olsFit: no algorithm with this id has been implemented");
+    ASSERT(false, "ridgeFit: no algorithm with this id has been implemented");
   }
 
   if (fit_intercept) {
@@ -234,7 +234,7 @@ void fit_impl(raft::handle_t& handle,
   int rank = handle.get_comms().get_rank();
 
   // TODO: These streams should come from raft::handle_t
-  // Tracking issue: https://github.com/rapidsai/cuml/issues/2470
+  // Tracking issue: https://github.com/NVIDIA/cuml/issues/2470
 
   int n_streams = input_desc.blocksOwnedBy(rank).size();
   cudaStream_t streams[n_streams];

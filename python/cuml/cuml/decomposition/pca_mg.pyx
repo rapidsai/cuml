@@ -1,13 +1,12 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
-from cuml.internals import run_in_internal_context
-from cuml.internals.array import CumlArray
+from cuml.internals.outputs import mlfunc
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
@@ -51,7 +50,7 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
 
 
 class PCAMG(BaseDecompositionMG, PCA):
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def _mg_fit(self, uintptr_t X_ptr, n_rows, n_cols, dtype, input_desc_ptr):
         # Validate and initialize parameters
         cdef paramsPCAMG params
@@ -122,9 +121,9 @@ class PCAMG(BaseDecompositionMG, PCA):
         self.handle.sync()
 
         # Store results
-        self.components_ = CumlArray(data=components)
-        self.explained_variance_ = CumlArray(data=explained_variance)
-        self.explained_variance_ratio_ = CumlArray(data=explained_variance_ratio)
-        self.mean_ = CumlArray(data=mean)
-        self.singular_values_ = CumlArray(data=singular_values)
+        self.components_ = components
+        self.explained_variance_ = explained_variance
+        self.explained_variance_ratio_ = explained_variance_ratio
+        self.mean_ = mean
+        self.singular_values_ = singular_values
         self.noise_variance_ = noise_variance.get().item()

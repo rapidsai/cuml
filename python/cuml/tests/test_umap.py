@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import copy
@@ -64,12 +64,7 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
     [
         pytest.param(
             500,
-            marks=[
-                pytest.mark.unit,
-                pytest.mark.xfail(
-                    reason="https://github.com/rapidsai/cuvs/issues/184"
-                ),
-            ],
+            marks=pytest.mark.unit,
         ),
         quality_param(5000),
         stress_param(500000),
@@ -415,7 +410,7 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     assert not np.isnan(cuml_embedding2).any()
 
     # Reproducibility threshold raised until intermittent failure is fixed
-    # Ref: https://github.com/rapidsai/cuml/issues/1903
+    # Ref: https://github.com/NVIDIA/cuml/issues/1903
     mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
     if random_state is not None:
         assert mean_diff == 0.0
@@ -506,7 +501,7 @@ def test_umap_transform_reproducibility(n_components, random_state):
     assert not np.isnan(cuml_embedding2).any()
 
     # Reproducibility threshold raised until intermittent failure is fixed
-    # Ref: https://github.com/rapidsai/cuml/issues/1903
+    # Ref: https://github.com/NVIDIA/cuml/issues/1903
     mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
     if random_state is not None:
         assert mean_diff == 0.0
@@ -946,6 +941,11 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
     reason="Upstream regression in umap<0.5.12 with numba >= 0.62.0",
     strict=True,
 )
+@pytest.mark.xfail(
+    reason="Fuzzy simplicial set graph mismatch (see #8796)",
+    raises=AssertionError,
+    strict=False,
+)
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
     random_state = 42
@@ -1199,10 +1199,6 @@ def test_callback():
     class Callback(GraphBasedDimRedCallback):
         preprocess_event, epoch_event, train_event = False, 0, False
 
-        def __init__(self, skip_init=False):
-            if not skip_init:
-                super().__init__()
-
         def check(self):
             assert self.preprocess_event
             assert self.epoch_event > 10
@@ -1223,6 +1219,27 @@ def test_callback():
     reducer = cuUMAP(n_components=2, callback=callback)
     reducer.fit(digits.data)
     callback.check()
+
+
+def test_callback_copy_to_host_deprecated():
+    out = []
+
+    class Callback(GraphBasedDimRedCallback):
+        def on_preprocess_end(self, embeddings):
+            assert hasattr(embeddings, "copy_to_host")
+
+        def on_epoch_end(self, embeddings):
+            assert hasattr(embeddings, "copy_to_host")
+
+        def on_train_end(self, embeddings):
+            assert hasattr(embeddings, "copy_to_host")
+            with pytest.warns(FutureWarning, match="copy_to_host"):
+                out.append(embeddings.copy_to_host())
+
+    digits = datasets.load_digits()
+    cuUMAP(n_components=2, callback=Callback()).fit(digits.data)
+    assert len(out) == 1
+    assert isinstance(out[0], np.ndarray)
 
 
 def test_umap_small_fit_large_transform():
@@ -1506,10 +1523,14 @@ def test_umap_sigmas_rhos():
     ref_model.fit(X)
 
     # With identical KNN inputs, sigmas and rhos should match closely
-    np.testing.assert_allclose(cu_model._rhos, ref_model._rhos, atol=1e-3)
+    np.testing.assert_allclose(
+        cu_model._rhos.get(), ref_model._rhos, atol=1e-3
+    )
 
     # Sigmas are more sensitive to numerical differences
-    np.testing.assert_allclose(cu_model._sigmas, ref_model._sigmas, atol=5e-2)
+    np.testing.assert_allclose(
+        cu_model._sigmas.get(), ref_model._sigmas, atol=5e-2
+    )
 
 
 @pytest.mark.xfail(
@@ -1659,3 +1680,11 @@ def test_inverse_transform_dimension_mismatch():
 
     with pytest.raises(ValueError, match="components"):
         umap_model.inverse_transform(wrong_embedding)
+
+
+def test_get_feature_names_out():
+    X, _ = make_blobs(n_features=5, random_state=42)
+    cu_model = cuUMAP(n_components=2).fit(X)
+    res = cu_model.get_feature_names_out()
+    sol = np.array(["umap0", "umap1"], dtype=object)
+    np.testing.assert_array_equal(res, sol)

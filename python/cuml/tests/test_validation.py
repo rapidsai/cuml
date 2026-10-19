@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import re
 import warnings
@@ -25,6 +25,7 @@ from cuml.internals.validation import (
     check_consistent_length,
     check_cudf,
     check_features,
+    check_input_features,
     check_inputs,
     check_non_negative,
     check_random_seed,
@@ -477,6 +478,44 @@ def test_feature_names_mismatch_errors():
     assert "Feature names must be in the same order" in str(rec.value)
 
 
+def test_check_input_features():
+    X = pd.DataFrame({"a": [1], "b": [2], "c": [3]})
+
+    # Correct names are fine
+    model_named = MyModel().fit(X)
+    model_unnamed = MyModel().fit(X.to_numpy())
+
+    # no-args call returns feature_names_in_
+    np.testing.assert_array_equal(
+        check_input_features(model_named),
+        model_named.feature_names_in_,
+    )
+
+    # if no feature_names_in_, names are generated like x0, x1, ...
+    np.testing.assert_array_equal(
+        check_input_features(model_unnamed),
+        np.array(["x0", "x1", "x2"], dtype="object"),
+    )
+
+    # If `input_features` provided, that's returned if valid
+    np.testing.assert_array_equal(
+        check_input_features(model_named, ["a", "b", "c"]),
+        model_named.feature_names_in_,
+    )
+    np.testing.assert_array_equal(
+        check_input_features(model_unnamed, ["x", "y", "z"]),
+        np.array(["x", "y", "z"]),
+    )
+
+    # Errors if feature_names_in_ defined and doesn't match
+    with pytest.raises(ValueError, match="input_features is not equal to"):
+        check_input_features(model_named, ["x", "y", "z"])
+
+    # If no `feature_names_in_`, errors if input_features isn't the right size
+    with pytest.raises(ValueError, match=r".*number of features \(3\), got 2"):
+        check_input_features(model_unnamed, ["x", "y"])
+
+
 def test_check_consistent_length():
     y3 = np.empty(3)
     y4 = np.empty(4)
@@ -739,6 +778,71 @@ def test_check_array_dtype(array, mem_type):
     assert out.dtype == "float32"
 
 
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("mem_type", ["device", "host", None])
+def test_check_array_array_protocol_preserves_dtype(dtype, mem_type):
+    class ArrayLike:
+        def __init__(self, array):
+            self.array = array
+
+        def __array__(self, dtype=None, copy=None):
+            return self.array
+
+    array = ArrayLike(np.array([[1, 2, 3]], dtype=dtype))
+    out = check_array(array, dtype=("float32", "float64"), mem_type=mem_type)
+    assert out.dtype == dtype
+
+
+@pytest.mark.parametrize("mem_type", ["host", "device"])
+def test_check_array_non_numpy_dtype_attribute(mem_type):
+    """Some array implementations (pytorch) have non-numpy-compatible `dtype`
+    attributes. This test checks that these objects may still be ingested
+    through other protocols, and that their unsupported `dtype` attribute
+    doesn't break things."""
+
+    class Float32:
+        pass
+
+    if mem_type == "host":
+
+        class ArrayLike:
+            """A array-like class like torch-cpu"""
+
+            def __init__(self, array):
+                self.array = np.asarray(array, dtype="float32")
+                self.dtype = Float32()
+
+            def __array__(self, dtype=None, copy=None):
+                return self.array
+
+    else:
+
+        class ArrayLike:
+            """A array-like class like torch-gpu"""
+
+            def __init__(self, array):
+                self.array = cp.asarray(array, dtype="float32")
+                self.dtype = Float32()
+
+            def __array__(self, dtype=None, copy=None):
+                raise ValueError("This can't actually be called")
+
+            @property
+            def __cuda_array_interface__(self):
+                return self.array.__cuda_array_interface__
+
+    source_cls = np.ndarray if mem_type == "host" else cp.ndarray
+
+    array = ArrayLike([[1, 2, 3]])
+
+    out = check_array(array, dtype=("float64", "float32"), mem_type=None)
+    assert out.dtype == "float32"
+    assert isinstance(out, source_cls)
+    out = check_array(array, dtype="float64", mem_type=None)
+    assert out.dtype == "float64"
+    assert isinstance(out, source_cls)
+
+
 @example(mem_type="device", dtype="int32", order="C", shape=(3, 4))
 @example(mem_type="host", dtype="float32", order="F", shape=(3,))
 @given(
@@ -812,45 +916,6 @@ def test_check_array_sparse_copy(mem_type, format):
         assert ptr(res.indptr) != ptr(array.indptr)
 
 
-def test_convert_dtype_deprecated():
-    model = MyModel()
-    X = cp.array([[1, 2], [3, 4], [5, 6]], dtype="float32")
-    y = sample_weight = cp.array([1, 2, 3], dtype="float32")
-
-    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
-        check_array(X, dtype="float64", convert_dtype=True)
-
-    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
-        check_inputs(model, X, dtype="float64", convert_dtype=True)
-
-    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
-        check_y(y, dtype="float64", convert_dtype=True)
-
-    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
-        check_sample_weight(sample_weight, dtype="float64", convert_dtype=True)
-
-
-@pytest.mark.filterwarnings(
-    "ignore:`convert_dtype` was deprecated:FutureWarning"
-)
-def test_check_array_convert_dtype():
-    array = cp.array([[1, 2, 3]], dtype="float32")
-
-    with pytest.raises(
-        ValueError,
-        match=r"Expected array with dtype in \['int32'\] but got 'float32'",
-    ):
-        check_array(array, dtype="int32", convert_dtype=False)
-
-    array = pd.DataFrame({"x": [1, 2, 3], "y": [1.5, 2.5, 3.5]})
-    with pytest.raises(ValueError, match=r"\['int32'\] but got 'float64'"):
-        check_array(array, dtype="int32", convert_dtype=False)
-
-    array = pd.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "a"]})
-    with pytest.raises(ValueError, match=r"\['int32'\] but got 'object'"):
-        check_array(array, dtype="int32", convert_dtype=False)
-
-
 @pytest.mark.parametrize("kind", ["cudf", "pandas"])
 @pytest.mark.parametrize("mem_type", ["device", "host", None])
 def test_check_array_dataframe_mixed_dtypes(kind, mem_type):
@@ -915,6 +980,80 @@ def test_check_array_return_index(kind, ndim, mem_type):
         out_xdf = xdf
     else:
         out_xdf = cudf if mem_type == "device" else pd
+    assert isinstance(index, out_xdf.Index)
+    assert (cp.asnumpy(index) == np.array([1, 3, 5])).all()
+
+
+def xfail_cudf_ext_dtype_bug(*args, strict=True):
+    # TODO: when the test starts xpassing once cudf fixes the issue, remove and
+    # simplify the parametrization below.
+    return pytest.param(
+        *args,
+        marks=pytest.mark.xfail(
+            reason=(
+                "cudf's to_cupy/to_numpy fails on extension dtypes, see "
+                "https://github.com/NVIDIA/cudf/issues/23723"
+            ),
+            strict=strict,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "kind,mem_type,ndim,dtype",
+    [
+        xfail_cudf_ext_dtype_bug("cudf", "host", 1, None, strict=False),
+        xfail_cudf_ext_dtype_bug("cudf", "device", 1, None),
+        xfail_cudf_ext_dtype_bug("cudf", None, 1, None),
+        ("pandas", "host", 1, None),
+        ("pandas", "device", 1, None),
+        ("pandas", None, 1, None),
+        xfail_cudf_ext_dtype_bug("cudf", "host", 1, "float32"),
+        xfail_cudf_ext_dtype_bug("cudf", "device", 1, "float32"),
+        xfail_cudf_ext_dtype_bug("cudf", None, 1, "float32"),
+        ("pandas", "host", 1, "float32"),
+        ("pandas", "device", 1, "float32"),
+        ("pandas", None, 1, "float32"),
+        xfail_cudf_ext_dtype_bug("cudf", "host", 2, None),
+        xfail_cudf_ext_dtype_bug("cudf", "device", 2, None),
+        xfail_cudf_ext_dtype_bug("cudf", None, 2, None),
+        ("pandas", "host", 2, None),
+        ("pandas", "device", 2, None),
+        ("pandas", None, 2, None),
+        xfail_cudf_ext_dtype_bug("cudf", "host", 2, "float32"),
+        xfail_cudf_ext_dtype_bug("cudf", "device", 2, "float32"),
+        xfail_cudf_ext_dtype_bug("cudf", None, 2, "float32"),
+        ("pandas", "host", 2, "float32"),
+        ("pandas", "device", 2, "float32"),
+        ("pandas", None, 2, "float32"),
+    ],
+)
+def test_check_array_dataframe_extension_dtype(kind, mem_type, ndim, dtype):
+    xdf = cudf if kind == "cudf" else pd
+    array = xdf.Series([1, 2, None], index=[1, 3, 5], dtype="Int32")
+    if ndim == 2:
+        array = array.to_frame()
+
+    out, index = check_array(
+        array,
+        dtype=dtype,
+        mem_type=mem_type,
+        ensure_2d=False,
+        ensure_all_finite="allow-nan",
+        return_index=True,
+    )
+    if mem_type is None:
+        out_xdf = xdf
+    else:
+        out_xdf = cudf if mem_type == "device" else pd
+
+    if xdf is cudf:
+        sol = array.to_pandas().to_numpy(dtype=dtype)
+    else:
+        sol = array.to_numpy(dtype=dtype)
+
+    np.testing.assert_array_equal(cp.asnumpy(out), sol)
+
     assert isinstance(index, out_xdf.Index)
     assert (cp.asnumpy(index) == np.array([1, 3, 5])).all()
 
@@ -2012,3 +2151,85 @@ def test_check_cudf_coerces_numeric_objects():
     s = check_cudf(x, ensure_ndim=1)
     assert (s == cudf.Series([1.0, 2.0, 3.0])).all()
     assert s.dtype == "float64"
+
+
+@pytest.mark.parametrize("kind", ["list", "array", "array-like"])
+def test_check_cudf_mixed_dtype_array_like_inputs(kind):
+    class ArrayLike:
+        def __init__(self, array):
+            self.array = array
+
+        def __array__(self, dtype=None, copy=None):
+            return self.array
+
+    data = [
+        [1, 2.0, "x", "a", None, np.nan],
+        [2, 4.0, "y", None, None, np.nan],
+    ]
+    sol = cudf.DataFrame(data, nan_as_null=True)
+    if kind == "list":
+        X = data
+    elif kind == "array":
+        X = np.array(data, dtype=object)
+    else:
+        assert kind == "array-like"
+        X = ArrayLike(np.array(data, dtype=object))
+
+    res = check_cudf(X)
+    cudf.testing.assert_frame_equal(res, sol)
+
+
+@pytest.mark.parametrize("kind", ["list", "numpy-object", "numpy-float"])
+def test_check_cudf_nan_as_null(kind):
+    """cudf's default is to treat NaN as NULL in inputs, but that default
+    changes when `cudf.pandas` is active. Here we check that the code paths in
+    `check_cudf` hardcode the `nan_as_null` configuration so that behavior
+    doesn't change if cudf.pandas is active."""
+
+    if kind == "list":
+        X = [[1, None], [np.nan, 1]]
+    elif kind == "numpy-object":
+        X = np.array([[1, None], [np.nan, 1]], dtype=object)
+    else:
+        assert kind == "numpy-float"
+        X = np.array([[1, np.nan], [np.nan, 1]], dtype="float32")
+
+    res = check_cudf(X, ensure_ndim=None)
+    vals = cudf.Series([1, np.nan], nan_as_null=True)
+    assert res.iloc[:, 0].isin(vals).all()
+    assert res.iloc[:, 1].isin(vals).all()
+
+
+@pytest.mark.parametrize(
+    "kind, dtype",
+    [
+        ("list", None),
+        ("numpy", "O"),
+        ("numpy", "S"),
+        ("pandas", "O"),
+        ("pandas", "S"),
+    ],
+)
+@pytest.mark.parametrize("ndim", [1, 2])
+def test_check_cudf_bytes_dtype_errors(kind, dtype, ndim):
+    X = [b"a", b"b"] if ndim == 1 else [[b"a", b"b"], [b"c", b"d"]]
+    if kind == "numpy":
+        X = np.array(X, dtype=dtype)
+    elif kind == "pandas":
+        X = (pd.DataFrame if ndim == 2 else pd.Series)(X).astype(dtype)
+
+    with pytest.raises(TypeError, match="X with bytes dtype is not supported"):
+        check_cudf(X, ensure_ndim=None, input_name="X")
+
+
+@pytest.mark.parametrize("kind", ["list", "array"])
+def test_check_cudf_unsupported_object_inputs(kind):
+    X = [[{"x": 1}, 1], [1, 2]]
+    if kind == "array":
+        X = np.array(X, dtype=object)
+
+    with pytest.raises(
+        TypeError,
+        match="An object dtype X argument must be composed of",
+    ):
+        check_cudf(X, input_name="X")

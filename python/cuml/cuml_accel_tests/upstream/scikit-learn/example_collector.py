@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Pytest plugin that discovers scikit-learn example scripts and runs each
@@ -43,6 +43,7 @@ _NETWORK_ERROR_PATTERNS = (
     "requests.exceptions.ConnectionError",
     "requests.exceptions.Timeout",
     "sklearn.datasets._openml.OpenMLError",
+    "md5 checksum of local file for https://openml.org/",
     "socket.gaierror",
     "socket.timeout",
     "ssl.SSLError",
@@ -147,8 +148,28 @@ def pytest_addoption(parser):
         action="store",
         default=300,
         type=int,
-        help="Timeout per example script in seconds (default: 300)",
+        help=("Timeout per example script in seconds (default: 300)"),
     )
+
+
+def pytest_configure(config):
+    """Download the 20newsgroups dataset before xdist workers spawn.
+
+    Failures here are deliberately ignored. The examples download the
+    dataset themselves if it is missing, and a genuine network failure
+    is then classified by ``_network_error_pattern`` and xfailed as
+    usual.
+    """
+    if hasattr(config, "workerinput"):
+        # A worker, not the controller. Only the controller fetches.
+        return
+
+    from sklearn.datasets import fetch_20newsgroups_vectorized
+
+    try:
+        fetch_20newsgroups_vectorized(subset="all")
+    except Exception as exc:
+        print(f"Failed to pre-fetch the 20newsgroups dataset: {exc!r}")
 
 
 def pytest_collect_file(parent, file_path):

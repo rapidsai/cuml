@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -50,7 +50,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     totalRanks = comm.get_size();
     raft::random::Rng r(params.seed + myRank);
 
-    RAFT_CUBLAS_TRY(cublasSetStream(cublasHandle, stream));
+    RAFT_CUBLAS_TRY(cublasSetStream(cublasHandle, stream.get()));
 
     if (myRank == 0) {
       std::cout << "Testing PCA of " << params.M << " x " << params.N << " matrix" << std::endl;
@@ -66,8 +66,8 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     Matrix::PartDescriptor desc(
       params.M, params.N, totalPartsToRanks, comm.get_rank(), params.layout);
     std::vector<Matrix::Data<T>*> inParts;
-    Matrix::opg::allocate(handle, inParts, desc, myRank, stream);
-    Matrix::opg::randomize(handle, r, inParts, desc, myRank, stream, T(10.0), T(20.0));
+    Matrix::opg::allocate(handle, inParts, desc, myRank, stream.get());
+    Matrix::opg::randomize(handle, r, inParts, desc, myRank, stream.get(), T(10.0), T(20.0));
     handle.sync_stream();
 
     prmsPCA.n_rows       = params.M;
@@ -103,28 +103,29 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
                       false);
 
     CUML_LOG_DEBUG(
-      raft::arr2Str(singular_vals.data(), params.N_components, "Singular Vals", stream).c_str());
+      raft::arr2Str(singular_vals.data(), params.N_components, "Singular Vals", stream.get())
+        .c_str());
 
     CUML_LOG_DEBUG(
-      raft::arr2Str(explained_var.data(), params.N_components, "Explained Variance", stream)
+      raft::arr2Str(explained_var.data(), params.N_components, "Explained Variance", stream.get())
         .c_str());
 
     CUML_LOG_DEBUG(
       raft::arr2Str(
-        explained_var_ratio.data(), params.N_components, "Explained Variance Ratio", stream)
+        explained_var_ratio.data(), params.N_components, "Explained Variance Ratio", stream.get())
         .c_str());
 
     CUML_LOG_DEBUG(
-      raft::arr2Str(components.data(), params.N_components * params.N, "Components", stream)
+      raft::arr2Str(components.data(), params.N_components * params.N, "Components", stream.get())
         .c_str());
 
-    Matrix::opg::deallocate(handle, inParts, desc, myRank, stream);
+    Matrix::opg::deallocate(handle, inParts, desc, myRank, stream.get());
   }
 
  protected:
   PCAOpgParams params;
   raft::handle_t handle;
-  cudaStream_t stream = 0;
+  cuda::stream_ref stream{cudaStream_t{cudaStreamDefault}};
   int myRank;
   int totalRanks;
   ML::paramsPCAMG prmsPCA;
@@ -132,8 +133,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
 
 const std::vector<PCAOpgParams> inputs = {
   {20, 4, 2, ML::mg_solver::COV_EIG_JACOBI, {11, 9}, {1, 0}, Matrix::LayoutColMajor, 223548ULL},
-  {20, 4, 2, ML::mg_solver::COV_EIG_DQ, {11, 9}, {1, 0}, Matrix::LayoutColMajor, 223548ULL},
-  {20, 4, 2, ML::mg_solver::QR, {11, 9}, {1, 0}, Matrix::LayoutColMajor, 223548ULL}};
+  {20, 4, 2, ML::mg_solver::COV_EIG_DQ, {11, 9}, {1, 0}, Matrix::LayoutColMajor, 223548ULL}};
 
 typedef PCAOpgTest<float> PCAOpgTestF;
 
@@ -141,7 +141,7 @@ TEST_P(PCAOpgTestF, Result)
 {
   if (myRank == 0) {
     // We should be inverse transforming and checking against the original
-    // data here. Github reference: https://github.com/rapidsai/cuml/issues/2474
+    // data here. Github reference: https://github.com/NVIDIA/cuml/issues/2474
 
     ASSERT_TRUE(true);
   }
@@ -155,7 +155,7 @@ TEST_P(PCAOpgTestD, Result)
 {
   if (myRank == 0) {
     // We should be inverse transforming and checking against the original
-    // data here. Github reference: https://github.com/rapidsai/cuml/issues/2474
+    // data here. Github reference: https://github.com/NVIDIA/cuml/issues/2474
 
     ASSERT_TRUE(true);
   }

@@ -1,10 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
-from cuml.internals import logger, reflect
+from cuml.internals import logger, mlfunc
 from cuml.internals.validation import check_array
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
@@ -51,7 +51,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
     """
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def predict(
         self,
         index,
@@ -64,7 +64,6 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         n_unique,
         ncols,
         rank,
-        convert_dtype
     ):
         """
         Predict labels for a query from previously stored index
@@ -84,7 +83,6 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         ncols: number of columns
         rank: rank of current worker
         n_neighbors: number of nearest neighbors to query
-        convert_dtype: deprecated, will be removed in 26.10
 
         Returns
         -------
@@ -96,10 +94,10 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         # Build input arrays and descriptors for native code interfacing
         input = self.gen_local_input(
             index, index_parts_to_ranks, index_nrows, query,
-            query_parts_to_ranks, query_nrows, ncols, rank, convert_dtype)
+            query_parts_to_ranks, query_nrows, ncols, rank)
 
         # Build input labels arrays and descriptors for native code interfacing
-        labels = self.gen_local_labels(index, convert_dtype, 'int32')
+        labels = self.gen_local_labels(index, 'int32')
 
         local_query_rows = [x.shape[0] for x in input['arrays']['query']]
 
@@ -109,7 +107,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         )
         cdef int* ptr = <int*><uintptr_t>uniq_labels_d.data.ptr
         cdef vector[int*] uniq_labels_vec
-        for i in range(uniq_labels_d.shape[0]):
+        for _ in range(uniq_labels_d.shape[0]):
             uniq_labels_vec.push_back(<int*>ptr)
             ptr += <int>uniq_labels_d.shape[1]
 
@@ -168,13 +166,12 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         return outputs
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def predict_proba(self, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
-                      uniq_labels, n_unique, ncols, rank,
-                      convert_dtype) -> tuple:
+                      uniq_labels, n_unique, ncols, rank) -> tuple:
         """
-        Predict labels for a query from previously stored index
+        Predict class probabilities for a query from previously stored index
         and index labels.
         The process is done in a multi-node multi-GPU fashion.
 
@@ -190,11 +187,12 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         n_unique: array with number of possible labels for each columns
         ncols: number of columns
         rank: int rank of current worker
-        convert_dtype: deprecated, will be removed in 26.10
 
         Returns
         -------
-        predictions : labels, indices, distances
+        probabilities : tuple with one entry per output, each a list of
+            float32 arrays of shape (n_rows, n_classes), one per local
+            query partition
         """
         # Detect type
         self.get_out_type(index, query)
@@ -202,10 +200,10 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         # Build input arrays and descriptors for native code interfacing
         input = self.gen_local_input(
             index, index_parts_to_ranks, index_nrows, query,
-            query_parts_to_ranks, query_nrows, ncols, rank, convert_dtype)
+            query_parts_to_ranks, query_nrows, ncols, rank)
 
         # Build input labels arrays and descriptors for native code interfacing
-        labels = self.gen_local_labels(index, convert_dtype, dtype='int32')
+        labels = self.gen_local_labels(index, dtype='int32')
 
         # Build uniq_labels_vec vector for native code interfacing
         uniq_labels_d = check_array(
@@ -213,7 +211,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         )
         cdef int* ptr = <int*><uintptr_t>uniq_labels_d.data.ptr
         cdef vector[int*] uniq_labels_vec
-        for i in range(uniq_labels_d.shape[0]):
+        for _ in range(uniq_labels_d.shape[0]):
             uniq_labels_vec.push_back(<int*>ptr)
             ptr += <int>uniq_labels_d.shape[1]
 
@@ -226,7 +224,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         n_outputs = len(n_unique)
 
         # Build probas output array for native code interfacing
-        outputs = [[] for i in range(n_outputs)]
+        outputs = [[] for _ in range(n_outputs)]
         cdef vector[vector[float*]] probas_local_parts
         probas_local_parts.resize(len(local_query_rows))
         for query_idx, n_rows in enumerate(local_query_rows):

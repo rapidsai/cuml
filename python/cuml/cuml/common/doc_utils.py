@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -54,12 +54,6 @@ _parameters_docstrings = {
     "    Acceptable dense formats: CUDA array interface compliant objects like\n"  # noqa
     "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
     "    DataFrame/Series.",
-    "convert_dtype": "convert_dtype : bool, optional (default = 'deprecated')\n"
-    "    .. deprecated:: 26.08\n"
-    "        `convert_dtype` was deprecated in version 26.08 and will be removed\n"
-    "        in version 26.10. cuML only copies input arrays when necessary\n"
-    "        (e.g. to unify dtypes), there is no reason to provide this keyword\n"
-    "        going forward.\n",
     "sample_weight": "sample_weight : array-like (device or host) shape = (n_samples,), default={default}\n"  # noqa
     "    The weights for each observation in X. If None, all observations\n"
     "    are assigned equal weight.\n"
@@ -107,7 +101,6 @@ _return_values_docstrings = {
 _return_values_possible_values = ["name", "type", "shape", "description"]
 
 _simple_params = [
-    "convert_dtype",
     "return_sparse",
     "sparse_tol",
     "sample_weight",
@@ -134,7 +127,6 @@ def generate_docstring(
     Currently auto detected variables include:
     - X
     - y
-    - convert_dtype
     - sample_weights
     - return_sparse
     - sparse_tol
@@ -239,7 +231,7 @@ def generate_docstring(
         if skip_parameters_heading and prepend_parameters:
             # indexing at 8 to match indentation of inserted parameters
             # this can be replaced with indentation detection
-            # https://github.com/rapidsai/cuml/issues/2714
+            # https://github.com/NVIDIA/cuml/issues/2714
             func.__doc__ += current_params_in_docstring[8:]
 
         # Add return section header if needed, no option to skip currently.

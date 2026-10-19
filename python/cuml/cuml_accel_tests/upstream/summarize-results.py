@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 """Summarize test results from a JUnit XML report file."""
@@ -72,6 +72,14 @@ def parse_args():
         help="Minimum pass rate threshold [0-100] (default: 0)",
     )
     parser.add_argument(
+        "--total-fail-below",
+        type=float,
+        help=(
+            "Minimum total pass rate threshold [0-100], including outcomes "
+            "excluded by --exclude-xfail-reason (default: disabled)"
+        ),
+    )
+    parser.add_argument(
         "--format",
         choices=["summary", "xfail_list", "traceback"],
         default="summary",
@@ -93,6 +101,16 @@ def parse_args():
         type=str,
         dest="filter_pattern",
         help="Filter tests by ID pattern (substring match, case-insensitive)",
+    )
+    parser.add_argument(
+        "--exclude-xfail-reason",
+        action="append",
+        default=[],
+        metavar="TEXT",
+        help=(
+            "Exclude xfails whose JUnit reason contains TEXT from the pass-rate "
+            "denominator. May be specified multiple times."
+        ),
     )
     args = parser.parse_args()
 
@@ -135,6 +153,12 @@ def matches_filter(test_id, pattern):
     if pattern is None:
         return True
     return pattern.lower() in test_id.lower()
+
+
+def matches_xfail_reason(skipped_elem, patterns):
+    """Return whether an xfail reason matches any exclusion pattern."""
+    message = skipped_elem.get("message", "")
+    return any(pattern in message for pattern in patterns)
 
 
 def get_test_results(testsuite, prefix: str = ""):
@@ -289,6 +313,8 @@ def main():
     """Main entry point."""
     args = parse_args()
     validate_threshold(args.fail_below)
+    if args.total_fail_below is not None:
+        validate_threshold(args.total_fail_below)
 
     if not args.report_file.exists():
         print(f"Error: Report file not found: {args.report_file}")
@@ -308,13 +334,16 @@ def main():
 
     # Extract test statistics
     total_tests = int(testsuite.get("tests", 0))
-    total_errors = int(testsuite.get("errors", 0))
-    total_skipped = int(testsuite.get("skipped", 0))
     time = float(testsuite.get("time", 0))
 
-    # Count failures, xfails, and xpasses separately
+    # Count non-passing outcomes separately. Pytest records xfails as skipped
+    # in JUnit XML, so count regular skips from testcase elements to avoid
+    # subtracting xfails twice from the pass rate.
     regular_failures = 0
+    regular_errors = 0
+    regular_skipped = 0
     xfailed = 0
+    excluded_xfailed = 0
     xpassed_strict = 0
     xpassed_non_strict = 0
     for testcase in testsuite.findall(".//testcase"):
@@ -339,24 +368,34 @@ def main():
             elif "XPASS" in msg:
                 xpassed_non_strict += 1
             else:
-                regular_failures += 1
-        elif (
-            skipped_elem is not None
-            and skipped_elem.get("type") == "pytest.xfail"
-        ):
-            xfailed += 1
+                regular_errors += 1
+        elif skipped_elem is not None:
+            if skipped_elem.get("type") == "pytest.xfail":
+                xfailed += 1
+                if matches_xfail_reason(
+                    skipped_elem, args.exclude_xfail_reason
+                ):
+                    excluded_xfailed += 1
+            else:
+                regular_skipped += 1
 
     # Calculate passed tests and pass rate
     passed = (
         total_tests
         - regular_failures
+        - regular_errors
+        - regular_skipped
         - xfailed
         - xpassed_strict
         - xpassed_non_strict
-        - total_errors
-        - total_skipped
     )
-    pass_rate = (passed / total_tests * 100) if total_tests > 0 else 0
+    pass_rate_denominator = total_tests - excluded_xfailed
+    pass_rate = (
+        passed / pass_rate_denominator * 100
+        if pass_rate_denominator > 0
+        else 0
+    )
+    total_pass_rate = passed / total_tests * 100 if total_tests > 0 else 0
 
     if args.format == "traceback":
         output = format_traceback_output(
@@ -405,18 +444,20 @@ def main():
         ["Passed:", str(passed)],
         ["Failed:", str(regular_failures)],
         ["XFailed:", str(xfailed)],
+        ["Excluded XFailed:", str(excluded_xfailed)],
         ["XPassed (strict):", str(xpassed_strict)],
         ["XPassed (non-strict):", str(xpassed_non_strict)],
-        ["Errors:", str(total_errors)],
-        ["Skipped:", str(total_skipped)],
+        ["Errors:", str(regular_errors)],
+        ["Skipped:", str(regular_skipped)],
         ["Pass Rate:", f"{pass_rate:.2f}%"],
+        ["Total Pass Rate:", f"{total_pass_rate:.2f}%"],
         ["Total Time:", f"{time:.2f}s"],
     ]
     for row in format_table(rows, "  "):
         print(f"  {row}")
 
     # List failed tests in verbose mode
-    if (regular_failures + total_errors) > 0 and args.verbose:
+    if (regular_failures + regular_errors) > 0 and args.verbose:
         print("\nFailed Tests:")
         count = 0
         for testcase in testsuite.findall(".//testcase"):
@@ -467,12 +508,23 @@ def main():
                     print(f'  "{test_id}"')
                     count += 1
 
-    # Check threshold
+    threshold_failed = False
     if pass_rate < args.fail_below:
         print(
             f"\nError: Pass rate {pass_rate:.2f}% is below threshold "
             f"{args.fail_below}%"
         )
+        threshold_failed = True
+    if (
+        args.total_fail_below is not None
+        and total_pass_rate < args.total_fail_below
+    ):
+        print(
+            f"\nError: Total pass rate {total_pass_rate:.2f}% is below "
+            f"threshold {args.total_fail_below}%"
+        )
+        threshold_failed = True
+    if threshold_failed:
         sys.exit(1)
 
     sys.exit(0)

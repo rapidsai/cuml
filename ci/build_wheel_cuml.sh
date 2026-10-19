@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -15,7 +15,8 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 # available for pip to find.
 #
 # env variable 'PIP_CONSTRAINT' is set up by rapids-init-pip. It constrains all subsequent
-# 'pip install', 'pip download', etc. calls (except those used in 'pip wheel', handled separately in build scripts)C
+# 'pip install', 'pip download', etc. calls (except the isolated wheel build,
+# which is handled separately by ci/build_wheel.sh)
 LIBCUML_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_cpp libcuml cuml --cuda "$RAPIDS_CUDA_VERSION")")
 echo "libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBCUML_WHEELHOUSE}"/libcuml_*.whl)" >> "${PIP_CONSTRAINT}"
 
@@ -28,7 +29,7 @@ EXCLUDE_ARGS=(
   --exclude "libcusolver.so.*"
   --exclude "libcusparse.so.*"
   --exclude "libcuvs.so"
-  --exclude "libnvforest++.so"
+  --exclude "libnvforest.so"
   --exclude "libnvJitLink.so.*"
   --exclude "libraft.so"
   --exclude "librapids_logger.so"

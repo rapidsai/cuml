@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -165,6 +165,37 @@ def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
         assert diff / avg_score <= relative_tolerance
 
 
+@pytest.mark.parametrize("device_buffer_samples", [0, 2])
+def test_weighted_kmeans_inertia_and_score(device_buffer_samples):
+    X = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 1.0],
+            [2.0, 2.0],
+            [10.0, 10.0],
+            [11.0, 11.0],
+            [12.0, 12.0],
+        ]
+    )
+    sample_weight = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0])
+
+    model = cuml.KMeans(
+        n_clusters=2,
+        init=np.array([[1.0, 1.0], [11.0, 11.0]]),
+        n_init=1,
+        device_buffer_samples=device_buffer_samples,
+    ).fit(X, sample_weight=sample_weight)
+
+    np.testing.assert_allclose(model.inertia_, 12.0)
+
+    score_X = np.array([[0.0, 0.0], [10.0, 10.0]])
+    score_weight = np.array([2.0, 2.0])
+    np.testing.assert_allclose(
+        model.score(score_X, sample_weight=score_weight),
+        -8.0,
+    )
+
+
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [25])
 @pytest.mark.parametrize("nclusters", [2, 5])
@@ -182,7 +213,7 @@ def test_kmeans_clusters_blobs(
     )
 
     # Set n_init to 2 to improve stability of k-means|| initialization
-    # See https://github.com/rapidsai/cuml/issues/5530 for details
+    # See https://github.com/NVIDIA/cuml/issues/5530 for details
     cuml_kmeans = cuml.KMeans(
         init="k-means||",
         n_clusters=nclusters,
@@ -471,3 +502,114 @@ def test_kmeans_init_wrong_shape():
         ),
     ):
         model.fit(X)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("device_buffer_samples", [256, 1024, 5000])
+@pytest.mark.parametrize("weighted", [False, True])
+@pytest.mark.parametrize("init_method", ["explicit", "default"])
+def test_kmeans_device_buffer_samples_host_path(
+    dtype, device_buffer_samples, weighted, init_method
+):
+    """The single-GPU host-streaming fit path should agree with the device
+    path on identical inputs.
+    """
+    n_rows = 4000
+    n_cols = 16
+    n_clusters = 8
+
+    X_dev, _ = make_blobs(
+        n_samples=n_rows,
+        n_features=n_cols,
+        centers=n_clusters,
+        cluster_std=0.5,
+        random_state=42,
+        dtype=dtype,
+    )
+    X_host = cp.asnumpy(X_dev).astype(dtype)
+
+    if weighted:
+        sample_weight_host = np.linspace(0.5, 1.5, num=n_rows, dtype=dtype)
+        sample_weight_dev = cp.asarray(sample_weight_host)
+    else:
+        sample_weight_host = None
+        sample_weight_dev = None
+
+    common_kwargs = dict(
+        n_clusters=n_clusters,
+        n_init=1,
+        tol=1e-3,
+        random_state=42,
+    )
+    if init_method == "explicit":
+        rng = np.random.RandomState(1234)
+        init_idx = rng.choice(n_rows, size=n_clusters, replace=False)
+        common_kwargs["init"] = X_host[init_idx]
+    else:
+        common_kwargs["init_size"] = n_rows
+
+    host_model = cuml.KMeans(
+        device_buffer_samples=device_buffer_samples, **common_kwargs
+    )
+    host_model.fit(X_host, sample_weight=sample_weight_host)
+
+    dev_model = cuml.KMeans(device_buffer_samples=0, **common_kwargs)
+    dev_model.fit(X_dev, sample_weight=sample_weight_dev)
+
+    host_labels = cp.asnumpy(cp.asarray(host_model.labels_))
+    dev_labels = cp.asnumpy(cp.asarray(dev_model.labels_))
+    assert host_labels.shape == (n_rows,)
+    assert dev_labels.shape == (n_rows,)
+
+    if init_method == "explicit":
+        np.testing.assert_allclose(
+            cp.asnumpy(cp.asarray(host_model.cluster_centers_)),
+            cp.asnumpy(cp.asarray(dev_model.cluster_centers_)),
+            atol=0.1,
+            rtol=0.1,
+        )
+    np.testing.assert_allclose(
+        float(host_model.inertia_),
+        float(dev_model.inertia_),
+        rtol=1e-3,
+    )
+    assert adjusted_rand_score(dev_labels, host_labels) >= 0.97
+
+
+def test_kmeans_transform_euclidean():
+    """transform should return Euclidean distances, matching sklearn."""
+    X = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 1.0],
+            [2.0, 2.0],
+            [10.0, 10.0],
+            [11.0, 11.0],
+            [12.0, 12.0],
+        ]
+    )
+    init = np.array([[1.0, 1.0], [11.0, 11.0]])
+    query = np.array([[0.0, 0.0], [10.0, 10.0]])
+
+    cuml_model = cuml.KMeans(
+        n_clusters=2, init=init, n_init=1, output_type="numpy"
+    )
+    cuml_model.fit(X)
+    cu_dist = cuml_model.transform(query)
+
+    sk_model = cluster.KMeans(n_clusters=2, init=init, n_init=1)
+    sk_model.fit(X)
+    sk_dist = sk_model.transform(query)
+
+    expected = np.sqrt(np.array([[2.0, 242.0], [162.0, 2.0]]))
+    np.testing.assert_allclose(cu_dist, expected)
+    np.testing.assert_allclose(cu_dist, sk_dist)
+
+
+def test_get_feature_names_out():
+    X, _ = make_blobs(n_features=5)
+    cu_model = cuml.KMeans().fit(X)
+    sk_model = sklearn.cluster.KMeans().fit(X.get())
+    res = cu_model.get_feature_names_out()
+    sol = sk_model.get_feature_names_out()
+    np.testing.assert_array_equal(res, sol)

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import json
@@ -115,6 +115,10 @@ def count_categorical_split(tl_model):
         "reg:pseudohubererror",
     ],
 )
+@pytest.mark.skipif(
+    cp.cuda.Device().compute_capability == "70",
+    reason="Current XGBoost wheels lack SM70 kernels (see #8760)",
+)
 def test_xgb_regressor(objective):
     xgb = pytest.importorskip("xgboost")
     pytest.importorskip(
@@ -190,6 +194,10 @@ def test_xgb_regressor(objective):
         "multi:softmax",
         "multi:softprob",
     ],
+)
+@pytest.mark.skipif(
+    cp.cuda.Device().compute_capability == "70",
+    reason="Current XGBoost wheels lack SM70 kernels (see #8760)",
 )
 def test_xgb_classifier(objective, n_classes):
     xgb = pytest.importorskip("xgboost")
@@ -438,7 +446,7 @@ def test_sklearn_rf_classifier(n_classes):
 @pytest.mark.xfail(
     reason=(
         "Treelite does not yet support XGBoost models with categoricals "
-        "(https://github.com/rapidsai/cuml/issues/8055)"
+        "(https://github.com/NVIDIA/cuml/issues/8055)"
     )
 )
 def test_xgb_toy_categorical():
@@ -478,7 +486,7 @@ def test_xgb_toy_categorical():
 @pytest.mark.xfail(
     reason=(
         "Treelite does not yet support XGBoost models with categoricals "
-        "(https://github.com/rapidsai/cuml/issues/8055)"
+        "(https://github.com/NVIDIA/cuml/issues/8055)"
     )
 )
 @pytest.mark.parametrize("n_classes", [2, 3])
@@ -548,7 +556,7 @@ def test_xgb_classifier_with_categorical(n_classes):
 @pytest.mark.xfail(
     reason=(
         "Treelite does not yet support XGBoost models with categoricals "
-        "(https://github.com/rapidsai/cuml/issues/8055)"
+        "(https://github.com/NVIDIA/cuml/issues/8055)"
     )
 )
 def test_xgb_regressor_with_categorical():
@@ -810,7 +818,7 @@ def shap_strategy(draw):
     learner = draw(st.sampled_from(["xgb", "rf", "skl_rf", "lgbm"]))
 
     # TODO: Treelite does not yet support XGBoost models with categoricals.
-    # (https://github.com/rapidsai/cuml/issues/8055). Can drop this assume when
+    # (https://github.com/NVIDIA/cuml/issues/8055). Can drop this assume when
     # that's fixed.
     assume(learner != "xgb")
 
@@ -836,7 +844,7 @@ def shap_strategy(draw):
     if task == "classification" and learner == "rf":
         # No way to predict_proba with RandomForestClassifier
         # trained on 64-bit data
-        # https://github.com/rapidsai/cuml/issues/4663
+        # https://github.com/NVIDIA/cuml/issues/4663
         assume(dtype == np.float32)
     if task == "regression" and learner == "skl_rf":
         # multi-output regression not working

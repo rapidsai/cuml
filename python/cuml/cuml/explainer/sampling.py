@@ -1,18 +1,17 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
 import cupy as cp
 import pandas as pd
 
-import cuml
 from cuml import KMeans
-from cuml.internals.array import CumlArray
+from cuml.internals.outputs import ArrayIndexPair, mlfunc, using_output_type
 from cuml.internals.validation import check_array
 from cuml.preprocessing import SimpleImputer
 
 
-@cuml.internals.reflect
+@mlfunc
 def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     """
     Adapted from :
@@ -57,7 +56,7 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     if X.ndim == 1:
         X = X.reshape(-1, 1)
 
-    with cuml.using_output_type("cupy"):
+    with using_output_type("cupy"):
         # in case there are any missing values in data impute them
         imp = SimpleImputer(missing_values=cp.nan, strategy="mean")
         X = imp.fit_transform(X)
@@ -75,9 +74,9 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
 
         if detailed:
             return (
-                CumlArray(data=summary),
+                summary,
                 group_names,
-                CumlArray(kmeans.labels_, index=index),
+                ArrayIndexPair(kmeans.labels_, index=index),
             )
         else:
-            return CumlArray(data=summary)
+            return summary

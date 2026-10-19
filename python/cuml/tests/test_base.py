@@ -1,10 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
 
 import numpy as np
-import numpydoc.docscrape
 import pandas as pd
 import pylibraft.common.handle
 import pytest
@@ -54,6 +53,8 @@ def test_base_subclass_init_matches_docs(child_class: str):
             "the base arguments in constructors."
         )
 
+    numpydoc_docscrape = pytest.importorskip("numpydoc.docscrape")
+
     # To quickly find and replace all instances in the documentation, the below
     # regex's may be useful
     # output_type: r"^[ ]{4}output_type :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+"
@@ -71,12 +72,12 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
     # Load the base class signature, parse the docstring and pull out params
     base_sig = inspect.signature(cuml.Base, follow_wrapped=True)
-    base_doc = numpydoc.docscrape.NumpyDocString(cuml.Base.__doc__)
+    base_doc = numpydoc_docscrape.NumpyDocString(cuml.Base.__doc__)
     base_doc_params = base_doc["Parameters"]
 
     # Load the current class signature, parse the docstring and pull out params
     klass_sig = inspect.signature(klass, follow_wrapped=True)
-    klass_doc = numpydoc.docscrape.NumpyDocString(klass.__doc__ or "")
+    klass_doc = numpydoc_docscrape.NumpyDocString(klass.__doc__ or "")
     klass_doc_params = klass_doc["Parameters"]
 
     for name, param in base_sig.parameters.items():
@@ -191,7 +192,7 @@ def generate_test_common_signatures_cases():
     for cls in sorted(
         get_all_base_subclasses().values(), key=lambda cls: cls.__name__
     ):
-        if cls.__module__.startswith(("cuml.tsa", "cuml.solvers")):
+        if cls.__module__.startswith("cuml.solvers"):
             # These classes aren't expected to match the sklearn interface
             continue
         elif "Base" in cls.__name__:
@@ -410,15 +411,11 @@ def test_classifier_label_types(cls, target_kind, dtype_kind):
 
 # Names of `Base` subclasses that go through `cuml.Base.__repr__`. Preprocessing
 # estimators (`sklBaseEstimator` subclasses) use scikit-learn's own repr, so we
-# exclude them here. `ForestInference` is a FIL inference wrapper that normalizes
-# several constructor arguments before storing them, so its stored attributes
-# don't round-trip against the constructor defaults; exclude it too.
+# exclude them here.
 _REPR_TESTABLE_CLASSES = [
     name
     for name, klass in all_base_children.items()
-    if "Base" not in name
-    and name != "ForestInference"
-    and not issubclass(klass, sklBaseEstimator)
+    if "Base" not in name and not issubclass(klass, sklBaseEstimator)
 ]
 
 

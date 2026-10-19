@@ -1,26 +1,20 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
 
 import cupy as cp
+import cupyx
 import numpy as np
 from cupy import linalg
-from cupyx import geterr, lapack, seterr
+from cupyx import lapack
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import reflect, run_in_internal_context
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_consistent_length,
     check_inputs,
@@ -33,16 +27,14 @@ from cuml.metrics import pairwise_kernels
 # cholesky solve with fallback to least squares for singular problems
 def _safe_solve(K, y):
     try:
-        # we need to set the error mode of cupy to raise
-        # otherwise we silently get an array of NaNs
-        err_mode = geterr()["linalg"]
-        seterr(linalg="raise")
-        dual_coef = lapack.posv(K, y)
-        # Perform following check as a workaround for cusolver issue to be
-        # fixed in a future CUDA version
-        if cp.all(cp.isnan(dual_coef)):
-            raise np.linalg.LinAlgError
-        seterr(linalg=err_mode)
+        with cupyx.errstate(linalg="raise"):
+            # we need to set the error mode of cupy to raise
+            # otherwise we silently get an array of NaNs
+            dual_coef = lapack.posv(K, y)
+            # Perform following check as a workaround for cusolver issue to be
+            # fixed in a future CUDA version
+            if cp.all(cp.isnan(dual_coef)):
+                raise np.linalg.LinAlgError
     except np.linalg.LinAlgError:
         warnings.warn(
             "Singular matrix in solving dual problem. Using "
@@ -134,8 +126,7 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
     kernel_params : mapping of str to any, default=None
         Additional parameters (keyword arguments) for kernel function passed
         as callable object.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -188,8 +179,8 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
 
     """
 
-    dual_coef_ = CumlArrayDescriptor()
-    X_fit_ = CumlArrayDescriptor()
+    dual_coef_ = ReflectedAttr()
+    X_fit_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.kernel_ridge.KernelRidge"
 
@@ -240,15 +231,15 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         return {
-            "dual_coef_": to_gpu(model.dual_coef_),
-            "X_fit_": to_gpu(model.X_fit_),
+            "dual_coef_": cp.asarray(model.dual_coef_),
+            "X_fit_": ArrayIndexPair(cp.asarray(model.X_fit_), None),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "dual_coef_": to_cpu(self.dual_coef_),
-            "X_fit_": to_cpu(self.X_fit_),
+            "dual_coef_": self.dual_coef_.get(order="A"),
+            "X_fit_": self.X_fit_.array.get(order="A"),
             **super()._attrs_to_cpu(model),
         }
 
@@ -277,7 +268,7 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
         tags.target_tags.multi_output = True
         return tags
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def _get_kernel(self, X, Y=None):
         if isinstance(self.kernel, str):
             params = {
@@ -289,19 +280,16 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
             params = self.kernel_params or {}
         return pairwise_kernels(
             X, Y, metric=self.kernel, filter_params=True, **params
-        ).to_output("cupy")
+        )
 
     @generate_docstring()
-    @reflect(reset=True)
-    def fit(
-        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
-    ) -> "KernelRidge":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y, sample_weight=None) -> "KernelRidge":
         X, y, index = check_inputs(
             self,
             X,
             y,
             dtype=("float32", "float64"),
-            convert_dtype=convert_dtype,
             accept_multi_output=True,
             return_index=True,
             reset=True,
@@ -312,9 +300,7 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
         # Unlike other solvers, we need to special-case scalar sample weights,
         # because K might be a pre-computed kernel.
         if not (np.isscalar(sample_weight) and np.isfinite(sample_weight)):
-            sample_weight = check_sample_weight(
-                sample_weight, dtype=X.dtype, convert_dtype=convert_dtype
-            )
+            sample_weight = check_sample_weight(sample_weight, dtype=X.dtype)
             check_consistent_length(X, y, sample_weight)
 
         K = self._get_kernel(X)
@@ -324,12 +310,12 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
         if ravel:
             dual_coef = dual_coef.ravel()
 
-        self.X_fit_ = CumlArray(data=X, index=index)
-        self.dual_coef_ = CumlArray(data=dual_coef)
+        self.X_fit_ = ArrayIndexPair(X, index)
+        self.dual_coef_ = dual_coef
         return self
 
-    @reflect
-    def predict(self, X, *, convert_dtype="deprecated"):
+    @mlfunc(preserve_index=True)
+    def predict(self, X):
         """
         Predict using the kernel ridge model.
 
@@ -347,14 +333,6 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
             Returns predicted values.
         """
         check_is_fitted(self)
-        X = check_inputs(
-            self,
-            X,
-            dtype=self.X_fit_.dtype,
-            convert_dtype=convert_dtype,
-        )
-        K = self._get_kernel(X, self.X_fit_.to_output("cupy")).astype(
-            X.dtype, copy=False
-        )
-        dual_coef = self.dual_coef_.to_output("cupy")
-        return CumlArray(data=cp.dot(K, dual_coef))
+        X = check_inputs(self, X, dtype=self.X_fit_.array.dtype)
+        K = self._get_kernel(X, self.X_fit_.array).astype(X.dtype, copy=False)
+        return cp.dot(K, self.dual_coef_)

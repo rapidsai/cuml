@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
@@ -13,6 +13,8 @@ from sklearn.preprocessing import (
     LabelEncoder,
     MaxAbsScaler,
     MinMaxScaler,
+    OneHotEncoder,
+    OrdinalEncoder,
     PolynomialFeatures,
     StandardScaler,
 )
@@ -136,6 +138,136 @@ def test_polynomial_features():
     model.set_output(transform="pandas")
     out_df = model.transform(X)
     assert isinstance(out_df, pd.DataFrame)
+
+
+@pytest.mark.parametrize("sparse_output", [True, False])
+def test_one_hot_encoder(sparse_output):
+    X = np.array([["a", 1], ["b", 1], ["a", 2], ["a", 3]], dtype=object)
+
+    model = OneHotEncoder(sparse_output=sparse_output).fit(X)
+    np.testing.assert_array_equal(model.categories_[0], ["a", "b"])
+    np.testing.assert_array_equal(model.categories_[1], [1, 2, 3])
+
+    sol = np.array(
+        [
+            [1, 0, 1, 0, 0],
+            [0, 1, 1, 0, 0],
+            [1, 0, 0, 1, 0],
+            [1, 0, 0, 0, 1],
+        ]
+    )
+    Xt = model.transform(X)
+    if sparse_output:
+        assert sp.issparse(Xt)
+        np.testing.assert_array_equal(Xt.toarray(), sol)
+    else:
+        np.testing.assert_array_equal(Xt, sol)
+
+    inv_X = model.inverse_transform(Xt)
+    np.testing.assert_array_equal(X, inv_X)
+
+
+def test_ordinal_encoder():
+    X = np.array([["a", 1], ["b", 1], ["a", 2], ["a", 3]], dtype=object)
+
+    model = OrdinalEncoder().fit(X)
+    np.testing.assert_array_equal(model.categories_[0], ["a", "b"])
+    np.testing.assert_array_equal(model.categories_[1], [1, 2, 3])
+
+    Xt = model.transform(X)
+    sol = np.array([[0, 0], [1, 0], [0, 1], [0, 2]])
+    np.testing.assert_array_equal(Xt, sol)
+
+    inv_X = model.inverse_transform(Xt)
+    np.testing.assert_array_equal(X, inv_X)
+
+
+@pytest.mark.parametrize(
+    "kind, dtype",
+    [
+        ("list", None),
+        ("numpy", "O"),
+        ("numpy", "S"),
+        ("pandas", "O"),
+        ("pandas", "S"),
+    ],
+)
+@pytest.mark.parametrize("auto", [True, False])
+@pytest.mark.parametrize("cls", [OneHotEncoder, OrdinalEncoder])
+def test_encoder_bytes_inputs(kind, dtype, auto, cls):
+    """Scikit-Learn supports bytes inputs to OneHotEncoder/OrdinalEncoder,
+    while cuml doesn't. Here we check that we properly fallback."""
+    X = [[b"a", b"x"], [b"b", b"x"], [b"a", b"y"]]
+    if kind == "numpy":
+        X = np.array(X, dtype=dtype)
+    elif kind == "pandas":
+        X = pd.DataFrame(X).astype(dtype)
+
+    if auto:
+        cats = "auto"
+    else:
+        cats = [[b"a", b"b"], [b"x", b"y"]]
+        if kind == "numpy":
+            cats = [np.array(c, dtype=dtype) for c in cats]
+        elif kind == "pandas":
+            cats = [pd.Series(c, dtype=dtype) for c in cats]
+
+    if cls == OneHotEncoder:
+        enc = cls(categories=cats, sparse_output=False)
+        sol = np.array([[1, 0, 1, 0], [0, 1, 1, 0], [1, 0, 0, 1]])
+    else:
+        enc = cls(categories=cats)
+        sol = np.array([[0, 0], [1, 0], [0, 1]])
+
+    if not auto and dtype == "O":
+        # XXX: exception raised by sklearn, we don't really care what it is
+        with pytest.raises(ValueError):
+            enc.fit(X)
+    else:
+        enc.fit(X)
+        np.testing.assert_array_equal(enc.categories_[0], [b"a", b"b"])
+        np.testing.assert_array_equal(enc.categories_[1], [b"x", b"y"])
+        Xt = enc.transform(X)
+        np.testing.assert_array_equal(Xt, sol)
+
+
+@pytest.mark.parametrize("kind", ["list", "numpy", "pandas"])
+@pytest.mark.parametrize("cls", [OneHotEncoder, OrdinalEncoder])
+@pytest.mark.parametrize("auto", [True, False])
+def test_encoder_large_ints(cls, kind, auto):
+    """Scikit-Learn supports large ints in object dtype arrays
+    as inputs to OneHotEncoder/OrdinalEncoder, while cuml doesn't.
+    Here we check that we properly fallback."""
+    a = 44253463435747313673
+    b = 44253462342215747313673
+    c = 9867966753463435747313673
+    X = np.array([a, c, b, a], dtype="O").reshape(-1, 1)
+
+    if kind == "list":
+        X = X.tolist()
+    elif kind == "pandas":
+        X = pd.DataFrame(X)
+
+    if auto:
+        cats = "auto"
+    else:
+        cats = [[a, b, c]]
+        if kind == "numpy":
+            cats = [np.array(c, dtype="O") for c in cats]
+        elif kind == "pandas":
+            cats = [pd.Series(c, dtype="O") for c in cats]
+
+    if cls == OneHotEncoder:
+        enc = cls(categories=cats, sparse_output=False)
+        sol = np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
+    else:
+        enc = cls(categories=cats)
+        sol = np.array([[0], [2], [1], [0]])
+
+    enc.fit(X)
+    np.testing.assert_array_equal(enc.categories_[0], [a, b, c])
+    Xt = enc.transform(X)
+    np.testing.assert_array_equal(Xt, sol)
 
 
 def test_label_encoder():
