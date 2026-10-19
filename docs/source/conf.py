@@ -59,7 +59,15 @@ extensions = [
     "sphinx_markdown_tables",
     "sphinx_copybutton",
     "sphinx_design",
+    "sphinx_llm.txt",
 ]
+
+# configuration for 'sphinx-llm'
+# Notebook examples write model files in the source directory. Build Markdown
+# after HTML to avoid concurrent writes from separate notebook executions.
+llms_txt_build_parallel = False
+llms_txt_summary_enabled = False
+llms_txt_suppress_unknown_node_warnings = True
 
 breathe_projects = {
     "cuml": os.path.abspath(

@@ -5,7 +5,7 @@ channels:
 - rapidsai
 - conda-forge
 dependencies:
-- breathe
+- breathe>=5.1.0
 - c-compiler
 - ccache
 - certifi
@@ -32,6 +32,7 @@ dependencies:
 - ipython
 - ipython>=7.32.0
 - joblib>=0.11
+- jsonschema
 - libcublas-dev
 - libcufft-dev
 - libcurand-dev
@@ -58,19 +59,22 @@ dependencies:
 - onnxruntime
 - packaging
 - pre-commit
+- psutil!=7.2.2
 - pylibraft==26.12.*,>=0.0.0a0
 - pynndescent
 - pytest
 - pytest-benchmark
 - pytest-cov
 - pytest-xdist
-- python>=3.11
+- python>=3.12
 - pyyaml
 - raft-dask==26.12.*,>=0.0.0a0
 - rapids-build-backend>=0.4.0,<0.5.0
 - rapids-dask-dependency==26.12.*,>=0.0.0a0
 - rapids-logger==0.3.*
 - recommonmark
+- rfc3339-validator
+- rfc3986-validator
 - rich
 - rmm==26.12.*,>=0.0.0a0
 - scikit-build-core>=0.11.0
@@ -82,6 +86,7 @@ dependencies:
 - sphinx
 - sphinx-copybutton
 - sphinx-design
+- sphinx-llm>=1.1.0
 - sphinx-markdown-tables
 - statsmodels
 - sysroot_linux-aarch64==2.28
