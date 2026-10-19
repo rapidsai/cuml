@@ -528,7 +528,8 @@ def test_tweedie_convergence(max_depth, split_criterion):
             n_estimators=n_estimators,
             bootstrap=bootstrap,
             max_features=max_features,
-            min_impurity_decrease=min_impurity_decrease,
+            # MSE uses the full variance, while others use the half deviance.
+            min_impurity_decrease=2 * min_impurity_decrease,
         )
         .fit(X, y)
         .predict(X)
