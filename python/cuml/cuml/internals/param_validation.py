@@ -16,11 +16,14 @@ constraints, a value is valid if any of them accepts it::
             "max_iter": [Int(ge=1), None],
         }
 
-``None`` may be used directly in the lists, other classes become an
-``isinstance`` check. Use ``Bool`` rather than ``bool``, in Cython files
-``bool`` often refers to the C++ type. Constraints declared by parent classes
-are inherited. Validation happens at the start of every fit-like method
-(see :func:`cuml.internals.mlfunc`) and raises :class:`InvalidParameterError`.
+Besides constraint objects, the lists may contain ``None`` and classes
+(e.g. ``dict``), which become an ``isinstance`` check. ``bool``, ``int`` and
+``float`` are rejected because ``isinstance`` gives surprising results for
+them (``True`` is an ``int``, ``np.float32(1.0)`` is not a ``float``); use
+``Bool``, ``Int()`` and ``Float()`` instead. Constraints declared by parent
+classes are inherited. Validation happens at the start of every fit-like
+method (see :func:`cuml.internals.mlfunc`) and raises
+:class:`InvalidParameterError`.
 
 Checks that relate several parameters to each other, or parameters to the
 input data, are not expressed here and stay in the estimator's code.
@@ -39,7 +42,6 @@ __all__ = (
     "Int",
     "Float",
     "Options",
-    "InstanceOf",
     "AnyOf",
     "Bool",
     "ArrayLike",
@@ -203,7 +205,7 @@ class Options(Constraint):
         return [f"not {self.values[0]}"]
 
 
-class InstanceOf(Constraint):
+class _InstanceOf(Constraint):
     """An instance of the given class."""
 
     def __init__(self, cls):
@@ -288,20 +290,23 @@ class AnyOf(Constraint):
         ]
 
 
+# `isinstance` checks against these don't match what users expect
+_BUILTIN_REPLACEMENTS = {bool: "Bool", int: "Int()", float: "Float()"}
+
+
 def as_constraint(spec) -> Constraint:
     """Convert a declared constraint specification to a ``Constraint``."""
     if isinstance(spec, Constraint):
         return spec
     elif spec is None:
         return _None()
-    elif spec is bool:
-        return Bool
-    elif spec is int:
-        return Int()
-    elif spec is float:
-        return Float()
     elif isinstance(spec, type):
-        return InstanceOf(spec)
+        if (replacement := _BUILTIN_REPLACEMENTS.get(spec)) is not None:
+            raise TypeError(
+                f"Unsupported parameter constraint {spec!r}, use "
+                f"{replacement} instead"
+            )
+        return _InstanceOf(spec)
     raise TypeError(f"Unsupported parameter constraint {spec!r}")
 
 
@@ -312,8 +317,8 @@ Callable = _Callable()
 # Matches the values accepted by `cuml.internals.validation.check_random_seed`
 RandomState = AnyOf(
     Int(ge=0, le=2**32 - 1),
-    InstanceOf(np.random.RandomState),
-    InstanceOf(cp.random.RandomState),
+    np.random.RandomState,
+    cp.random.RandomState,
     None,
 )
 

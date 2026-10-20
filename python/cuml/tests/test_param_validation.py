@@ -22,7 +22,6 @@ from cuml.internals.param_validation import (
     Bool,
     Callable,
     Float,
-    InstanceOf,
     Int,
     InvalidParameterError,
     Options,
@@ -53,8 +52,8 @@ from cuml.testing.utils import get_all_base_subclasses
             ["auto", "eig", np.str_("auto")],
             ["AUTO", "svd", None, np.array([1, 2])],
         ),
-        (InstanceOf(dict), [{}], [[], None]),
-        (as_constraint(bool), [True, False, np.bool_(True)], [0, 1, "True"]),
+        (as_constraint(dict), [{}], [[], None]),
+        (Bool, [True, False, np.bool_(True)], [0, 1, "True"]),
         (as_constraint(None), [None], [0, False, ""]),
         (
             ArrayLike,
@@ -100,10 +99,10 @@ def test_constraint_accepts(constraint, valid, invalid):
         Float(gt=0, le=1),
         Float(ge=-1, lt=1e20),
         Options("a", "b"),
-        as_constraint(bool),
+        Bool,
         AnyOf(Int(ge=1), None),
         AnyOf(Float(ge=0), ArrayLike),
-        AnyOf(bool, Int()),
+        AnyOf(Bool, Int()),
         RandomState,
     ],
 )
@@ -114,7 +113,7 @@ def test_invalid_examples_are_rejected(constraint):
 
 def test_anyof_invalid_examples_filters_overlap():
     # `True` is an invalid `Int`, but a valid bool
-    constraint = AnyOf(bool, Int(ge=0))
+    constraint = AnyOf(Bool, Int(ge=0))
     assert True not in constraint.invalid_examples()
     assert -1 in constraint.invalid_examples()
 
@@ -133,7 +132,7 @@ def test_anyof_invalid_examples_filters_overlap():
             AnyOf(Options("auto"), Int(ge=1)),
             "a str among {'auto'} or an int in the range [1, inf)",
         ),
-        (InstanceOf(dict), "an instance of 'dict'"),
+        (as_constraint(dict), "an instance of 'dict'"),
         (
             Bool,
             "an instance of 'bool' or an instance of 'numpy.bool'",
@@ -155,12 +154,17 @@ def test_constraint_str(constraint, expected):
     assert str(constraint) == expected
 
 
-def test_builtin_types():
-    # `int` and `float` map to `Int()` and `Float()`, not to isinstance checks
-    constraint = AnyOf(int, float)
-    assert constraint.accepts(np.int64(1))
-    assert constraint.accepts(np.float32(1.5))
-    assert not constraint.accepts(True)
+@pytest.mark.parametrize(
+    "spec, replacement",
+    [
+        (bool, "Bool"),
+        (int, r"Int\(\)"),
+        (float, r"Float\(\)"),
+    ],
+)
+def test_builtin_types_are_rejected(spec, replacement):
+    with pytest.raises(TypeError, match=f"use {replacement} instead"):
+        as_constraint(spec)
 
 
 @pytest.mark.parametrize("spec", ["random_state", [Int()], (Int(), None)])
@@ -190,7 +194,7 @@ def test_invalid_parameter_error_is_value_and_type_error():
 
 
 class _Parent(Base):
-    _parameter_constraints = {"a": [Int(ge=0)], "b": [bool]}
+    _parameter_constraints = {"a": [Int(ge=0)], "b": [Bool]}
 
     def __init__(self, *, a=1, b=True, verbose=False, output_type=None):
         super().__init__(verbose=verbose, output_type=output_type)
