@@ -34,7 +34,7 @@ from cuml.testing.utils import quality_param, stress_param, unit_param
 
 def _lawson_kw(dtype):
     """Solver kwargs for the Lawson backend (max_iter=0 -> active-set cap)."""
-    return dict(maxiter=0, tol=(1e-4 if dtype == np.float32 else 1e-8))
+    return {"maxiter": 0, "tol": (1e-4 if dtype == np.float32 else 1e-8)}
 
 
 # ---------------------------------------------------------------------------
@@ -49,10 +49,12 @@ def _kkt_residual(A, x, b):
 
 
 def _kkt_scale(A, b):
+    """Magnitude of ``A^T b``, the scale the KKT residual is judged against."""
     return max(1.0, float(np.max(np.abs(A.T @ b))))
 
 
 def _check_solution(A, x, b, *, dtype, residual_slack=1.5e-3, kkt_rel=1e-2):
+    """Validate a single-problem solve against the scipy reference."""
     assert x.shape == (A.shape[1],)
     assert np.all(x >= -1e-6), "negative entries detected"
     x = np.maximum(x, 0.0)
@@ -105,6 +107,7 @@ def _make_tall(n_rows, n_cols, *, seed, dtype, sparsity=0.5):
     ],
 )
 def test_nnls_random_dense(dtype, n_rows, n_cols):
+    """Random well-posed problems match scipy and report a matching rnorm."""
     A, b = _make_tall(n_rows, n_cols, seed=0, dtype=dtype)
 
     x, rnorm = cuml_nnls(A, b, **_lawson_kw(dtype))
@@ -167,6 +170,7 @@ def test_nnls_default_solver_is_lawson():
 
 
 def test_nnls_unknown_solver():
+    """An unsupported solver name is rejected."""
     A = np.eye(3, dtype=np.float32)
     b = np.ones(3, dtype=np.float32)
     with pytest.raises(ValueError):
@@ -225,7 +229,7 @@ def _check_batched(
 
     if ref_subset is None:
         ref_subset = range(P)
-    ref_subset = set(int(j) for j in ref_subset)
+    ref_subset = {int(j) for j in ref_subset}
 
     for j in range(P):
         cols = np.flatnonzero(masks[:, j])
@@ -290,6 +294,7 @@ def _make_batched(
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("P", [1, 4, 64])
 def test_batched_random_dense(dtype, P):
+    """Unmasked batches of varying size match the per-problem scipy solves."""
     A, B, masks, b_index = _make_batched(128, 24, P, seed=P, dtype=dtype)
     masks = np.ones((24, P), dtype=bool)  # unmasked full support
 
@@ -301,6 +306,7 @@ def test_batched_random_dense(dtype, P):
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_batched_masked(dtype):
+    """A partial per-problem support is honoured by the batched solver."""
     A, B, masks, b_index = _make_batched(
         96, 20, 16, seed=123, dtype=dtype, mask_prob=0.6
     )
@@ -376,6 +382,7 @@ def test_batched_b_index_gather():
 
 
 def test_batched_b_index_out_of_range():
+    """A b_index entry past the last column of B is rejected."""
     A = np.abs(np.random.default_rng(0).standard_normal((16, 4)))
     B = np.abs(np.random.default_rng(1).standard_normal((16, 3)))
     masks = np.ones((4, 2), dtype=bool)
@@ -384,6 +391,7 @@ def test_batched_b_index_out_of_range():
 
 
 def test_batched_b_index_length_mismatch():
+    """A b_index whose length disagrees with the mask columns is rejected."""
     A = np.abs(np.random.default_rng(0).standard_normal((16, 4)))
     B = np.abs(np.random.default_rng(1).standard_normal((16, 3)))
     masks = np.ones((4, 2), dtype=bool)  # 2 problems
@@ -392,6 +400,7 @@ def test_batched_b_index_length_mismatch():
 
 
 def test_batched_fitted_matches_AX():
+    """The optional fitted output equals ``A @ X``."""
     rng = np.random.default_rng(0)
     m, n, P = 64, 12, 8
     A = np.abs(rng.standard_normal((m, n))).astype(np.float64)
@@ -444,7 +453,7 @@ def test_batched_mask_order_parity(order):
             masks_bool[rng.choice(n, 3, replace=False), p] = True
 
     masks = np.asarray(masks_bool, order=order)
-    assert masks.flags["%s_CONTIGUOUS" % order]
+    assert masks.flags[f"{order}_CONTIGUOUS"]
     b_index = np.arange(P)
 
     X, _ = cuml_nnls_batched(
@@ -565,6 +574,7 @@ def test_batched_large_batch(P):
 
 
 def test_batched_unknown_solver():
+    """An unsupported solver name is rejected."""
     A = np.eye(4, dtype=np.float32)
     B = np.ones((4, 2), dtype=np.float32)
     masks = np.ones((4, 2), dtype=bool)
@@ -573,6 +583,7 @@ def test_batched_unknown_solver():
 
 
 def test_batched_bad_mask_shape():
+    """A mask whose row count differs from the columns of A is rejected."""
     A = np.eye(4, dtype=np.float32)
     B = np.ones((4, 2), dtype=np.float32)
     with pytest.raises(ValueError):
