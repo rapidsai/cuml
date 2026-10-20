@@ -147,9 +147,12 @@ class LogisticRegression(
         if model.warm_start:
             raise UnsupportedOnGPU("`warm_start=True` is not supported")
 
-        if model.intercept_scaling != 1:
+        # sklearn 1.10 deprecated this liblinear-only parameter for removal
+        # in 1.12. An absent parameter also implies default scaling.
+        intercept_scaling = getattr(model, "intercept_scaling", "deprecated")
+        if intercept_scaling not in (1, "deprecated"):
             raise UnsupportedOnGPU(
-                f"`intercept_scaling={model.intercept_scaling}` is not supported"
+                f"`intercept_scaling={intercept_scaling}` is not supported"
             )
 
         # `multi_class` was deprecated in sklearn 1.5 and will be removed in 1.8

@@ -805,21 +805,28 @@ class TargetEncoder(InteropMixin, Base):
     def _attrs_to_cpu(self, model):
         """Convert cuML TargetEncoder attributes to sklearn format.
 
-        sklearn expects independent per-feature encodings. If cuML was fitted
-        in independent mode, we have exact encodings. Multi-feature combination
-        mode cannot be converted to sklearn.
+        sklearn only supports mean-based, independent per-feature encodings.
+        Median/variance statistics and multi-feature combination mode cannot
+        be converted to sklearn.
         """
+        if self.stat != "mean":
+            raise UnsupportedOnCPU(
+                f"`stat={self.stat!r}` is not supported by sklearn TargetEncoder; "
+                "only `stat='mean'` can be converted"
+            )
+
         # Handle categories that may be numpy arrays or cupy arrays
         categories_cpu = []
         for cat in self.categories_:
             categories_cpu.append(cp.asnumpy(cat))
         n_features = len(self.categories_)
 
-        # Use per-feature encodings if available (from independent mode or sklearn)
-        if hasattr(self, "_encodings_per_feature"):
-            encodings_list = []
-            for enc in self._encodings_per_feature:
-                encodings_list.append(cp.asnumpy(enc))
+        # Combination fits initialize an empty list; only independent fits
+        # and sklearn imports populate per-feature encodings.
+        if self._encodings_per_feature:
+            encodings_list = [
+                cp.asnumpy(enc) for enc in self._encodings_per_feature
+            ]
         elif n_features == 1:
             # Single feature: extract encodings directly (exact conversion)
             encodings_list = [
