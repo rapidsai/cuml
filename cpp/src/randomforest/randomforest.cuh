@@ -146,7 +146,7 @@ class RowSampler {
     if (distributed_ && use_weighted_bootstrap()) {
       // Rank-local draws must use independent random streams. The multinomial allocation already
       // determines how many draws each rank owns.
-      rs = DT::fnv1a32_hash(seed_, tree_id, rank_, std::uint32_t{0x4c4f4341});
+      rs = DT::fnv1a32_hash(seed_, tree_id, rank_, kLocalSamplingRngTag);
     } else {
       rs = DT::fnv1a32_hash(seed_, tree_id);
     }
@@ -198,6 +198,9 @@ class RowSampler {
   const double* tree_sample_weight() const { return bootstrap_ ? nullptr : sample_weight_; }
 
  private:
+  static constexpr std::uint32_t kLocalSamplingRngTag  = 0x4c4f4341;
+  static constexpr std::uint32_t kRankAllocationRngTag = 0x414c4c4f;
+
   void store_bootstrap_mask(int tree_id,
                             rmm::device_uvector<std::int64_t>& selected_rows,
                             cudaStream_t stream)
@@ -230,7 +233,7 @@ class RowSampler {
                                                     stream);
     if (rank_ == 0) {
       std::vector<std::int64_t> host_counts(comm_size_, 0);
-      auto rs = DT::fnv1a32_hash(seed_, tree_id, std::uint32_t{0x414c4c4f});
+      auto rs = DT::fnv1a32_hash(seed_, tree_id, kRankAllocationRngTag);
       std::mt19937_64 generator(rs);
 
       int last_positive_rank = comm_size_ - 1;
