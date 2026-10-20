@@ -682,7 +682,6 @@ dependencies:
           - rfc3986-validator
           - *scikit_learn
           - seaborn
-          - statsmodels
           - umap-learn>=0.5.7,<0.5.13
           - pynndescent
           - lightgbm
@@ -858,7 +857,7 @@ dependencies:
           - matrix:
               dependencies: "nightly"
             packages:
-              - --find-links=https://pip.cupy.dev/pre
+              - --extra-index-url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
           - matrix:
             packages:
   depends_on_rapids_dask_dependency:

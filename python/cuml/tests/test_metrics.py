@@ -278,9 +278,7 @@ def test_accuracy_score_scalar_sample_weight():
     ) == cuml.metrics.accuracy_score(y_true, y_pred, normalize=False)
 
 
-dataset_names = ["noisy_circles", "noisy_moons", "aniso"] + [
-    pytest.param(ds, marks=pytest.mark.xfail) for ds in ["blobs", "varied"]
-]
+dataset_names = ["noisy_circles", "noisy_moons", "aniso", "blobs", "varied"]
 
 
 @pytest.mark.parametrize("name", dataset_names)
@@ -1340,51 +1338,22 @@ def test_pairwise_distances_sklearn_comparison(rng, metric: str, matrix_size):
     "ignore:Data was converted to boolean for metric russellrao:sklearn.exceptions.DataConversionWarning"
 )
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
-def test_pairwise_distances_one_dimension_order(rng, metric: str):
+@pytest.mark.parametrize("nX, nY", [(1, 10), (10, 1)])
+def test_pairwise_distances_one_dimension_order(rng, metric, nX, nY):
     # Test the pairwise_distance helper function for 1 dimensional cases which
     # can break down when using a size of 1 for either dimension
 
     Xc = prep_dense_array(
-        rng.random_sample((1, 4)), metric=metric, col_major=0
+        rng.random_sample((nX, 4)), metric=metric, col_major=0
     )
     Yc = prep_dense_array(
-        rng.random_sample((10, 4)), metric=metric, col_major=0
+        rng.random_sample((nY, 4)), metric=metric, col_major=0
     )
     Xf = np.asfortranarray(Xc)
     Yf = np.asfortranarray(Yc)
 
     # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
     compare_precision = 13
-
-    # Compare to sklearn, C/C order
-    S = pairwise_distances(Xc, Yc, metric=metric)
-    S2 = ref_dense_pairwise_dist(Xc, Yc, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
-
-    # Compare to sklearn, C/F order
-    S = pairwise_distances(Xc, Yf, metric=metric)
-    S2 = ref_dense_pairwise_dist(Xc, Yf, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
-
-    # Compare to sklearn, F/C order
-    S = pairwise_distances(Xf, Yc, metric=metric)
-    S2 = ref_dense_pairwise_dist(Xf, Yc, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
-
-    # Compare to sklearn, F/F order
-    S = pairwise_distances(Xf, Yf, metric=metric)
-    S2 = ref_dense_pairwise_dist(Xf, Yf, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
-
-    # Switch which input has single dimension
-    Xc = prep_dense_array(
-        rng.random_sample((1, 4)), metric=metric, col_major=0
-    )
-    Yc = prep_dense_array(
-        rng.random_sample((10, 4)), metric=metric, col_major=0
-    )
-    Xf = np.asfortranarray(Xc)
-    Yf = np.asfortranarray(Yc)
 
     # Compare to sklearn, C/C order
     S = pairwise_distances(Xc, Yc, metric=metric)
@@ -1750,18 +1719,7 @@ def test_pairwise_distances_sparse_corner_cases(
 
 
 @pytest.mark.parametrize(
-    "metric",
-    [
-        metric
-        if metric != "hellinger"
-        else pytest.param(
-            metric,
-            marks=pytest.mark.xfail(
-                reason="intermittent failure (Issue #4354)"
-            ),
-        )
-        for metric in PAIRWISE_DISTANCE_SPARSE_METRICS.keys()
-    ],
+    "metric", list(PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
 )
 @pytest.mark.parametrize(
     "matrix_size,density",
