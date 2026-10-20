@@ -106,14 +106,11 @@ class RowSampler {
     }
     // Use a deque instead of vector because device_uvector has a deleted copy constructor.
     auto const n_sampled_rows_size = ML::narrow_cast<std::size_t>(n_sampled_rows_);
+    // Place empty buffers for now; we will resize them later.
     for (int i = 0; i < n_streams; i++) {
       auto stream = handle.get_stream_from_stream_pool(i);
-      auto initial_sample_count =
-        distributed_ && use_weighted_bootstrap() ? std::size_t{0} : n_sampled_rows_size;
-      selected_rows_.emplace_back(initial_sample_count, stream);
-      if (use_weighted_bootstrap()) {
-        weighted_draw_scratch_.emplace_back(initial_sample_count, stream);
-      }
+      selected_rows_.emplace_back(0, stream);
+      if (use_weighted_bootstrap()) { weighted_draw_scratch_.emplace_back(0, stream); }
     }
   }
 
@@ -126,7 +123,7 @@ class RowSampler {
 
     auto& selected_rows            = selected_rows_[stream_id];
     std::int64_t tree_sample_count = n_sampled_rows_;
-    if (distributed_ && use_weighted_bootstrap()) {
+    if (use_weighted_bootstrap()) {
       tree_sample_count           = compute_rank_sample_counts(tree_id, stream);
       auto tree_sample_count_size = ML::narrow_cast<std::size_t>(tree_sample_count);
       selected_rows.resize(tree_sample_count_size, stream);
@@ -225,6 +222,8 @@ class RowSampler {
   // sample count.
   std::int64_t compute_rank_sample_counts(int tree_id, cudaStream_t stream)
   {
+    if (!distributed_) { return n_sampled_rows_; }
+
     rmm::device_uvector<std::int64_t> device_counts(ML::narrow_cast<std::size_t>(comm_size_),
                                                     stream);
     if (rank_ == 0) {
