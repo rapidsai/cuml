@@ -261,7 +261,7 @@ def test_ridge_invalid_alpha():
     model = cuml.Ridge(alpha=-0.5)
     with pytest.raises(
         InvalidParameterError,
-        match="The 'alpha' parameter of Ridge must be a float >= 0",
+        match=r"The 'alpha' parameter of Ridge must be a float in the range \[0.0, inf\)",
     ):
         model.fit(X, y)
 
