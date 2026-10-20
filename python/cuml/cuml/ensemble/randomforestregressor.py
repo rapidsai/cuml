@@ -103,7 +103,15 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
            and ``max(2, ceil(min_samples_split * n_rows))`` is the minimum
            number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
-        The minimum decrease in impurity required for node to be split
+        The minimum decrease in impurity required for a node to be split.
+
+        .. versionchanged:: 26.12
+            MSE split gains are doubled to match scikit-learn's full-variance
+            normalization. Double an existing positive threshold to preserve
+            previous split decisions, apart from numerical effects; otherwise,
+            retraining may produce larger trees and different predictions.
+            The default ``0.0`` needs no adjustment. Other split criteria
+            are unchanged.
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
@@ -192,7 +200,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         )
 
     @nvtx.annotate(
-        message="fit RF-Regressor @randomforestregressor.pyx",
+        message="fit RF-Regressor @randomforestregressor.py",
         domain="cuml_python",
     )
     @generate_docstring()
@@ -218,7 +226,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         )
 
     @nvtx.annotate(
-        message="predict RF-Regressor @randomforestclassifier.pyx",
+        message="predict RF-Regressor @randomforestregressor.py",
         domain="cuml_python",
     )
     @insert_into_docstring(
@@ -278,7 +286,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         return preds
 
     @nvtx.annotate(
-        message="score RF-Regressor @randomforestclassifier.pyx",
+        message="score RF-Regressor @randomforestregressor.py",
         domain="cuml_python",
     )
     @insert_into_docstring(

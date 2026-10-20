@@ -245,7 +245,7 @@ class RegressionObjectiveFunction {
     DataT right_label_sum = label_sum - left_label_sum;
     DataT right_obj       = -(right_label_sum * right_label_sum) / DataT(right_weight);
     DataT gain            = parent_obj - (left_obj + right_obj);
-    gain *= DataT(0.5) * invLen;
+    gain *= invLen;
 
     return gain;
   }
