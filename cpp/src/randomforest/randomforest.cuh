@@ -105,7 +105,6 @@ class RowSampler {
              "sample_weight values must contain at least one positive value");
     }
     // Use a deque instead of vector because device_uvector has a deleted copy constructor.
-    auto const n_sampled_rows_size = ML::narrow_cast<std::size_t>(n_sampled_rows_);
     // Place empty buffers for now; we will resize them later.
     for (int i = 0; i < n_streams; i++) {
       auto stream = handle.get_stream_from_stream_pool(i);
