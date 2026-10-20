@@ -1,8 +1,6 @@
 #
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from numbers import Integral
-
 import cupy as cp
 import numpy as np
 from sklearn.base import ClassNamePrefixFeaturesOutMixin
@@ -12,6 +10,14 @@ from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.outputs import ReflectedAttr, mlfunc
+from cuml.internals.param_validation import (
+    ArrayLike,
+    Float,
+    Int,
+    Options,
+    RandomState,
+    validate_params,
+)
 from cuml.internals.validation import (
     check_array,
     check_inputs,
@@ -607,6 +613,22 @@ class KMeans(
 
     _cpu_class_path = "sklearn.cluster.KMeans"
 
+    _parameter_constraints = {
+        "n_clusters": [Int(ge=1)],
+        "max_iter": [Int(ge=1)],
+        "tol": [Float(ge=0)],
+        "random_state": [RandomState],
+        "init": [
+            Options("scalable-k-means++", "k-means||", "k-means++", "random"),
+            ArrayLike,
+        ],
+        "n_init": [Options("auto"), Int(ge=1)],
+        "oversampling_factor": [Float(ge=0)],
+        "max_samples_per_batch": [Int(ge=1)],
+        "device_buffer_samples": [Int(ge=0)],
+        "init_size": [Int(ge=0)],
+    }
+
     @classmethod
     def _get_param_names(cls):
         return [
@@ -843,6 +865,8 @@ class KMeans(
                 "KMeansMG requires at least one local data partition."
             )
 
+        # Not called through `mlfunc`, so validate explicitly
+        validate_params(self)
         self._validate_fit_params()
 
         has_weights = sample_weight_parts is not None
@@ -983,15 +1007,10 @@ class KMeans(
         return self
 
     def _validate_fit_params(self):
-        if not isinstance(self.n_clusters, Integral) or self.n_clusters <= 0:
-            raise ValueError(
-                f"n_clusters={self.n_clusters} should be a positive integer."
-            )
-        if int(self.device_buffer_samples) < 0:
-            raise ValueError(
-                f"device_buffer_samples must be >= 0, got "
-                f"{int(self.device_buffer_samples)}."
-            )
+        """Check parameters beyond what `_parameter_constraints` covers.
+
+        A hook for subclasses, KMeans itself has nothing to check here.
+        """
 
     def _validate_fit_row_constraints(self, n_rows):
         if not self._multi_gpu and n_rows < self.n_clusters:

@@ -28,20 +28,11 @@ class KMeansMG(KMeans):
 
     def _validate_fit_params(self):
         super()._validate_fit_params()
-        if isinstance(self.init, str):
-            if self.init == "k-means++":
-                raise ValueError(
-                    "init='k-means++' is not supported for KMeansMG. "
-                    "Use init='k-means||' or init='scalable-k-means++'."
-                )
-            if self.init not in {
-                "scalable-k-means++",
-                "k-means||",
-                "random",
-            }:
-                raise ValueError(
-                    f"init={self.init!r} is not supported for KMeansMG."
-                )
+        if isinstance(self.init, str) and self.init == "k-means++":
+            raise ValueError(
+                "init='k-means++' is not supported for KMeansMG. "
+                "Use init='k-means||' or init='scalable-k-means++'."
+            )
 
         if self.oversampling_factor == 0:
             raise ValueError(
