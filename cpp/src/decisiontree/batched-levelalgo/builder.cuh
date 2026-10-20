@@ -213,8 +213,6 @@ struct Builder {
   ML::pinned_host_vector<char> h_buff;
   /** true when a communicator with more than one rank is available */
   bool distributed;
-  /** total training weight across all ranks for this tree */
-  double root_weight;
 
   Builder(const raft::handle_t& handle,
           cudaStream_t s,
@@ -399,7 +397,8 @@ struct Builder {
     raft::common::nvtx::range fun_scope("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
     auto global_sampled_rows = globalSum(dataset.n_sampled_rows);
-    this->root_weight        = static_cast<double>(global_sampled_rows);
+    // Total training weight across all ranks for this tree.
+    auto root_weight = static_cast<double>(global_sampled_rows);
     if constexpr (ObjectiveT::weighted) {
       auto weights      = dataset.sample_weight;
       auto local_weight = thrust::transform_reduce(
@@ -415,11 +414,11 @@ struct Builder {
       params, this->maxNodes(), dataset.n_sampled_rows, global_sampled_rows, dataset.num_outputs);
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();
-      auto [splits_host_ptr, splits_count] = doSplit(work_items);
+      auto [splits_host_ptr, splits_count] = doSplit(work_items, root_weight);
       queue.Push(work_items, splits_host_ptr);
     }
     auto tree = queue.GetTree();
-    this->SetLeafPredictions(tree, queue.GetInstanceRanges());
+    this->SetLeafPredictions(tree, queue.GetInstanceRanges(), root_weight);
     tree->train_time = timer.getElapsedMilliseconds();
     return tree;
   }
@@ -462,7 +461,7 @@ struct Builder {
     return global_value;
   }
 
-  auto doSplit(const std::vector<NodeWorkItem>& work_items)
+  auto doSplit(const std::vector<NodeWorkItem>& work_items, double root_weight)
   {
     raft::common::nvtx::range fun_scope("Builder::doSplit @builder.cuh [batched-levelalgo]");
     // start fresh on the number of *new* nodes created in this batch
@@ -496,7 +495,7 @@ struct Builder {
                                                          original_n_sampled_cols);
       dataset.n_sampled_cols = std::min(
         original_n_sampled_cols, ML::checked_sub<std::int64_t>(dataset.n_cols, sample_offset));
-      computeBestSplits(active_items, seed, sample_offset);
+      computeBestSplits(active_items, seed, sample_offset, root_weight);
 
       std::vector<NodeWorkItem> retry_items;
       std::vector<std::size_t> retry_to_original;
@@ -540,7 +539,8 @@ struct Builder {
 
   void computeBestSplits(const std::vector<NodeWorkItem>& work_items,
                          uint64_t sampling_seed,
-                         std::int64_t sample_offset)
+                         std::int64_t sample_offset,
+                         double root_weight)
   {
     initSplit<DataT, TPB_DEFAULT>(splits, work_items.size(), builder_stream);
     auto mutex_bytes = ML::checked_mul<std::size_t>(sizeof(int), params.max_batch_size);
@@ -552,7 +552,7 @@ struct Builder {
     sampleFeatures(work_items, sampling_seed, sample_offset);
 
     for (std::int64_t c = 0; c < dataset.n_sampled_cols; c += n_blks_for_cols) {
-      computeSplit(c, n_blocks_dimx, work_items.size(), split_smem_config);
+      computeSplit(c, n_blocks_dimx, work_items.size(), split_smem_config, root_weight);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
@@ -627,7 +627,8 @@ struct Builder {
   void computeSplit(std::int64_t col,
                     size_t n_blocks_dimx,
                     size_t n_work_items,
-                    const SharedMemoryConfig& split_smem_config)
+                    const SharedMemoryConfig& split_smem_config,
+                    double root_weight)
   {
     // if no instances to split, return
     if (n_blocks_dimx == 0) return;
@@ -690,7 +691,8 @@ struct Builder {
 
   // Set the leaf value predictions in batch
   void SetLeafPredictions(std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> tree,
-                          const std::vector<InstanceRange>& instance_ranges)
+                          const std::vector<InstanceRange>& instance_ranges,
+                          double root_weight)
   {
     auto vector_leaf_size =
       ML::checked_mul<std::size_t>(tree->sparsetree.size(), dataset.num_outputs);
