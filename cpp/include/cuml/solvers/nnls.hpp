@@ -76,6 +76,8 @@ void nnlsBatched(raft::handle_t& handle,
                  float* fitted,
                  const NnlsBatchedParams& params);
 
+/** @copydoc nnlsBatched(raft::handle_t&, const float*, int, int, const float*, int,
+ *                       const std::uint8_t*, float*, float*, const NnlsBatchedParams&) */
 void nnlsBatched(raft::handle_t& handle,
                  const double* A,
                  int m,
