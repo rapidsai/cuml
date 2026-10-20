@@ -128,6 +128,9 @@ class RowSampler {
       auto tree_sample_count_size = ML::narrow_cast<std::size_t>(tree_sample_count);
       selected_rows.resize(tree_sample_count_size, stream);
       weighted_draw_scratch_[stream_id].resize(tree_sample_count_size, stream);
+    } else {
+      auto tree_sample_count_size = ML::narrow_cast<std::size_t>(tree_sample_count);
+      selected_rows.resize(tree_sample_count_size, stream);
     }
 
     if (n_rows_ == 0 || tree_sample_count == 0) {
