@@ -77,10 +77,18 @@ class Constraint:
         return f"<{type(self).__name__}: {self}>"
 
 
+def _type_name(cls) -> str:
+    """The name of ``cls`` as used in error messages (same as sklearn)."""
+    if cls.__module__ == "builtins":
+        return cls.__qualname__
+    return f"{cls.__module__}.{cls.__qualname__}"
+
+
 class _Number(Constraint):
     """A number, optionally bounded on either side."""
 
     _description: str
+    _name: str
 
     def __init__(self, *, ge=None, gt=None, le=None, lt=None):
         if ge is not None and gt is not None:
@@ -104,26 +112,27 @@ class _Number(Constraint):
             and (self.lt is None or value < self.lt)
         )
 
+    def _format_bound(self, bound):
+        return bound
+
     def __str__(self):
-        bounds = [
-            f"{op} {bound}"
-            for op, bound in [
-                (">=", self.ge),
-                (">", self.gt),
-                ("<=", self.le),
-                ("<", self.lt),
-            ]
-            if bound is not None
-        ]
-        if not bounds:
-            return self._description
-        return f"{self._description} {' and '.join(bounds)}"
+        # Formatted the same as sklearn's `Interval`
+        low = self.gt if self.ge is None else self.ge
+        high = self.lt if self.le is None else self.le
+        if low is None and high is None:
+            return f"an instance of {self._name!r}"
+        left = "(" if self.ge is None else "["
+        right = ")" if self.le is None else "]"
+        low = "-inf" if low is None else self._format_bound(low)
+        high = "inf" if high is None else self._format_bound(high)
+        return f"{self._description} in the range {left}{low}, {high}{right}"
 
 
 class Int(_Number):
     """An integer (including numpy integers, excluding bools)."""
 
     _description = "an int"
+    _name = "int"
 
     def _is_type(self, value) -> bool:
         return isinstance(value, numbers.Integral) and not isinstance(
@@ -147,6 +156,10 @@ class Float(_Number):
     """A real number (including ints and numpy floats, excluding bools and NaN)."""
 
     _description = "a float"
+    _name = "float"
+
+    def _format_bound(self, bound):
+        return float(bound)
 
     def _is_type(self, value) -> bool:
         return (
@@ -183,29 +196,24 @@ class Options(Constraint):
             return False
 
     def __str__(self):
-        if len(self.values) == 1:
-            return repr(self.values[0])
-        return "one of {" + ", ".join(map(repr, self.values)) + "}"
+        values = ", ".join(map(repr, self.values))
+        return f"a {_type_name(type(self.values[0]))} among {{{values}}}"
 
     def invalid_examples(self) -> list:
         return [f"not {self.values[0]}"]
 
 
 class InstanceOf(Constraint):
-    """An instance of one of the given classes."""
+    """An instance of the given class."""
 
-    def __init__(self, *classes):
-        self.classes = classes
+    def __init__(self, cls):
+        self.cls = cls
 
     def accepts(self, value) -> bool:
-        return isinstance(value, self.classes)
+        return isinstance(value, self.cls)
 
     def __str__(self):
-        # numpy and cupy classes may share a name, only show it once
-        names = " or ".join(
-            dict.fromkeys(repr(cls.__name__) for cls in self.classes)
-        )
-        return f"an instance of {names}"
+        return f"an instance of {_type_name(self.cls)!r}"
 
 
 class _Bool(Constraint):
@@ -213,7 +221,10 @@ class _Bool(Constraint):
         return isinstance(value, (bool, np.bool_))
 
     def __str__(self):
-        return "a bool"
+        return (
+            f"an instance of {_type_name(bool)!r} or "
+            f"an instance of {_type_name(np.bool_)!r}"
+        )
 
     def invalid_examples(self) -> list:
         return [1]
@@ -298,26 +309,13 @@ Bool = _Bool()
 ArrayLike = _ArrayLike()
 Callable = _Callable()
 
-
-class _RandomState(Constraint):
-    # Matches the values accepted by `cuml.internals.validation.check_random_seed`
-    _valid = AnyOf(
-        Int(ge=0, lt=2**32),
-        InstanceOf(np.random.RandomState, cp.random.RandomState),
-        None,
-    )
-
-    def accepts(self, value) -> bool:
-        return self._valid.accepts(value)
-
-    def __str__(self):
-        return "an int in [0, 2**32 - 1], a RandomState instance or None"
-
-    def invalid_examples(self) -> list:
-        return [-1, 2**32]
-
-
-RandomState = _RandomState()
+# Matches the values accepted by `cuml.internals.validation.check_random_seed`
+RandomState = AnyOf(
+    Int(ge=0, le=2**32 - 1),
+    InstanceOf(np.random.RandomState),
+    InstanceOf(cp.random.RandomState),
+    None,
+)
 
 
 @functools.cache

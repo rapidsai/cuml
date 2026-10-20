@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import cuml.internals.outputs
+import cuml
 from cuml.internals.base import Base
 from cuml.internals.outputs import (
     FIT_LIKE_METHODS,
@@ -19,6 +19,7 @@ from cuml.internals.outputs import (
 from cuml.internals.param_validation import (
     AnyOf,
     ArrayLike,
+    Bool,
     Callable,
     Float,
     InstanceOf,
@@ -121,20 +122,32 @@ def test_anyof_invalid_examples_filters_overlap():
 @pytest.mark.parametrize(
     "constraint, expected",
     [
-        (Int(), "an int"),
-        (Int(ge=1), "an int >= 1"),
-        (Float(gt=0, le=1), "a float > 0 and <= 1"),
-        (Options("auto", "eig"), "one of {'auto', 'eig'}"),
-        (AnyOf(Options("auto"), Int(ge=1)), "'auto' or an int >= 1"),
+        (Int(), "an instance of 'int'"),
+        (Int(ge=1), "an int in the range [1, inf)"),
+        (Int(gt=0, lt=5), "an int in the range (0, 5)"),
+        (Float(), "an instance of 'float'"),
+        (Float(gt=0, le=1), "a float in the range (0.0, 1.0]"),
+        (Float(le=1), "a float in the range (-inf, 1.0]"),
+        (Options("auto", "eig"), "a str among {'auto', 'eig'}"),
+        (
+            AnyOf(Options("auto"), Int(ge=1)),
+            "a str among {'auto'} or an int in the range [1, inf)",
+        ),
         (InstanceOf(dict), "an instance of 'dict'"),
-        (AnyOf(Int(ge=1), None), "an int >= 1 or None"),
+        (
+            Bool,
+            "an instance of 'bool' or an instance of 'numpy.bool'",
+        ),
+        (AnyOf(Int(ge=1), None), "an int in the range [1, inf) or None"),
         (
             AnyOf(Float(ge=0), ArrayLike, None),
-            "a float >= 0, an array-like or None",
+            "a float in the range [0.0, inf), an array-like or None",
         ),
         (
             RandomState,
-            "an int in [0, 2**32 - 1], a RandomState instance or None",
+            "an int in the range [0, 4294967295], an instance of "
+            "'numpy.random.mtrand.RandomState', an instance of "
+            "'cupy.random._generator.RandomState' or None",
         ),
     ],
 )
@@ -205,7 +218,7 @@ class _Child(_Parent):
 def test_constraints_inherited():
     constraints = get_parameter_constraints(_Child)
     assert set(constraints) == {"verbose", "output_type", "a", "b", "c"}
-    assert str(constraints["a"]) == "an int >= 10"
+    assert str(constraints["a"]) == "an int in the range [10, inf)"
 
 
 def test_validate_params():
@@ -214,7 +227,8 @@ def test_validate_params():
     with pytest.raises(
         InvalidParameterError,
         match=(
-            r"^The 'a' parameter of _Child must be an int >= 10. "
+            r"^The 'a' parameter of _Child must be an int in the range "
+            r"\[10, inf\). "
             r"Got 1 instead.$"
         ),
     ):
@@ -222,7 +236,10 @@ def test_validate_params():
 
     with pytest.raises(
         InvalidParameterError,
-        match="The 'b' parameter of _Child must be a bool. Got 'yes' instead.",
+        match=(
+            "The 'b' parameter of _Child must be an instance of 'bool' or an "
+            "instance of 'numpy.bool'. Got 'yes' instead."
+        ),
     ):
         validate_params(_Child(b="yes"))
 
@@ -283,10 +300,20 @@ class _Fittable(Base):
     @mlfunc(set_input_type=True)
     def fit(self, X, y=None):
         if self.inner is not None:
-            # Like the multiclass meta-estimators, fit a user provided estimator
-            with exit_internal_context():
+            # Use a user provided estimator like a meta-estimator should
+            # (see the developer guide): exit the internal context so the
+            # inner estimator is validated, and pin the output type
+            with exit_internal_context(), cuml.using_output_type("numpy"):
                 self.inner.fit(X)
+                pred = self.inner.predict(X)
+            # numpy-only code, like sklearn's `OneVsRestClassifier.predict`
+            maxima = np.zeros(X.shape[0])
+            np.maximum(maxima, pred, out=maxima)
         return self
+
+    @mlfunc(preserve_index=True)
+    def predict(self, X):
+        return cp.zeros(X.shape[0])
 
     @mlfunc(set_input_type=True)
     def fit_transform(self, X, y=None):
@@ -295,20 +322,6 @@ class _Fittable(Base):
     @mlfunc
     def fit_predict(self, X, y=None):
         return self.fit(X)
-
-
-@pytest.fixture
-def count_validations(monkeypatch):
-    calls = []
-
-    def counting_validate_params(estimator):
-        calls.append(estimator)
-        validate_params(estimator)
-
-    monkeypatch.setattr(
-        cuml.internals.outputs, "validate_params", counting_validate_params
-    )
-    return calls
 
 
 def test_fit_validates_params():
@@ -326,25 +339,33 @@ def test_fit_validates_params():
 
 
 @pytest.mark.parametrize("method", ["fit_transform", "fit_predict"])
-def test_nested_fit_validates_once(count_validations, method):
+def test_fit_like_methods_validate_params(method):
     # `fit_predict` isn't decorated with `set_input_type=True`, it is
-    # validated because of its name
-    est = _Fittable()
-    getattr(est, method)(np.zeros((3, 2)))
-    assert count_validations == [est]
+    # validated because of its name. Both call `fit` internally.
+    X = np.zeros((3, 2))
+    getattr(_Fittable(), method)(X)
+    with pytest.raises(
+        InvalidParameterError, match="'a' parameter of _Fittable"
+    ):
+        getattr(_Fittable(a=-1), method)(X)
 
-    with pytest.raises(InvalidParameterError):
-        getattr(_Fittable(a=-1), method)(np.zeros((3, 2)))
 
-
-def test_exit_internal_context_validates_inner_estimator(count_validations):
+def test_exit_internal_context_validates_inner_estimator():
+    # The outer estimator is valid, the error comes from the inner one
     inner = _Fittable(a=-1)
     with pytest.raises(
         InvalidParameterError,
         match="'a' parameter of _Fittable must .* Got -1",
     ):
         _Fittable(inner=inner).fit(np.zeros((3, 2)))
-    assert count_validations[-1] is inner
+
+
+@pytest.mark.parametrize("output_type", [None, "cupy", "cudf", "pandas"])
+def test_inner_estimator_output_type_does_not_leak(output_type):
+    # A user provided estimator's `output_type` must not change what the
+    # meta-estimator gets back from it
+    inner = _Fittable(output_type=output_type)
+    _Fittable(inner=inner).fit(np.zeros((3, 2)))
 
 
 # Estimators whose parameters don't all have constraints yet. Remove an
