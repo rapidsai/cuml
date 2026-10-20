@@ -107,6 +107,7 @@ outputs:
         - cmake ${{ cmake_version }}
         - ${{ stdlib("c") }}
       host:
+        - libgomp >=${{ c_compiler_version }}
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.3
         - libcuvs =${{ minor_version }}
