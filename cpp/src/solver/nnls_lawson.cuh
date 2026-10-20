@@ -22,6 +22,7 @@
 #include <cuda_runtime.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <limits>
@@ -779,6 +780,10 @@ __global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
           break;
         }
 
+        // min_s above is read by every thread from the same scratch slot that the
+        // next reduction overwrites with its per-warp partials before its own
+        // barrier, so the read must complete block-wide first.
+        __syncthreads();
         block_min_alpha<T, BlockSize>(S.x, S.s, S.idx, np, S.red_val, S.red_idx);
         T alpha       = S.red_val[0];
         int n_binding = S.red_idx[0];
@@ -929,12 +934,57 @@ struct lawson_plan {
   }
 };
 
-/** Per-handle custom resource holding the LRU of per-`n` Lawson plans. */
+/**
+ * Per-handle custom resource holding the LRU of per-`n` Lawson plans and, per
+ * block size, the dynamic-shared-memory opt-in already granted to that kernel
+ * instantiation.  The opt-in is CUDA-context state shared by every plan in
+ * `value`, so the two belong together: the bar raised while building one plan
+ * is what keeps the others launchable.
+ */
 template <typename T>
 struct lawson_kernel_cache {
   static constexpr std::size_t kDefaultSize = 32;
   raft::cache::lru<int, std::hash<int>, std::equal_to<>, lawson_plan<T>> value{kDefaultSize};
+  std::array<std::size_t, lawson_plan<T>::kMaxSteps> smem_granted{};
 };
+
+/** Slot of `block_size` in `lawson_kernel_cache::smem_granted`; the planner
+ *  halves from `16 * raft::WarpSize` down to `raft::WarpSize`, so the block
+ *  sizes are exactly `raft::WarpSize << slot`. */
+inline int lawson_smem_slot(int block_size)
+{
+  int slot = 0;
+  for (int bs = block_size / raft::WarpSize; bs > 1; bs >>= 1)
+    ++slot;
+  return slot;
+}
+
+/**
+ * Grant `kernel` the dynamic shared memory it needs, raising the opt-in only
+ * when this handle has not already been granted at least that much for the same
+ * block size.  Returns false only if the opt-in was needed and was refused.
+ *
+ * The cap is never lowered.  Lowering it would be unsound -- the attribute is
+ * context state, so a plan built for a smaller `n` would pull it below what a
+ * cached plan for a larger `n` needs, and that larger plan's next launch would
+ * fail -- and raising it monotonically also keeps `cudaFuncSetAttribute`, a
+ * context-mutating call that can serialise against outstanding asynchronous
+ * work, off the launch path entirely: it runs at most once per block size per
+ * footprint growth, never per dispatch.
+ */
+template <typename T>
+inline bool lawson_grant_smem(raft::resources const& handle,
+                              typename lawson_selected<T>::kernel_t kernel,
+                              int block_size,
+                              std::size_t smem_bytes)
+{
+  auto& granted = raft::resource::get_custom_resource<lawson_kernel_cache<T>>(handle)->smem_granted;
+  std::size_t& mark = granted[lawson_smem_slot(block_size)];
+  if (mark >= smem_bytes) return true;
+  if (!nnls_set_smem_attr(handle, kernel, smem_bytes)) return false;
+  mark = smem_bytes;
+  return true;
+}
 
 /**
  * Occupancy-driven block-size planner for the batched Lawson kernel.
@@ -977,7 +1027,8 @@ struct LawsonBlockDispatch {
       const std::size_t smem_half = lawson_smem_bytes<T, half_block>(n);
       // Raise the smem cap before querying; otherwise the driver reports 0
       // active blocks for a kernel whose smem exceeds the device default.
-      nnls_set_smem_attr(handle, nnls_lawson_batched_kernel<T, half_block>, smem_half);
+      lawson_grant_smem<T>(
+        handle, &nnls_lawson_batched_kernel<T, half_block>, half_block, smem_half);
       int blocks_per_sm_half = 0;
       RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &blocks_per_sm_half, nnls_lawson_batched_kernel<T, half_block>, half_block, smem_half));
@@ -996,7 +1047,7 @@ struct LawsonBlockDispatch {
     const std::size_t smem = lawson_smem_bytes<T, BlockSize>(n);
     // The occupancy query returns 0 for a kernel whose smem exceeds the device
     // default unless its max-dynamic-smem attribute is raised first.
-    nnls_set_smem_attr(handle, nnls_lawson_batched_kernel<T, BlockSize>, smem);
+    lawson_grant_smem<T>(handle, &nnls_lawson_batched_kernel<T, BlockSize>, BlockSize, smem);
     int blocks_per_sm = 0;
     RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
       &blocks_per_sm, nnls_lawson_batched_kernel<T, BlockSize>, BlockSize, smem));
@@ -1044,9 +1095,10 @@ inline void nnls_lawson_batched_dispatch(
   lawson_plan<T> plan;
   if (!cache.get(n, &plan)) {
     // Cache miss: build the (CUDA-API-heavy) plan once for this `n` and memoise
-    // it.  On a hit no cudaFuncSetAttribute / occupancy query runs -- the smem
-    // attribute set while first building this entry persists at CUDA-context
-    // scope.
+    // it.  On a hit nothing touches the CUDA API before the launch: the smem
+    // opt-in this entry needs was granted while building it and, because
+    // `lawson_grant_smem` only ever raises the cap, no later plan can have
+    // lowered it since (see `lawson_kernel_cache`).
     plan = LawsonBlockDispatch<T>::start(handle, n);
     cache.set(n, plan);
   }
