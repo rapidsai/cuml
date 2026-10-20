@@ -16,7 +16,6 @@ from cuml.internals.param_validation import (
     Int,
     Options,
     RandomState,
-    validate_params,
 )
 from cuml.internals.validation import (
     check_array,
@@ -764,8 +763,6 @@ class KMeans(
                 f"device_buffer_samples=0."
             )
 
-        self._validate_fit_params()
-
         # Process input arrays
         X, sample_weight = check_inputs(
             self,
@@ -864,10 +861,6 @@ class KMeans(
             raise ValueError(
                 "KMeansMG requires at least one local data partition."
             )
-
-        # Not called through `mlfunc`, so validate explicitly
-        validate_params(self)
-        self._validate_fit_params()
 
         has_weights = sample_weight_parts is not None
 
@@ -1005,12 +998,6 @@ class KMeans(
         self.n_iter_ = n_iter
 
         return self
-
-    def _validate_fit_params(self):
-        """Check parameters beyond what `_parameter_constraints` covers.
-
-        A hook for subclasses, KMeans itself has nothing to check here.
-        """
 
     def _validate_fit_row_constraints(self, n_rows):
         if not self._multi_gpu and n_rows < self.n_clusters:

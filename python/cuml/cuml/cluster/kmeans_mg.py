@@ -4,6 +4,7 @@
 #
 
 from cuml.cluster import KMeans
+from cuml.internals.param_validation import validate_params
 
 
 class KMeansMG(KMeans):
@@ -22,12 +23,18 @@ class KMeansMG(KMeans):
 
         When ``X`` is a sequence of local data partitions.
         """
+        self._validate_fit_params()
         if isinstance(X, (list, tuple)):
             return self._fit_mg_parts(X, sample_weight_parts=sample_weight)
         return super().fit(X, sample_weight=sample_weight)
 
     def _validate_fit_params(self):
-        super()._validate_fit_params()
+        """Validate parameters, including values the multi-GPU path lacks.
+
+        Called by ``fit`` and by the dask preflight, neither of which (for
+        partitioned input) goes through ``mlfunc``'s validation.
+        """
+        validate_params(self)
         if isinstance(self.init, str) and self.init == "k-means++":
             raise ValueError(
                 "init='k-means++' is not supported for KMeansMG. "
