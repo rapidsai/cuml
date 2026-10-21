@@ -210,6 +210,8 @@ files:
     includes:
       - test_python
       - test_python_xgboost
+      - depends_on_numba_cuda
+      - depends_on_numba_cuda_mlir
   py_dask_cuml:
     output: pyproject
     pyproject_dir: python/cuml
