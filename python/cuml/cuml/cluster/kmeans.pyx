@@ -55,9 +55,9 @@ cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     params.tol = kmeans.tol
     params.verbosity = kmeans._verbose_level
     params.metric = DistanceType.L2Expanded
-    params.batch_samples = int(kmeans.max_samples_per_batch)
-    params.init_size = int(kmeans.init_size)
-    params.device_buffer_samples = int(kmeans.device_buffer_samples)
+    params.batch_samples = kmeans.max_samples_per_batch
+    params.init_size = kmeans.init_size
+    params.device_buffer_samples = kmeans.device_buffer_samples
     params.oversampling_factor = kmeans.oversampling_factor
 
     # Ensure random_state is set when running on multi-gpu
@@ -942,7 +942,7 @@ class KMeans(
                     f"match the number of features of the data {n_cols}."
                 )
 
-        cdef int64_t batch = int(self.device_buffer_samples)
+        cdef int64_t batch = self.device_buffer_samples
 
         handle = self.handle
         cdef handle_t* handle_ = <handle_t *><size_t>handle.getHandle()
