@@ -1047,7 +1047,7 @@ dependencies:
               - *numba_cuda
   depends_on_numba_cuda_mlir:
     common:
-      - output_types: [conda]
+      - output_types: [conda, constraints]
         packages:
           - &numba_cuda_mlir numba-cuda-mlir>=0.3.0
     specific:
