@@ -388,16 +388,34 @@ class OneHotEncoder(InteropMixin, Base):
         }
 
     def _attrs_from_cpu(self, model):
+        # cuml treats None and NaN the same, and stores them both as NaN. This
+        # coerces None -> NaN to let cuml use categories fit from sklearn.
+        categories = []
+        for cats in model.categories_:
+            if cats.dtype.kind == "O" and cats[-1] is None:
+                cats = cats.copy()
+                cats[-1] = np.nan
+            categories.append(cats)
         return {
-            "categories_": model.categories_,
+            "categories_": categories,
             "drop_idx_": model.drop_idx_,
             "_n_features_outs": model._n_features_outs,
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
+        # cuml treats None and NaN the same, and stores them both as NaN.
+        # This coerces NaN -> None for object dtypes, since that's the more
+        # common missing representation. This lets sklearn use categories
+        # fit from cuml in the common case.
+        categories = []
+        for cats in self.categories_:
+            if cats.dtype.kind == "O" and _safe_is_nan(cats[-1]):
+                cats = cats.copy()
+                cats[-1] = None
+            categories.append(cats)
         return {
-            "categories_": self.categories_,
+            "categories_": categories,
             "drop_idx_": self.drop_idx_,
             "_n_features_outs": self._n_features_outs,
             "_infrequent_enabled": False,
@@ -850,6 +868,12 @@ class OrdinalEncoder(OneToOneFeatureMixin, InteropMixin, Base):
         }
 
     def _attrs_from_cpu(self, model):
+        for cats in model.categories_:
+            if cats.dtype.kind == "O" and None in cats:
+                raise UnsupportedOnGPU(
+                    "`None` is not supported as a category value"
+                )
+
         return {
             "categories_": model.categories_,
             "_missing_indices": model._missing_indices,

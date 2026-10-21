@@ -1321,6 +1321,30 @@ def test_one_hot_encoder_cuda_array_like_params():
     np.testing.assert_array_equal(cu_out2.toarray(), sk_out.toarray())
 
 
+@pytest.mark.parametrize("dtype", ["object", "float32"])
+def test_one_hot_encoder_missing_data_representation(dtype):
+    dtype = np.dtype(dtype)
+    if dtype.kind == "O":
+        X = np.array([["a"], [None], ["b"]], dtype=dtype)
+    else:
+        X = np.array([[1], [np.nan], [2]], dtype=dtype)
+
+    sk_model1 = sklearn.preprocessing.OneHotEncoder().fit(X)
+    cu_model1 = cuml.preprocessing.OneHotEncoder.from_sklearn(sk_model1)
+
+    cu_model2 = cuml.preprocessing.OneHotEncoder().fit(X)
+    sk_model2 = cu_model2.as_sklearn()
+
+    sk_out1 = sk_model1.transform(X).toarray()
+    cu_out1 = cu_model1.transform(X).toarray()
+    sk_out2 = sk_model2.transform(X).toarray()
+    cu_out2 = cu_model2.transform(X).toarray()
+
+    np.testing.assert_array_equal(cu_out1, sk_out1)
+    np.testing.assert_array_equal(cu_out2, sk_out1)
+    np.testing.assert_array_equal(sk_out2, sk_out1)
+
+
 @pytest.mark.parametrize("handle_unknown", ["error", "ignore"])
 @pytest.mark.filterwarnings("ignore:Found unknown categories.*:UserWarning")
 def test_ordinal_encoder(handle_unknown):
@@ -1370,3 +1394,36 @@ def test_ordinal_encoder_cuda_array_like_params():
     cu_out2 = cu_model2.transform(X)
     np.testing.assert_array_equal(cu_out1, sk_out)
     np.testing.assert_array_equal(cu_out2, sk_out)
+
+
+def test_ordinal_encoder_none_cant_convert():
+    X = np.array([["a"], [None], ["b"]], dtype="object")
+
+    sk_model = sklearn.preprocessing.OrdinalEncoder().fit(X)
+    with pytest.raises(
+        UnsupportedOnGPU, match="`None` is not supported as a category value"
+    ):
+        cuml.preprocessing.OrdinalEncoder.from_sklearn(sk_model)
+
+
+@pytest.mark.parametrize("dtype", ["object", "float32"])
+def test_ordinal_encoder_nan_values(dtype):
+    dtype = np.dtype(dtype)
+    if dtype.kind == "O":
+        X = np.array([["a"], [np.nan], ["b"]], dtype=dtype)
+    else:
+        X = np.array([[1], [np.nan], [2]], dtype=dtype)
+
+    sk_model1 = sklearn.preprocessing.OrdinalEncoder().fit(X)
+    cu_model1 = cuml.preprocessing.OrdinalEncoder.from_sklearn(sk_model1)
+    cu_model2 = cuml.preprocessing.OrdinalEncoder().fit(X)
+    sk_model2 = cu_model2.as_sklearn()
+
+    sk_out1 = sk_model1.transform(X)
+    cu_out1 = cu_model1.transform(X)
+    sk_out2 = sk_model2.transform(X)
+    cu_out2 = cu_model2.transform(X)
+
+    np.testing.assert_array_equal(cu_out1, sk_out1)
+    np.testing.assert_array_equal(cu_out2, sk_out1)
+    np.testing.assert_array_equal(sk_out2, sk_out1)
