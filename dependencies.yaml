@@ -1025,11 +1025,11 @@ dependencies:
               - *librmm_unsuffixed
   depends_on_numba_cuda:
     common:
-      - output_types: [conda]
+      - output_types: [conda, constraints]
         packages:
           - &numba_cuda numba-cuda>=0.22.2
     specific:
-      - output_types: [requirements, constraints, pyproject]
+      - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
