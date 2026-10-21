@@ -30,6 +30,8 @@ from cuml.internals.param_validation import (
     get_parameter_constraints,
     validate_params,
 )
+from cuml.linear_model import LogisticRegression
+from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.testing.utils import get_all_base_subclasses
 
 
@@ -449,11 +451,15 @@ ESTIMATORS = {
 CONVERTED = sorted(set(ESTIMATORS) - NOT_YET_CONVERTED)
 
 
+# Estimators that can't be constructed with default arguments
+_INSTANCES = {
+    OneVsOneClassifier: lambda: OneVsOneClassifier(LogisticRegression()),
+    OneVsRestClassifier: lambda: OneVsRestClassifier(LogisticRegression()),
+}
+
+
 def _default_instance(cls):
-    try:
-        return cls()
-    except TypeError:
-        pytest.skip(f"{cls.__name__}.__init__ requires arguments")
+    return _INSTANCES.get(cls, cls)()
 
 
 def test_not_yet_converted_is_up_to_date():
