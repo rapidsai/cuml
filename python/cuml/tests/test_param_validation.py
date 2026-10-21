@@ -31,6 +31,7 @@ from cuml.internals.param_validation import (
     validate_params,
 )
 from cuml.linear_model import LogisticRegression
+from cuml.linear_model.ridge_mg import RidgeMG
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.testing.utils import get_all_base_subclasses
 
@@ -441,14 +442,30 @@ NOT_YET_CONVERTED = {
     "UMAP",
 }
 
+# `*MG` classes are excluded: they need a comms handle, have a different `fit`
+# signature, and are only imported when used (so may or may not be collected)
 ESTIMATORS = {
     name: cls
     for name, cls in get_all_base_subclasses().items()
     if "Base" not in name
+    and not name.endswith("MG")
     and cls.__module__.startswith("cuml.")
     and not cls.__module__.startswith("cuml.solvers")
 }
 CONVERTED = sorted(set(ESTIMATORS) - NOT_YET_CONVERTED)
+
+
+def test_ridge_mg_narrows_constraints():
+    # RidgeMG supports a scalar alpha and a subset of Ridge's solvers
+    validate_params(RidgeMG(handle=None, alpha=0.5, solver="svd"))
+    with pytest.raises(
+        InvalidParameterError, match="'alpha' parameter of RidgeMG"
+    ):
+        validate_params(RidgeMG(handle=None, alpha=[1.0, 2.0]))
+    with pytest.raises(
+        InvalidParameterError, match="'solver' parameter of RidgeMG"
+    ):
+        validate_params(RidgeMG(handle=None, solver="lsmr"))
 
 
 # Estimators that can't be constructed with default arguments

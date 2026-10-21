@@ -26,6 +26,13 @@ class KMeansMG(KMeans):
         self._validate_fit_params()
         if isinstance(X, (list, tuple)):
             return self._fit_mg_parts(X, sample_weight_parts=sample_weight)
+        if self.device_buffer_samples > 0:
+            # Only the partitioned path supports host streaming
+            raise ValueError(
+                f"device_buffer_samples={self.device_buffer_samples} is not "
+                f"supported for the multi-GPU KMeans fit path; set "
+                f"device_buffer_samples=0."
+            )
         return super().fit(X, sample_weight=sample_weight)
 
     def _validate_fit_params(self):

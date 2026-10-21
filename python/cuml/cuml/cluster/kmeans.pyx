@@ -755,13 +755,7 @@ class KMeans(
         Compute k-means clustering with X.
 
         """
-        device_buffer_samples = int(self.device_buffer_samples)
-        if device_buffer_samples > 0 and self._multi_gpu:
-            raise ValueError(
-                f"device_buffer_samples={device_buffer_samples} is not "
-                f"supported for the multi-GPU KMeans fit path; set "
-                f"device_buffer_samples=0."
-            )
+        device_buffer_samples = self.device_buffer_samples
 
         # Process input arrays
         X, sample_weight = check_inputs(
