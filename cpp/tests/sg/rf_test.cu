@@ -255,19 +255,21 @@ std::shared_ptr<thrust::device_vector<LabelT>> nvForestPredict(
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest, params.n_cols);
 
-  auto nvforest_model =
-    nvforest::import_from_treelite_handle(model,
-                                          nvforest::tree_layout::breadth_first,
-                                          128,
-                                          std::is_same_v<DataT, double>,
-                                          nvforest::device_type::gpu,
-                                          handle.get_device(),
-                                          handle.get_next_usable_stream().get());
+  auto device = handle.get_device();
+  auto stream = handle.get_next_usable_stream().get();
+
+  auto nvforest_model = nvforest::import_from_treelite_handle(model,
+                                                              nvforest::tree_layout::breadth_first,
+                                                              128,
+                                                              std::is_same_v<DataT, double>,
+                                                              nvforest::device_type::gpu,
+                                                              device,
+                                                              stream);
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  nvforest_model.predict(handle,
+  nvforest_model.predict(stream,
                          workspace->data().get(),
                          X_transpose,
                          params.n_rows,
@@ -327,19 +329,21 @@ auto nvForestPredictProba(const raft::handle_t& handle,
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest, params.n_cols);
 
-  auto nvforest_model =
-    nvforest::import_from_treelite_handle(model,
-                                          nvforest::tree_layout::breadth_first,
-                                          128,
-                                          std::is_same_v<DataT, double>,
-                                          nvforest::device_type::gpu,
-                                          handle.get_device(),
-                                          handle.get_next_usable_stream().get());
+  auto device = handle.get_device();
+  auto stream = handle.get_next_usable_stream().get();
+
+  auto nvforest_model = nvforest::import_from_treelite_handle(model,
+                                                              nvforest::tree_layout::breadth_first,
+                                                              128,
+                                                              std::is_same_v<DataT, double>,
+                                                              nvforest::device_type::gpu,
+                                                              device,
+                                                              stream);
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  nvforest_model.predict(handle,
+  nvforest_model.predict(stream,
                          pred->data().get(),
                          X_transpose,
                          params.n_rows,
@@ -932,19 +936,21 @@ TEST(RfTests, IntegerOverflow)
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest_ptr, n);
 
-  auto nvforest_model =
-    nvforest::import_from_treelite_handle(model,
-                                          nvforest::tree_layout::breadth_first,
-                                          128,
-                                          false,
-                                          nvforest::device_type::gpu,
-                                          handle.get_device(),
-                                          handle.get_next_usable_stream().get());
+  auto device = handle.get_device();
+  auto stream = handle.get_next_usable_stream().get();
+
+  auto nvforest_model = nvforest::import_from_treelite_handle(model,
+                                                              nvforest::tree_layout::breadth_first,
+                                                              128,
+                                                              false,
+                                                              nvforest::device_type::gpu,
+                                                              device,
+                                                              stream);
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  nvforest_model.predict(handle,
+  nvforest_model.predict(stream,
                          pred.data().get(),
                          X.data().get(),
                          m,
@@ -1440,7 +1446,8 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
   thrust::device_vector<DT::Split<DataT>> split(1);
   thrust::device_vector<int> mutex(1);
 
-  DT::RegressionObjectiveFunction<DataT, DataT> objective(1, 1, CRITERION::MSE);
+  // Four zeros and four twos have variance 1. The best split must exceed 0.75;
+  DT::RegressionObjectiveFunction<DataT, DataT> objective(1, 1, CRITERION::MSE, DataT{0.75});
   objectiveGainKernel<<<1, 32, 0, handle.get_stream().get()>>>(hist.data().get(),
                                                                quantiles.data().get(),
                                                                split.data().get(),
@@ -1464,6 +1471,7 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);
+  EXPECT_EQ(h_split.best_metric_val, DataT{1});
 }
 
 template <typename T>
@@ -2030,9 +2038,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     return std::max(1, non_empty_n_bins - 1);
   }
 
-  auto MSE(std::vector<DataT> const& data,
-           std::vector<double> const&
-             sample_weights)  //  1/w * 1/2 * sum(w_i * (y - y_pred) * (y - y_pred))
+  auto MSE(
+    std::vector<DataT> const& data,
+    std::vector<double> const& sample_weights)  //  1/w * sum(w_i * (y - y_pred) * (y - y_pred))
   {
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
     DataT sum{0};
@@ -2047,7 +2055,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       mse += sample_weights[i] * (d - mean) * (d - mean);  // unit deviance
     }
 
-    mse /= 2 * weight_sum;
+    mse /= weight_sum;
     return std::make_tuple(mse, sum, DataT(data.size()), weight_sum);
   }
 
@@ -2070,7 +2078,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
     auto gain = parent_mse -
                 ((weight_sum_left / weight_sum) * left_mse +    // the minimizing objective function
-                                                                // is half deviance
+                                                                // is weighted variance
                  (weight_sum_right / weight_sum) * right_mse);  // gain in long form without proxy
 
     // edge cases
@@ -2699,13 +2707,13 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
                     std::int64_t{0},  // sample_offset
                     params.n_features,
                     params.k,
-                    stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+                    stream.get());
+    stream.sync();
 
     // Copy colids back to host for duplicate checking and bias counting
     std::vector<std::int64_t> h_colids(sampled_col_count);
     raft::update_host(h_colids.data(), d_colids.data(), sampled_col_count, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    stream.sync();
 
     std::vector<unsigned long long> h_counts(feature_count, 0);
 
