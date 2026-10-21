@@ -111,7 +111,7 @@ def test_constraint_accepts(constraint, valid, invalid):
 )
 def test_invalid_examples_are_rejected(constraint):
     for value in constraint.invalid_examples():
-        assert not constraint.accepts(value), value
+        assert not constraint.accepts(value)
 
 
 def test_anyof_invalid_examples_filters_overlap():
