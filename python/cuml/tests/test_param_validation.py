@@ -85,9 +85,9 @@ from cuml.testing.utils import get_all_base_subclasses
 )
 def test_constraint_accepts(constraint, valid, invalid):
     for value in valid:
-        assert constraint.accepts(value), value
+        assert constraint.accepts(value)
     for value in invalid:
-        assert not constraint.accepts(value), value
+        assert not constraint.accepts(value)
 
 
 @pytest.mark.parametrize(
@@ -473,7 +473,10 @@ def test_not_yet_converted_is_up_to_date():
             name,
             marks=pytest.mark.xfail(
                 name in NOT_YET_CONVERTED,
-                reason="Not converted yet",
+                reason=(
+                    "Not converted to declarative parameter validation yet, "
+                    "see https://github.com/NVIDIA/cuml/issues/8498"
+                ),
                 strict=True,
             ),
         )
