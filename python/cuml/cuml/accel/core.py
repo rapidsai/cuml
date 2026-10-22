@@ -255,12 +255,34 @@ def install(
                     "skipping enabling managed memory."
                 )
             else:
-                rmm.mr.set_current_device_resource(
-                    rmm.mr.PrefetchResourceAdaptor(
-                        rmm.mr.ManagedMemoryResource()
+                # Pool the managed allocations. Without a pool every
+                # allocation is a cudaMallocManaged and every free a
+                # cudaFree, each costing milliseconds (up to a dozen frees
+                # per predict call), which dominated short estimator calls.
+                # Same construction as cudf.pandas's "managed_pool" mode,
+                # but with a small initial block that grows on demand:
+                # cuml.accel is also installed in every worker process a
+                # user spawns (joblib, multiprocessing), so reserving a
+                # large share of the device up front in each of them is
+                # not acceptable.
+                managed = rmm.mr.ManagedMemoryResource()
+                try:
+                    mr = rmm.mr.PoolMemoryResource(
+                        managed, initial_pool_size=256 << 20
                     )
+                except MemoryError as exc:
+                    # The pool allocates its initial block on construction.
+                    # Never let that stop acceleration on a constrained
+                    # device; the unpooled resource is what ran before.
+                    logger.debug(
+                        "Could not allocate the initial managed memory "
+                        f"pool ({exc}); using unpooled managed memory."
+                    )
+                    mr = managed
+                rmm.mr.set_current_device_resource(
+                    rmm.mr.PrefetchResourceAdaptor(mr)
                 )
-                logger.debug("Enabled managed memory.")
+                logger.debug("Enabled pooled managed memory.")
         else:
             logger.debug("Could not enable managed memory on this platform.")
 
