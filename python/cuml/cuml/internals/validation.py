@@ -1366,11 +1366,11 @@ def check_y(
 def check_sample_weight(
     sample_weight,
     *,
-    allow_all_zero=False,
     dtype=None,
     mem_type="device",
     order="A",
     ensure_non_negative=False,
+    allow_all_zero=False,
 ):
     """Validate and coerce ``sample_weight`` to a supported type.
 
@@ -1396,10 +1396,9 @@ def check_sample_weight(
     ensure_non_negative : bool, default=False
         If True, an error will be raised if negative values are found in the
         input. By default ``check_non_negative`` is skipped.
-
     allow_all_zero : bool, default=False
-        Allow arrays containing only zero weights, for distributed estimators
-        that validate the global weight sum separately.
+        If True, allow ``sample_weight`` that are all zeros.
+        If False, all-zero ``sample_weight`` will be considered an error.
 
     Returns
     -------
@@ -1520,8 +1519,8 @@ def check_inputs(
         The dtype(s) to support for sample_weight. If not specified, defaults
         to the output dtype of ``X``.
     sample_weight_allow_all_zero : bool, default=False
-        Allow arrays containing only zero weights. The estimator must validate
-        the global weight sum separately when enabling this option.
+        If True, allow ``sample_weight`` that are all zeros.
+        If False, all-zero ``sample_weight`` will be considered an error.
     mem_type : {'device', 'host'} or None, default='device'
         The memory type use for the output. If 'device', the output will be a
         ``cupy.ndarray`` if dense, or a ``cupyx.scipy.sparse.spmatrix`` if
