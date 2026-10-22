@@ -198,7 +198,28 @@ def _fallback_on_unsupported_category_values(categories):
                 continue
 
 
-class OneHotEncoder(InteropMixin, Base):
+class _EncoderInteropMixin(InteropMixin):
+    def as_sklearn(self):
+        """
+        Convert this estimator into an equivalent scikit-learn estimator.
+
+        Returns
+        -------
+        estimator : sklearn.base.BaseEstimator
+            A scikit-learn compatible estimator instance that mirrors the trained
+            state of the current estimator.
+
+        Notes
+        -----
+        cuML's ``OneHotEncoder`` and ``OrdinalEncoder`` treat ``None`` and
+        ``NaN`` as equivalent. If the original encoder was trained on ``None``
+        values, those will have been normalized to ``NaN``, and the converted
+        sklearn encoder will handle ``None`` as an unknown value.
+        """
+        return super().as_sklearn()
+
+
+class OneHotEncoder(_EncoderInteropMixin, Base):
     """
     Encode categorical features as a one-hot numeric array.
 
@@ -388,34 +409,21 @@ class OneHotEncoder(InteropMixin, Base):
         }
 
     def _attrs_from_cpu(self, model):
-        # cuml treats None and NaN the same, and stores them both as NaN. This
-        # coerces None -> NaN to let cuml use categories fit from sklearn.
-        categories = []
         for cats in model.categories_:
-            if cats.dtype.kind == "O" and cats[-1] is None:
-                cats = cats.copy()
-                cats[-1] = np.nan
-            categories.append(cats)
+            if cats.dtype.kind == "O" and None in cats:
+                raise UnsupportedOnGPU(
+                    "`None` is not supported as a category value"
+                )
         return {
-            "categories_": categories,
+            "categories_": model.categories_,
             "drop_idx_": model.drop_idx_,
             "_n_features_outs": model._n_features_outs,
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
-        # cuml treats None and NaN the same, and stores them both as NaN.
-        # This coerces NaN -> None for object dtypes, since that's the more
-        # common missing representation. This lets sklearn use categories
-        # fit from cuml in the common case.
-        categories = []
-        for cats in self.categories_:
-            if cats.dtype.kind == "O" and _safe_is_nan(cats[-1]):
-                cats = cats.copy()
-                cats[-1] = None
-            categories.append(cats)
         return {
-            "categories_": categories,
+            "categories_": self.categories_,
             "drop_idx_": self.drop_idx_,
             "_n_features_outs": self._n_features_outs,
             "_infrequent_enabled": False,
@@ -721,7 +729,7 @@ class OneHotEncoder(InteropMixin, Base):
         return np.array(out, dtype=object)
 
 
-class OrdinalEncoder(OneToOneFeatureMixin, InteropMixin, Base):
+class OrdinalEncoder(OneToOneFeatureMixin, _EncoderInteropMixin, Base):
     """Encode categorical features as an integer array.
 
     The input to this transformer should be an array-like of integers or
@@ -873,7 +881,6 @@ class OrdinalEncoder(OneToOneFeatureMixin, InteropMixin, Base):
                 raise UnsupportedOnGPU(
                     "`None` is not supported as a category value"
                 )
-
         return {
             "categories_": model.categories_,
             "_missing_indices": model._missing_indices,
