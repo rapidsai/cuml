@@ -46,13 +46,11 @@
 #include <algorithm>
 #include <cstdint>
 #include <deque>
-#include <map>
 #include <numeric>
 #include <random>
 #include <vector>
 
 namespace ML {
-
 namespace detail {
 template <typename T>
 struct InvalidSampleWeight {
