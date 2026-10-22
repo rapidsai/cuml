@@ -501,6 +501,13 @@ class TargetEncoder(InteropMixin, Base):
         if merged:
             # Merges do not preserve row order; restore the original order
             df = df.sort_values("id").reset_index(drop=True)
+        else:
+            # `df` is stored as `self.train`. A frame only modified in place
+            # keeps the column metadata it was constructed with, which under
+            # cudf.pandas holds proxied pandas objects that cannot be
+            # pickled; the merge path happened to rebuild it. Reassigning
+            # the labels normalizes the metadata (0.8 ms at 195k rows).
+            df.columns = list(df.columns)
         res = df[result_cols].to_cupy()
         return res, df
 
