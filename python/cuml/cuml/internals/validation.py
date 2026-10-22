@@ -562,6 +562,37 @@ else:
         return np.array(x, dtype=dtype, order=order or "K", copy=bool(copy))
 
 
+def _host_to_device(array, dtype=None, order=None, copy=None):
+    """Move a host array to the device without reordering it on the host.
+
+    ``cp.array(numpy_array, order="F")`` on a C-contiguous input (or the
+    reverse) performs the transpose on the host, single-threaded, while
+    filling the pinned staging buffer. That runs at 0.2 to 0.4 GB/s, so a
+    1 GB input takes seconds to reach the device; transferring the bytes
+    as they are and transposing on the device costs the same as a plain
+    copy. Dtype conversion is left to ``cp.array`` as before.
+    """
+    if (
+        isinstance(array, np.ndarray)
+        and array.ndim >= 2
+        and order in ("C", "F")
+    ):
+        c_in = array.flags.c_contiguous
+        f_in = array.flags.f_contiguous
+        if (order == "F" and c_in and not f_in) or (
+            order == "C" and f_in and not c_in
+        ):
+            # Transfer in the input's own layout, then reorder on device
+            array = cp.array(array, dtype=dtype, copy=None)
+            return (
+                cp.asfortranarray(array)
+                if order == "F"
+                else cp.ascontiguousarray(array)
+            )
+    # XXX: using cp.array for compat with cupy < 14
+    return cp.array(array, dtype=dtype, order=order, copy=copy)
+
+
 def check_array(
     array,
     *,
@@ -826,7 +857,7 @@ def check_array(
                 copy=copy and (cudf.pandas.LOADED or mem_type != "device"),
             )
             if mem_type == "device":
-                array = cp.asarray(array, dtype=dtype, order=order)
+                array = _host_to_device(array, dtype=dtype, order=order)
             elif (
                 mem_type is None
                 and cudf.pandas.LOADED
@@ -837,7 +868,7 @@ def check_array(
                 # of `to_numpy` in cudf.pandas returns a proxy array that's
                 # remains on device, so we're not paying a device<>host
                 # roundtrip cost here.
-                array = cp.asarray(array, dtype=dtype, order=order)
+                array = _host_to_device(array, dtype=dtype, order=order)
             else:
                 array = np.asarray(array, dtype=dtype, order=order)
         elif hasattr(array, "__cuda_array_interface__"):
@@ -854,8 +885,7 @@ def check_array(
         else:
             # Handle all other inputs
             if mem_type == "device":
-                # XXX: using cp.array for compat with cupy < 14
-                array = cp.array(
+                array = _host_to_device(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
             else:
