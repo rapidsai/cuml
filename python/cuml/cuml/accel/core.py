@@ -265,13 +265,22 @@ def install(
                 # user spawns (joblib, multiprocessing), so reserving a
                 # large share of the device up front in each of them is
                 # not acceptable.
-                rmm.mr.set_current_device_resource(
-                    rmm.mr.PrefetchResourceAdaptor(
-                        rmm.mr.PoolMemoryResource(
-                            rmm.mr.ManagedMemoryResource(),
-                            initial_pool_size=256 << 20,
-                        )
+                managed = rmm.mr.ManagedMemoryResource()
+                try:
+                    mr = rmm.mr.PoolMemoryResource(
+                        managed, initial_pool_size=256 << 20
                     )
+                except MemoryError as exc:
+                    # The pool allocates its initial block on construction.
+                    # Never let that stop acceleration on a constrained
+                    # device; the unpooled resource is what ran before.
+                    logger.debug(
+                        "Could not allocate the initial managed memory "
+                        f"pool ({exc}); using unpooled managed memory."
+                    )
+                    mr = managed
+                rmm.mr.set_current_device_resource(
+                    rmm.mr.PrefetchResourceAdaptor(mr)
                 )
                 logger.debug("Enabled pooled managed memory.")
         else:
