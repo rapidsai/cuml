@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <queue>
 #include <utility>
 #include <vector>
 
@@ -159,6 +160,21 @@ struct Builder {
   typedef Dataset<DataT, LabelT> DatasetT;
   typedef Quantiles<DataT> QuantilesT;
 
+  struct SplitCandidate {
+    NodeWorkItem item;
+    SplitT split;
+  };
+
+  struct CompareCandidates {
+    bool operator()(const SplitCandidate& lhs, const SplitCandidate& rhs) const
+    {
+      if (lhs.split.weighted_impurity_decrease != rhs.split.weighted_impurity_decrease) {
+        return lhs.split.weighted_impurity_decrease < rhs.split.weighted_impurity_decrease;
+      }
+      return lhs.item.idx > rhs.item.idx;
+    }
+  };
+
   /** default threads per block for most kernels in here */
   static constexpr int TPB_DEFAULT = 128;
   // Tunable performance heuristic for the shared-memory histogram path. Large per-block
@@ -267,9 +283,7 @@ struct Builder {
    * @return aligned size
    */
   size_t calculateAlignedBytes(const size_t actual_size) const
-  {
-    return raft::alignTo(actual_size, align_value);
-  }
+  { return raft::alignTo(actual_size, align_value); }
 
   size_t packedHistogramWorkspaceSize(std::size_t len_histograms) const
   {
@@ -412,10 +426,35 @@ struct Builder {
     }
     NodeQueue<DataT, LabelT> queue(
       params, this->maxNodes(), dataset.n_sampled_rows, global_sampled_rows, dataset.num_outputs);
-    while (queue.HasWork()) {
-      auto work_items                      = queue.Pop();
-      auto [splits_host_ptr, splits_count] = doSplit(work_items, root_weight);
-      queue.Push(work_items, splits_host_ptr);
+    const bool greedy = params.max_leaves != -1;
+    std::priority_queue<SplitCandidate, std::vector<SplitCandidate>, CompareCandidates> candidates;
+    while (queue.HasWork() || !candidates.empty()) {
+      if (greedy && queue.GetTree()->leaf_counter >= params.max_leaves) { break; }
+      std::vector<NodeWorkItem> work_items;
+      std::vector<SplitT> selected_splits;
+      if (greedy) {
+        // Evaluate all newly eligible children before selecting another split,
+        // even when max_batch_size is one. A child can outrank the old frontier.
+        while (queue.HasWork()) {
+          auto items = queue.Pop();
+          // Each iteration drains the queue, then commits one split with at most two children.
+          ASSERT(items.size() <= 2, "Greedy evaluation batches must contain at most two nodes.");
+          auto best_splits = evaluateSplits(items, root_weight);
+          for (std::size_t i = 0; i < items.size(); ++i) {
+            if (best_splits[i].IsValid()) { candidates.push({items[i], best_splits[i]}); }
+          }
+        }
+        if (candidates.empty()) { break; }
+        auto candidate = candidates.top();
+        candidates.pop();
+        work_items.push_back(candidate.item);
+        selected_splits.push_back(candidate.split);
+      } else {
+        work_items      = queue.Pop();
+        selected_splits = evaluateSplits(work_items, root_weight);
+      }
+      partition(work_items, selected_splits);
+      queue.Push(work_items, h_splits);
     }
     auto tree = queue.GetTree();
     this->SetLeafPredictions(tree, queue.GetInstanceRanges(), root_weight);
@@ -461,9 +500,10 @@ struct Builder {
     return global_value;
   }
 
-  auto doSplit(const std::vector<NodeWorkItem>& work_items, double root_weight)
+  std::vector<SplitT> evaluateSplits(const std::vector<NodeWorkItem>& work_items,
+                                     double root_weight)
   {
-    raft::common::nvtx::range fun_scope("Builder::doSplit @builder.cuh [batched-levelalgo]");
+    raft::common::nvtx::range fun_scope("Builder::evaluateSplits @builder.cuh [batched-levelalgo]");
     // start fresh on the number of *new* nodes created in this batch
     RAFT_CUDA_TRY(cudaMemsetAsync(n_nodes, 0, sizeof(std::int64_t), builder_stream));
 
@@ -492,7 +532,7 @@ struct Builder {
     // sampled features do not yield a valid split.
     for (std::size_t round = 0; !active_items.empty() && round < max_sampling_rounds; ++round) {
       auto sample_offset     = ML::checked_mul<std::int64_t>(ML::narrow_cast<std::int64_t>(round),
-                                                         original_n_sampled_cols);
+                                                             original_n_sampled_cols);
       dataset.n_sampled_cols = std::min(
         original_n_sampled_cols, ML::checked_sub<std::int64_t>(dataset.n_cols, sample_offset));
       computeBestSplits(active_items, seed, sample_offset, root_weight);
@@ -513,7 +553,12 @@ struct Builder {
       active_to_original = std::move(retry_to_original);
     }
     dataset.n_sampled_cols = original_n_sampled_cols;
+    return final_splits;
+  }
 
+  void partition(const std::vector<NodeWorkItem>& work_items,
+                 const std::vector<SplitT>& final_splits)
+  {
     // Partition samples once, using the valid split found for each node. Nodes
     // still without a valid split after all features have been visited remain leaves.
     auto split_copy_bytes = ML::checked_mul<std::size_t>(sizeof(SplitT), work_items.size());
@@ -534,7 +579,6 @@ struct Builder {
     raft::common::nvtx::pop_range();
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
     handle.sync_stream(builder_stream);
-    return std::make_tuple(h_splits, work_items.size());
   }
 
   void computeBestSplits(const std::vector<NodeWorkItem>& work_items,

@@ -25,7 +25,8 @@ struct DecisionTreeParams {
    */
   int max_depth;
   /**
-   * Maximum leaf nodes per tree. Soft constraint. Unlimited, If `-1`.
+   * Maximum leaf nodes per tree. A positive limit uses greedy best-first growth,
+   * ranked by weighted impurity decrease. If `-1`, use unlimited batched growth.
    */
   int max_leaves;
   /**
