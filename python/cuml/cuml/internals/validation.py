@@ -571,6 +571,10 @@ def _host_to_device(array, dtype=None, order=None, copy=None):
     1 GB input takes seconds to reach the device; transferring the bytes
     as they are and transposing on the device costs the same as a plain
     copy. Dtype conversion is left to ``cp.array`` as before.
+
+    The reorder is done in blocks of about ``_H2D_BLOCK_BYTES`` so that
+    only the output and one block are resident on the device, rather than
+    two full-sized arrays.
     """
     if (
         isinstance(array, np.ndarray)
@@ -582,15 +586,29 @@ def _host_to_device(array, dtype=None, order=None, copy=None):
         if (order == "F" and c_in and not f_in) or (
             order == "C" and f_in and not c_in
         ):
-            # Transfer in the input's own layout, then reorder on device
-            array = cp.array(array, dtype=dtype, copy=None)
-            return (
-                cp.asfortranarray(array)
-                if order == "F"
-                else cp.ascontiguousarray(array)
+            out = cp.empty(
+                array.shape, dtype=dtype or array.dtype, order=order
             )
+            # Slice along the axis that is contiguous in the input's own
+            # layout (first for C, last for F) so each block is one
+            # contiguous host region; assigning it into the differently
+            # ordered output is one transpose kernel on the device.
+            axis = 0 if c_in else array.ndim - 1
+            n = array.shape[axis]
+            per_slice = max(1, array.nbytes // max(1, n))
+            step = max(1, _H2D_BLOCK_BYTES // per_slice)
+            for start in range(0, n, step):
+                idx = [slice(None)] * array.ndim
+                idx[axis] = slice(start, start + step)
+                idx = tuple(idx)
+                out[idx] = cp.array(array[idx], dtype=dtype, copy=None)
+            return out
     # XXX: using cp.array for compat with cupy < 14
     return cp.array(array, dtype=dtype, order=order, copy=copy)
+
+
+# Block size for the device-side reorder in `_host_to_device`
+_H2D_BLOCK_BYTES = 256 << 20
 
 
 def check_array(
