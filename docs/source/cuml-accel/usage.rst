@@ -72,7 +72,10 @@ When the platform supports it and RMM has not already been configured,
 ``cuml.accel`` enables `managed memory`_. Managed memory can use host memory in
 addition to GPU memory and migrates data as needed, reducing the risk of GPU
 out-of-memory errors. It does not prevent exhaustion of combined host and
-device memory, and heavy oversubscription can slow execution. Managed memory
+device memory, and heavy oversubscription can slow execution. The managed
+allocations are served from an RMM memory pool (as in ``cudf.pandas``'s
+``managed_pool`` mode), so repeated estimator calls do not pay a CUDA
+allocation and free each; the pool starts small and grows on demand. Managed memory
 is not enabled on WSL 2 or when RMM was configured before ``cuml.accel``.
 If managed-memory oversubscription causes unexpectedly slow execution, use the
 CLI's ``--disable-uvm`` flag to disable it and compare performance.
