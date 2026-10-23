@@ -1709,7 +1709,7 @@ TEST(RfTest, GreedyGrowthSplitsLeafWithLargestImprovement)
     const auto& tree = forest.trees[0]->sparsetree;
     ASSERT_EQ(tree.size(), 7);
     ASSERT_EQ(tree[0].QueryValue(), 1.0f);
-    const auto& left = tree[tree[0].LeftChildId()];
+    const auto& left  = tree[tree[0].LeftChildId()];
     const auto& right = tree[tree[0].RightChildId()];
     ASSERT_FALSE(left.IsLeaf());
     ASSERT_FALSE(right.IsLeaf());

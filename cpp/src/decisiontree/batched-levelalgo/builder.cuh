@@ -283,7 +283,9 @@ struct Builder {
    * @return aligned size
    */
   size_t calculateAlignedBytes(const size_t actual_size) const
-  { return raft::alignTo(actual_size, align_value); }
+  {
+    return raft::alignTo(actual_size, align_value);
+  }
 
   size_t packedHistogramWorkspaceSize(std::size_t len_histograms) const
   {
@@ -532,7 +534,7 @@ struct Builder {
     // sampled features do not yield a valid split.
     for (std::size_t round = 0; !active_items.empty() && round < max_sampling_rounds; ++round) {
       auto sample_offset     = ML::checked_mul<std::int64_t>(ML::narrow_cast<std::int64_t>(round),
-                                                             original_n_sampled_cols);
+                                                         original_n_sampled_cols);
       dataset.n_sampled_cols = std::min(
         original_n_sampled_cols, ML::checked_sub<std::int64_t>(dataset.n_cols, sample_offset));
       computeBestSplits(active_items, seed, sample_offset, root_weight);
