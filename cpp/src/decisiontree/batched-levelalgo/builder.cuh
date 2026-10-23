@@ -217,7 +217,7 @@ struct Builder {
   /** packed histogram buffer used by distributed all-reduce */
   void* packed_histograms;
   /** number of blocks used to parallelize column-wise computations */
-  int n_blks_for_cols = 10;
+  static constexpr int n_blks_for_cols = 10;
   /** Memory alignment value */
   const size_t align_value = 512;
   std::int64_t* column_samples;
