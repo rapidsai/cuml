@@ -588,6 +588,37 @@ def test_rf_weights(
     assert all(data == worker_model_bytes[0] for data in worker_model_bytes)
 
 
+def test_rf_with_column_shaped_label(client):
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
+    n_rows = 400 * n_workers
+    X = cp.zeros((n_rows, 1), dtype=cp.float32)
+    y = cp.repeat(
+        cp.asarray([0, 1], dtype=cp.int32),
+        [n_rows // 4, 3 * n_rows // 4],
+    ).reshape(-1, 1)
+    sample_weight = cp.where(y.ravel() == 0, 1.0, 3.0)
+
+    X, y, sample_weight = dask_utils.persist_across_workers(
+        client,
+        [from_array(a, chunks=200) for a in (X, y, sample_weight)],
+    )
+    model = cuRFC_mg(
+        n_estimators=1,
+        bootstrap=False,
+        max_depth=1,
+        n_bins=2,
+        random_state=42,
+        class_weight="balanced",
+    ).fit(X, y, sample_weight=sample_weight)
+
+    combined = model.get_combined_model()
+    combined.output_type = "cupy"
+    prediction = combined.predict_proba(cp.zeros((1, 1), dtype=cp.float32))[
+        0, 1
+    ]
+    assert float(prediction) == pytest.approx(0.5, abs=1e-6)
+
+
 @pytest.mark.parametrize("model_cls", [cuRFC_mg, cuRFR_mg])
 def test_rf_sample_weight_partition_count_mismatch(client, model_cls):
     X = dask_cudf.from_cudf(

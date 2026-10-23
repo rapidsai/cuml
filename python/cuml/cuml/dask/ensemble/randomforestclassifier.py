@@ -185,16 +185,26 @@ class RandomForestClassifier(
             )
 
         if isinstance(y, dask.array.Array):
+            y_for_class_counts = y
+            if len(y.shape) == 2:
+                if y.shape[1] != 1:
+                    raise ValueError(
+                        "y must have exactly one column when two-dimensional"
+                    )
+                y_for_class_counts = y.flatten()
+
             # Dask implements ``unique(return_counts=True)`` using structured
             # arrays, which CuPy does not support. Compute the unique labels
             # first, then count all labels together with scalar reductions.
-            unique_vals = cp.asarray(dask.array.unique(y).compute())
+            unique_vals = cp.asarray(
+                dask.array.unique(y_for_class_counts).compute()
+            )
             if unique_vals.size == 0:
                 class_counts = cp.empty(0, dtype=cp.int64)
             else:
                 class_counts = dask.array.stack(
                     [
-                        (y == class_value).sum()
+                        (y_for_class_counts == class_value).sum()
                         for class_value in cp.asnumpy(unique_vals)
                     ]
                 ).compute()
@@ -203,6 +213,7 @@ class RandomForestClassifier(
             classes = cp.asnumpy(unique_vals[order])
             class_counts = cp.asnumpy(class_counts[order])
         else:
+            y_for_class_counts = y
             counts_by_class = y.value_counts().compute().sort_index()
             classes = cp.asnumpy(cp.asarray(counts_by_class.index))
             class_counts = cp.asnumpy(cp.asarray(counts_by_class))
@@ -217,7 +228,10 @@ class RandomForestClassifier(
                 cp.asarray(
                     dask.compute(
                         *[
-                            (sample_weight * (y == class_value)).sum()
+                            (
+                                sample_weight
+                                * (y_for_class_counts == class_value)
+                            ).sum()
                             for class_value in classes
                         ]
                     )
