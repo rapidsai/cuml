@@ -90,7 +90,7 @@ class NodeQueue {
   {
     if (depth >= params.max_depth) return false;
     if (n.InstanceCount() < params.min_samples_split) return false;
-    if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) return false;
+    if (params.isGreedy() && tree->leaf_counter >= params.max_leaves) return false;
     return true;
   }
 
@@ -104,7 +104,7 @@ class NodeQueue {
       auto parent_range = node_instances_.at(item.idx);
       if (!split.IsValid()) { continue; }
 
-      if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) break;
+      if (params.isGreedy() && tree->leaf_counter >= params.max_leaves) break;
 
       using NodeCountT            = decltype(std::declval<NodeT>().InstanceCount());
       auto const parent_count     = tree->sparsetree.at(item.idx).InstanceCount();
@@ -428,7 +428,7 @@ struct Builder {
     }
     NodeQueue<DataT, LabelT> queue(
       params, this->maxNodes(), dataset.n_sampled_rows, global_sampled_rows, dataset.num_outputs);
-    const bool greedy = params.max_leaves != -1;
+    const bool greedy = params.isGreedy();
     std::priority_queue<SplitCandidate, std::vector<SplitCandidate>, CompareCandidates> candidates;
     while (queue.HasWork() || !candidates.empty()) {
       if (greedy && queue.GetTree()->leaf_counter >= params.max_leaves) { break; }

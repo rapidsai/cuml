@@ -10,7 +10,6 @@
 
 #include <cuml/common/export.hpp>
 
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -60,6 +59,8 @@ struct DecisionTreeParams {
    * used only for batched-level algo
    */
   int max_batch_size;
+
+  [[nodiscard]] bool isGreedy() const noexcept { return this->max_leaves != -1; }
 };
 
 /**
