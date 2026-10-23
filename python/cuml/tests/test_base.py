@@ -22,7 +22,14 @@ from cuml.internals import get_handle
 from cuml.linear_model import LogisticRegression, Ridge
 from cuml.testing.utils import get_all_base_subclasses
 
-all_base_children = get_all_base_subclasses()
+# `*MG` classes need a comms handle, and are only imported (and so only
+# discovered) when a test module uses them, which makes collection
+# order-dependent
+all_base_children = {
+    name: cls
+    for name, cls in get_all_base_subclasses().items()
+    if not name.endswith("MG")
+}
 
 
 @pytest.mark.parametrize(
@@ -190,7 +197,7 @@ def generate_test_common_signatures_cases():
         "set_params",
     ]
     for cls in sorted(
-        get_all_base_subclasses().values(), key=lambda cls: cls.__name__
+        all_base_children.values(), key=lambda cls: cls.__name__
     ):
         if cls.__module__.startswith("cuml.solvers"):
             # These classes aren't expected to match the sklearn interface
