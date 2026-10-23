@@ -65,7 +65,7 @@ def regression_data():
 
 classifiers = [
     pytest.param(
-        RandomForestClassifier(n_estimators=20, max_depth=8, random_state=42),
+        RandomForestClassifier(n_estimators=21, max_depth=8, random_state=42),
         marks=(xfail_skl2onnx_bug if ORT_VERSION < Version("1.28.0") else ()),
         id="RandomForestClassifier",
     ),
@@ -153,13 +153,7 @@ def test_onnx_classifier(estimator, classification_data):
     onnx_preds = np.asarray(onnx_results[0])
 
     match_rate = np.mean(accel_preds == onnx_preds)
-    # ONNX float32 accumulation can break random forest class-probability ties.
-    min_match_rate = (
-        0.98 if isinstance(estimator, RandomForestClassifier) else 0.99
-    )
-    assert match_rate >= min_match_rate, (
-        f"Prediction match rate {match_rate:.4f} < {min_match_rate:.2f}"
-    )
+    assert match_rate >= 0.99, f"Prediction match rate {match_rate:.4f} < 0.99"
 
 
 @pytest.mark.parametrize("estimator", regressors)
