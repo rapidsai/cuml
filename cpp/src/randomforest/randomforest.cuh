@@ -31,6 +31,8 @@
 #include <thrust/scan.h>
 #include <thrust/scatter.h>
 #include <thrust/sequence.h>
+#include <thrust/sort.h>
+#include <thrust/unique.h>
 
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
@@ -43,6 +45,7 @@
 #define omp_get_max_threads() 1
 #endif
 
+#include <algorithm>
 #include <cstdint>
 #include <deque>
 
@@ -60,6 +63,8 @@ struct NonzeroSampleWeight {
 
 // Matches estimator behavior: when bootstrapping is enabled and sample weights exist,
 // those weights are materialized by drawing bootstrap rows according to them.
+// Impurity and leaf values use bootstrap multiplicities rather than sample weights directly;
+// min_samples_leaf and min_samples_split count each training row once.
 class RowSampler {
  public:
   RowSampler(const raft::handle_t& handle,
@@ -101,6 +106,11 @@ class RowSampler {
     for (int i = 0; i < n_streams; i++) {
       auto stream = handle.get_stream_from_stream_pool(i);
       selected_rows_.emplace_back(n_sampled_rows_size, stream);
+      if (bootstrap_) {
+        // Keep a non-null buffer on empty distributed ranks so every rank dispatches the same
+        // weighted objective type.
+        bootstrap_counts_.emplace_back(std::max(std::size_t{1}, n_sampled_rows_size), stream);
+      }
       if (use_weighted_bootstrap()) {
         weighted_draw_scratch_.emplace_back(n_sampled_rows_size, stream);
       }
@@ -116,6 +126,9 @@ class RowSampler {
 
     auto& selected_rows = selected_rows_[stream_id];
     if (n_rows_ == 0) { return selected_rows; }
+
+    auto const n_sampled_rows_size = ML::narrow_cast<std::size_t>(n_sampled_rows_);
+    selected_rows.resize(n_sampled_rows_size, stream);
 
     raft::resources stream_resources;
     raft::resource::set_cuda_stream(stream_resources, stream);
@@ -163,12 +176,37 @@ class RowSampler {
       thrust::sequence(rmm::exec_policy(stream), selected_rows.begin(), selected_rows.end());
     }
 
+    if (bootstrap_) {
+      auto exec_policy       = rmm::exec_policy(stream);
+      auto& bootstrap_counts = bootstrap_counts_[stream_id];
+      bootstrap_counts.resize(std::max(std::size_t{1}, n_sampled_rows_size), stream);
+
+      // Convert the draw list into distinct row IDs plus their bootstrap multiplicities. A
+      // reverse inclusive scan places the total run length at the first occurrence retained by
+      // unique_by_key.
+      thrust::sort(exec_policy, selected_rows.begin(), selected_rows.end());
+      thrust::inclusive_scan_by_key(exec_policy,
+                                    selected_rows.rbegin(),
+                                    selected_rows.rend(),
+                                    thrust::make_constant_iterator<std::uint32_t>(1),
+                                    bootstrap_counts.rbegin());
+      auto unique_ends = thrust::unique_by_key(
+        exec_policy, selected_rows.begin(), selected_rows.end(), bootstrap_counts.begin());
+      auto n_unique_rows = ML::narrow_cast<std::size_t>(unique_ends.first - selected_rows.begin());
+      selected_rows.resize(n_unique_rows, stream);
+      bootstrap_counts.resize(std::max(std::size_t{1}, n_unique_rows), stream);
+    }
+
     store_bootstrap_mask(tree_id, selected_rows, stream);
     return selected_rows;
   }
 
-  // Use sample weights in impurity / objective calculation only when bootstrapping is not enabled.
   const double* tree_sample_weight() const { return bootstrap_ ? nullptr : sample_weight_; }
+
+  std::uint32_t* tree_bootstrap_count(int stream_id)
+  {
+    return bootstrap_ ? bootstrap_counts_[stream_id].data() : nullptr;
+  }
 
  private:
   void store_bootstrap_mask(int tree_id,
@@ -226,6 +264,7 @@ class RowSampler {
   double sample_weight_sum_;
   rmm::device_uvector<double> sample_weight_cdf_;
   std::deque<rmm::device_uvector<std::int64_t>> selected_rows_;
+  std::deque<rmm::device_uvector<std::uint32_t>> bootstrap_counts_;
   std::deque<rmm::device_uvector<double>> weighted_draw_scratch_;
 };
 }  // namespace detail
@@ -366,12 +405,9 @@ class RandomForest {
       auto& selected_rows = row_sampler.sample(i, stream_id, s.get());
 
       /* Build individual tree in the forest.
-        - input is a pointer to orig data that have n_cols features and n_rows rows.
-        - n_sampled_rows: # rows sampled or retained for this tree.
-        - sorted_selected_rows: points to a list of row #s (w/ n_sampled_rows elements)
-          used to build the bootstrapped sample.
-          Expectation: Each tree node will contain (a) # n_sampled_rows and
-          (b) a pointer to a list of row numbers w.r.t original data.
+        - input points to the original data with n_cols features and n_rows rows.
+        - selected_rows contains the distinct in-bag row IDs for this tree.
+        - bootstrap counts stay aligned with selected_rows as nodes are partitioned.
       */
 
       forest->trees[i] = DT::DecisionTree::fit(handle,
@@ -387,7 +423,8 @@ class RandomForest {
                                                quantiles,
                                                i,
                                                row_sampler.tree_sample_weight(),
-                                               input_row_major);
+                                               input_row_major,
+                                               row_sampler.tree_bootstrap_count(stream_id));
     }
     // Cleanup
     handle.sync_stream_pool();
